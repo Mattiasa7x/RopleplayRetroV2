@@ -299,3 +299,57 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS users_reserve_on_delete ON users;
 CREATE TRIGGER users_reserve_on_delete AFTER DELETE ON users
   FOR EACH ROW EXECUTE FUNCTION users_reserve_on_delete();
+
+-- ================= Photos stored in the database, private album, private messages =================
+-- Photos now live in PostgreSQL (photo_blobs), so they survive restarts on hosts without a disk.
+ALTER TABLE profile_photos ALTER COLUMN file DROP NOT NULL;
+ALTER TABLE profile_photos ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE profile_photos ADD COLUMN IF NOT EXISTS width INTEGER;
+ALTER TABLE profile_photos ADD COLUMN IF NOT EXISTS height INTEGER;
+CREATE INDEX IF NOT EXISTS profile_photos_user_private ON profile_photos (user_id, is_private, position);
+
+CREATE TABLE IF NOT EXISTS photo_blobs (
+  photo_id BIGINT NOT NULL REFERENCES profile_photos(id) ON DELETE CASCADE,
+  variant  TEXT NOT NULL CHECK (variant IN ('full', 'thumb')),
+  mime     TEXT NOT NULL,
+  data     BYTEA NOT NULL,
+  PRIMARY KEY (photo_id, variant)
+);
+
+-- Friends the owner lets see their whole private album.
+CREATE TABLE IF NOT EXISTS album_access (
+  owner_id   BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  viewer_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (owner_id, viewer_id),
+  CHECK (owner_id <> viewer_id)
+);
+
+CREATE TABLE IF NOT EXISTS direct_messages (
+  id                   BIGSERIAL PRIMARY KEY,
+  sender_id            BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  recipient_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body                 TEXT CHECK (body IS NULL OR char_length(body) BETWEEN 1 AND 5000),
+  photo_id             BIGINT REFERENCES profile_photos(id) ON DELETE SET NULL,
+  is_shadow            BOOLEAN NOT NULL DEFAULT false,
+  read_at              TIMESTAMPTZ,
+  deleted_by_sender    BOOLEAN NOT NULL DEFAULT false,
+  deleted_by_recipient BOOLEAN NOT NULL DEFAULT false,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (sender_id <> recipient_id)  -- body and photo may both end up empty if the photo is later deleted
+);
+CREATE INDEX IF NOT EXISTS dm_pair ON direct_messages (LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id), id DESC);
+CREATE INDEX IF NOT EXISTS dm_unread ON direct_messages (recipient_id) WHERE read_at IS NULL;
+
+-- One photo shared with one person in a private message (works even for private-album photos).
+CREATE TABLE IF NOT EXISTS photo_shares (
+  photo_id     BIGINT NOT NULL REFERENCES profile_photos(id) ON DELETE CASCADE,
+  recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (photo_id, recipient_id)
+);
+
+DO $$ BEGIN
+  ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_kind;
+  ALTER TABLE reports ADD CONSTRAINT reports_target_kind CHECK (target_kind IN ('message', 'profile', 'comment', 'status', 'photo', 'dm'));
+END $$;

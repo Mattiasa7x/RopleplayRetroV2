@@ -113,15 +113,27 @@ export const AGE = {
 
 export const PROFILE = {
   bioMax: 500,
-  maxPhotos: 6,
-  photoMaxBytes: 5 * 1024 * 1024,
-  /** Photos are re-encoded to at most this many pixels on the long edge (also strips location data). */
-  photoMaxEdge: 1080,
+  /** Largest photo file accepted, in bytes (phone originals are usually 2-20 MB). There's no limit on how many photos. */
+  photoMaxBytes: 30 * 1024 * 1024,
+  /** Any resolution is accepted up to this many pixels (250 MP covers every phone camera). */
+  photoMaxInputPixels: 250_000_000,
+  /** Stored display version: longest edge in pixels (sharp on any phone or laptop screen). */
+  photoMaxEdge: 2560,
+  /** Stored thumbnail: longest edge in pixels, used in grids and lists. */
+  photoThumbEdge: 480,
+  /** Anti-spam: photo uploads allowed per hour. */
+  photoUploadsPerHour: 60,
   /** A new photo this close (bits of 64) to another member's photo is refused as a copy. */
   photoCloneDistance: 5,
   commentMax: 420,
   statusMax: 420,
   feedPageSize: 20,
+} as const;
+
+/** Private messages: friends only, same 420-character rule and filters as chat. */
+export const MESSAGES = {
+  pageSize: 30,
+  perMinute: 20,
 } as const;
 
 export const VISIBILITY = ['everyone', 'friends'] as const;

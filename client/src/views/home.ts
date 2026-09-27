@@ -22,7 +22,7 @@ export function statusItem(s: StatusDTO, onRemoved: () => void): HTMLElement {
   return li;
 }
 
-export async function reportContent(kind: 'status' | 'comment' | 'photo' | 'profile', id?: string, handle?: string) {
+export async function reportContent(kind: 'status' | 'comment' | 'photo' | 'profile' | 'dm', id?: string, handle?: string) {
   const reason = prompt('What is wrong with it? (sent privately to the moderators)');
   if (!reason?.trim()) return;
   try {

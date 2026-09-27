@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { HANDLE_PATTERN } from '../shared/config.js';
 import { HttpError, parse, requireUser } from './http.js';
 import { applyIgnore, type IO } from './realtime.js';
-import { endFriendship } from './friends.js';
+import { cleanUpAfterBlock } from './photos.js';
 import { db } from './store.js';
 
 const IgnoreBody = z.object({ mode: z.enum(['ignore', 'block']).default('ignore') });
@@ -43,7 +43,7 @@ export function registerSocialRoutes(app: FastifyInstance, io: IO) {
        ON CONFLICT (user_id, ignored_user_id) DO UPDATE SET mode = EXCLUDED.mode`,
       [u.id, target, mode],
     );
-    if (mode === 'block') await endFriendship(db, u.id, target); // blocking ends any friendship
+    if (mode === 'block') await cleanUpAfterBlock(u.id, target); // ends friendship, album access and photo shares
     await applyIgnore(io, u.id, target, true);
     return { ok: true };
   });

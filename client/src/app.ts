@@ -1,8 +1,9 @@
-import { connect, navigate, page, refreshMe, setRouter, state } from './core.js';
+import { connect, navigate, page, refreshMe, refreshUnread, setRouter, state } from './core.js';
 import { h } from './dom.js';
 import { viewLogin, viewSignup, viewVerify } from './views/auth.js';
 import { viewFriends } from './views/friends.js';
 import { viewHome } from './views/home.js';
+import { viewInbox, viewThread } from './views/messages.js';
 import { viewProfile } from './views/profile.js';
 import { viewRoom } from './views/room.js';
 import { viewManage, viewNewRoom, viewRooms } from './views/rooms.js';
@@ -11,7 +12,7 @@ import { viewSettings } from './views/settings.js';
 /**
  * Every page has a real address, so links can be shared and the browser's back button works:
  *   /home  /rooms  /room/:slug  /room/:slug/manage  /new-room  /friends
- *   /profile/:name  /settings  /login  /signup  /verify
+ *   /messages  /messages/:name  /profile/:name  /settings  /login  /signup  /verify
  */
 async function route() {
   state.cleanup?.();
@@ -23,6 +24,7 @@ async function route() {
   if (!state.me && (await refreshMe())) connect();
   if (!state.me && !open) return navigate('/login', true);
   if (state.me && (path === '/' || open)) return navigate('/home', true);
+  if (state.me) void refreshUnread();
 
   try {
     switch (parts[0]) {
@@ -34,6 +36,7 @@ async function route() {
       case 'new-room': return viewNewRoom();
       case 'room': return parts[2] === 'manage' ? await viewManage(parts[1] ?? '') : await viewRoom(parts[1] ?? '');
       case 'friends': return await viewFriends();
+      case 'messages': return parts[1] ? await viewThread(decodeURIComponent(parts[1])) : await viewInbox();
       case 'profile': return await viewProfile(decodeURIComponent(parts[1] ?? state.me!.handle));
       case 'settings': return await viewSettings();
       default: return page('Not found', h('p', { class: 'notice' }, 'That page does not exist. '), h('a', { href: '/home' }, 'Go home'));

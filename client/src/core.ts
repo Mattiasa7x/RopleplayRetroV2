@@ -11,6 +11,9 @@ export const state = {
   socket: null as Sock | null,
   flash: null as string | null,
   friendRequests: 0,
+  unreadMessages: 0,
+  /** Set by an open conversation so a new message from that person refreshes it. */
+  onDirectMessage: null as ((from: string) => void) | null,
   /** Set by the chat page so socket events know which room is open. */
   currentRoomId: null as number | null,
   /** Called when leaving a page (the chat page unsubscribes its socket listeners). */
@@ -71,6 +74,7 @@ try {
 const NAV: { label: string; path: () => string; match: RegExp; icon: string }[] = [
   { label: 'Home', path: () => '/home', match: /^\/home/, icon: '⌂' },
   { label: 'Rooms', path: () => '/rooms', match: /^\/(rooms|room\/|new-room)/, icon: '#' },
+  { label: 'Messages', path: () => '/messages', match: /^\/messages/, icon: '✉' },
   { label: 'Friends', path: () => '/friends', match: /^\/friends/, icon: '☺' },
   { label: 'Profile', path: () => `/profile/${state.me?.handle ?? ''}`, match: new RegExp(`^/profile/${state.me?.handle ?? '__none__'}$`, 'i'), icon: '◉' },
   { label: 'Settings', path: () => '/settings', match: /^\/settings/, icon: '⚙' },
@@ -89,7 +93,8 @@ export function page(title: string, ...content: (Node | string | null | undefine
           return h('a', { href: n.path(), class: active ? 'active' : '', 'aria-current': active ? 'page' : undefined },
             h('span', { class: 'nav-icon', 'aria-hidden': 'true' }, n.icon),
             h('span', { class: 'nav-label' }, n.label),
-            n.label === 'Friends' && state.friendRequests ? h('span', { class: 'badge', 'aria-label': `${state.friendRequests} requests` }, String(state.friendRequests)) : null);
+            n.label === 'Friends' && state.friendRequests ? h('span', { class: 'badge', 'aria-label': `${state.friendRequests} requests` }, String(state.friendRequests)) : null,
+            n.label === 'Messages' ? h('span', { class: 'badge', 'data-badge': 'messages', hidden: !state.unreadMessages, 'aria-label': `${state.unreadMessages} unread` }, String(state.unreadMessages)) : null);
         }))
       : null);
   const main = h('main', { class: 'content', id: 'main' }, takeFlash(), ...(content.filter(Boolean) as (Node | string)[]));
@@ -154,6 +159,14 @@ export function connect() {
     if (!state.me?.prefs.friendAlerts) return;
     toast(p.kind === 'friend_request' ? `${p.from} sent you a friend request` : p.kind === 'friend_accept' ? `${p.from} accepted your friend request` : `${p.from} commented on your profile`);
   });
+  s.on('dm', (p) => {
+    if (state.onDirectMessage) {
+      state.onDirectMessage(p.from);
+      return;
+    }
+    setUnread(state.unreadMessages + 1);
+    toast(`New message from ${p.from}`);
+  });
   s.on('kicked', (p) => {
     if (state.currentRoomId === p.roomId) {
       state.flash = `You were removed from that room. ${p.reason}`;
@@ -193,3 +206,20 @@ export function form(fields: (Node | null)[], submitLabel: string, onSubmit: (da
 
 export const field = (label: string, name: string, type = 'text', extra: Record<string, string | number | boolean | undefined> = {}) =>
   h('label', { class: 'field' }, h('span', {}, label), h('input', { name, type, required: true, ...extra }));
+
+/** Update the Messages badge in place (no page redraw). */
+export function setUnread(n: number) {
+  state.unreadMessages = Math.max(0, n);
+  const b = document.querySelector<HTMLElement>('[data-badge="messages"]');
+  if (b) {
+    b.textContent = String(state.unreadMessages);
+    b.hidden = !state.unreadMessages;
+  }
+}
+
+export async function refreshUnread() {
+  try {
+    const r = await api<{ unread: number }>('/api/messages/unread-count');
+    setUnread(r.unread);
+  } catch {}
+}

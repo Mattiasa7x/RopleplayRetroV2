@@ -2,12 +2,12 @@ import type { FriendsDTO, PublicUser } from '../../../shared/types.js';
 import { avatar, card, field, form, page, state, toast } from '../core.js';
 import { api, h } from '../dom.js';
 
-function person(u: PublicUser, ...buttons: (HTMLElement | null)[]): HTMLElement {
+function person(u: PublicUser, ...buttons: (Element | null)[]): HTMLElement {
   return h('li', { class: 'person' },
     h('a', { href: `/profile/${u.handle}`, class: 'person-link' },
       h('span', { class: 'avatar-wrap' }, avatar(u.avatar, u.handle, 'md'), u.online ? h('span', { class: 'dot', 'aria-label': 'online' }) : null),
       h('span', {}, h('strong', {}, u.handle), u.online !== undefined ? h('span', { class: 'muted small block' }, u.online ? 'Online' : 'Offline') : null)),
-    h('span', { class: 'row' }, ...(buttons.filter(Boolean) as HTMLElement[])));
+    h('span', { class: 'row' }, ...(buttons.filter(Boolean) as Element[])));
 }
 
 export async function viewFriends() {
@@ -35,7 +35,7 @@ export async function viewFriends() {
       act('Decline', 'quiet', () => api(`/api/friends/${u.handle}`, { method: 'DELETE' })))))) : null,
     card(`Friends (${d.friends.length})`,
       d.friends.length
-        ? h('ul', { class: 'people' }, ...d.friends.map((u) => person(u)))
+        ? h('ul', { class: 'people' }, ...d.friends.map((u) => person(u, h('a', { href: `/messages/${u.handle}`, class: 'button quiet', 'aria-label': `Message ${u.handle}` }, '✉'))))
         : h('p', { class: 'muted' }, 'No friends yet. Tap a name in any room to view their profile and add them.'),
       add),
     d.outgoing.length ? card('Sent requests', h('ul', { class: 'people' }, ...d.outgoing.map((u) => person(u,

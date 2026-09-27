@@ -15,13 +15,11 @@ export interface UserRow {
   bio: string | null;
   prefs: Partial<Prefs>;
   birthdate: string | null;
-  avatar_file: string | null;
+  avatar_id: string | null;
 }
 
 export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.prefs, u.birthdate,
-  (SELECT p.file FROM profile_photos p WHERE p.user_id = u.id ORDER BY p.position, p.id LIMIT 1) AS avatar_file`;
-
-export const photoUrl = (file: string) => `/uploads/${file}`;
+  (SELECT p.id FROM profile_photos p WHERE p.user_id = u.id AND NOT p.is_private ORDER BY p.position, p.id LIMIT 1) AS avatar_id`;
 
 export function prefsOf(u: UserRow): Prefs {
   return effectivePrefs(u.prefs, isMinor(u.birthdate));
@@ -38,7 +36,7 @@ export function publicUser(u: UserRow, opts: { showAvatar?: boolean; online?: bo
   return {
     id: u.id,
     handle: u.handle,
-    avatar: opts.showAvatar !== false && u.avatar_file ? photoUrl(u.avatar_file) : null,
+    avatar: opts.showAvatar !== false && u.avatar_id ? `/media/${u.avatar_id}/thumb` : null,
     ...(opts.online !== undefined ? { online: opts.online } : {}),
   };
 }
@@ -83,6 +81,8 @@ export async function friendIds(userId: string): Promise<string[]> {
 /** Blocking someone ends any friendship or pending request between you. */
 export async function endFriendship(q: Tx | typeof db, a: string, b: string) {
   await q.query('DELETE FROM friendships WHERE user_a = LEAST($1::bigint, $2::bigint) AND user_b = GREATEST($1::bigint, $2::bigint)', [a, b]);
+  // Album access is for friends only, so it ends with the friendship.
+  await q.query('DELETE FROM album_access WHERE (owner_id = $1 AND viewer_id = $2) OR (owner_id = $2 AND viewer_id = $1)', [a, b]);
 }
 
 export function registerFriendRoutes(app: FastifyInstance, io: IO) {

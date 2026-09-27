@@ -39,7 +39,7 @@ async function userByHandle(handle: string) {
 
 const ReportBody = z.object({ messageId: z.string().regex(/^\d{1,19}$/), reason: z.string().trim().min(1).max(300) });
 const ContentReportBody = z.object({
-  kind: z.enum(['profile', 'photo', 'comment', 'status']),
+  kind: z.enum(['profile', 'photo', 'comment', 'status', 'dm']),
   id: z.string().regex(/^\d{1,19}$/).optional(),
   handle: z.string().max(16).optional(),
   reason: z.string().trim().min(1).max(300),
@@ -116,7 +116,15 @@ export function registerModerationRoutes(app: FastifyInstance, io: IO) {
       const r = await db.query("SELECT id AS user_id, handle, coalesce(bio, '(no bio)') AS body, created_at, id FROM users WHERE lower(handle) = lower($1)", [b.handle ?? '']);
       target = r.rows[0];
     } else if (b.kind === 'photo') {
-      const r = await db.query("SELECT p.user_id, u.handle, '/uploads/' || p.file AS body, p.created_at, p.id FROM profile_photos p JOIN users u ON u.id = p.user_id WHERE p.id = $1", [b.id ?? '0']);
+      const r = await db.query("SELECT p.user_id, u.handle, '/media/' || p.id || '/full' AS body, p.created_at, p.id FROM profile_photos p JOIN users u ON u.id = p.user_id WHERE p.id = $1", [b.id ?? '0']);
+      target = r.rows[0];
+    } else if (b.kind === 'dm') {
+      // Only the person who received a private message can report it.
+      const r = await db.query(
+        `SELECT m.sender_id AS user_id, u.handle, coalesce(m.body, '(photo)') || CASE WHEN m.photo_id IS NOT NULL THEN ' [photo /media/' || m.photo_id || '/full]' ELSE '' END AS body, m.created_at, m.id
+           FROM direct_messages m JOIN users u ON u.id = m.sender_id WHERE m.id = $1 AND m.recipient_id = $2`,
+        [b.id ?? '0', u.id],
+      );
       target = r.rows[0];
     } else {
       const table = b.kind === 'comment' ? 'profile_comments' : 'statuses';

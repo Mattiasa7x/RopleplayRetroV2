@@ -96,11 +96,24 @@ export interface PublicUser {
 
 export type FriendState = 'none' | 'friends' | 'request_sent' | 'request_received' | 'self';
 
+export interface PhotoDTO {
+  id: string;
+  /** Display version (up to 2560 px). */
+  url: string;
+  /** Small version for grids. */
+  thumb: string;
+  private: boolean;
+}
+
 export interface ProfileDTO extends PublicUser {
   bio: string | null;
   joined: string;
   trustLabel: string;
-  photos: { id: string; url: string }[];
+  /** Public photos; the first is the profile picture. */
+  photos: PhotoDTO[];
+  /** Owner, or a friend granted album access. */
+  canViewAlbum: boolean;
+  albumCount: number;
   friendCount: number;
   friendState: FriendState;
   canComment: boolean;
@@ -131,6 +144,35 @@ export interface FriendsDTO {
   outgoing: PublicUser[];
 }
 
+export interface DirectMessageDTO {
+  id: string;
+  mine: boolean;
+  body: string | null;
+  photo: PhotoDTO | null;
+  /** The message had a photo that was deleted or is no longer shared with you. */
+  photoRemoved: boolean;
+  createdAt: string;
+  /** For your own messages: whether they've been read. */
+  read: boolean;
+}
+
+export interface ThreadDTO {
+  with: PublicUser;
+  canSend: boolean;
+  reason: string | null;
+  /** Oldest → newest. */
+  messages: DirectMessageDTO[];
+  olderCursor: string | null;
+}
+
+export interface ConversationDTO {
+  with: PublicUser;
+  preview: string;
+  lastFromMe: boolean;
+  lastAt: string;
+  unread: number;
+}
+
 export interface HomeDTO {
   favorites: RoomSummary[];
   feed: StatusDTO[];
@@ -154,6 +196,7 @@ export interface ServerToClient {
   kicked: (p: { roomId: number; reason: string; minutes: number }) => void;
   notice: (p: { message: string }) => void;
   social: (p: { kind: 'friend_request' | 'friend_accept' | 'comment'; from: string }) => void;
+  dm: (p: { from: string; id: string }) => void;
 }
 
 export interface ClientToServer {

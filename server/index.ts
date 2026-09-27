@@ -12,7 +12,9 @@ import { sendError } from './http.js';
 import { registerFeedRoutes } from './feed.js';
 import { registerFriendRoutes } from './friends.js';
 import { registerModerationRoutes } from './moderation.js';
-import { UPLOAD_DIR, registerProfileRoutes } from './profiles.js';
+import { registerMessageRoutes } from './messages.js';
+import { registerPhotoRoutes } from './photos.js';
+import { registerProfileRoutes } from './profiles.js';
 import { migrate } from './migrate.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerRoomRoutes } from './rooms.js';
@@ -50,12 +52,10 @@ app.addHook('onSend', async (_req, reply) => {
 app.setErrorHandler((err, _req, reply) => sendError(reply, err));
 
 await app.register(fastifyStatic, { root: resolve('client/public'), index: false, wildcard: false }); // one route per built file; the catch-all below handles pages
-// Profile photos (re-encoded, metadata stripped, random names).
-await app.register(fastifyStatic, { root: UPLOAD_DIR, prefix: '/uploads/', decorateReply: false, maxAge: '7d', immutable: true });
 
 // Every page is a real address (/home, /rooms, /room/tavern, /profile/John, /settings...).
 // Anything that isn't the API or a file gets the site's single HTML page, which draws that page.
-const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|friends|profile\/[A-Za-z0-9_]{3,16}|settings(\/[a-z-]+)?|login|signup|verify|mod)\/?$/;
+const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|friends|messages(\/[A-Za-z0-9_]{3,16})?|profile\/[A-Za-z0-9_]{3,16}|settings(\/[a-z-]+)?|login|signup|verify|mod)\/?$/;
 const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
   const path = req.url.split('?')[0];
   if (path === '/mod') return reply.sendFile('mod.html');
@@ -71,7 +71,9 @@ setupRealtime(io);
 
 registerAuthRoutes(app);
 registerSettingsRoutes(app, io);
+registerPhotoRoutes(app);
 registerProfileRoutes(app, io);
+registerMessageRoutes(app, io);
 registerFriendRoutes(app, io);
 registerFeedRoutes(app);
 registerChatRoutes(app);
