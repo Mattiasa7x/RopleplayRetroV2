@@ -1,0 +1,177 @@
+/**
+ * Single source of truth for chat rules and safety thresholds.
+ * Imported by both the server and the browser bundle, so the two can never disagree.
+ */
+
+/** Product name. Run a trademark search before launch. */
+export const SITE_NAME = 'RoleplayRetro';
+
+export const CHAT = {
+  /** Max user-visible characters (grapheme clusters) per message. An emoji counts as 1. */
+  MAX_CHARS: 420,
+  /** Messages shown per page. */
+  PAGE_SIZE: 10,
+  /** Pages of history kept per room. */
+  MAX_PAGES: 20,
+  /** Counter turns amber when this many characters remain. */
+  WARN_REMAINING: 40,
+  /** Max @mentions in one message. */
+  MAX_MENTIONS: 3,
+} as const;
+
+/** Messages retained per room: PAGE_SIZE × MAX_PAGES = 200. Older ones are pruned on insert. */
+export const RETAINED_PER_ROOM = CHAT.PAGE_SIZE * CHAT.MAX_PAGES;
+
+export const HANDLE_PATTERN = /^[A-Za-z0-9_]{3,16}$/;
+export const PASSWORD_MIN = 10;
+
+export enum Trust {
+  New = 0,
+  Verified = 1,
+  Established = 2,
+  RoomModerator = 3,
+  Admin = 4,
+}
+
+export const TRUST_LABEL: Record<Trust, string> = {
+  [Trust.New]: 'New',
+  [Trust.Verified]: 'Verified',
+  [Trust.Established]: 'Established',
+  [Trust.RoomModerator]: 'Room moderator',
+  [Trust.Admin]: 'Admin',
+};
+
+export const SAFETY = {
+  /** Sliding-window message limits per user, by trust level. */
+  rateLimit: {
+    windowMs: 10_000,
+    maxByTrust: { 0: 3, 1: 3, 2: 5, 3: 10, 4: 10 } as Record<number, number>,
+  },
+  /** Same/near-identical message blocked if repeated within this window. */
+  floodWindowMs: 60_000,
+  /** Messages with at least this many letters and this share of capitals are rejected. */
+  capsMinLetters: 20,
+  capsRatio: 0.7,
+  /** Accounts a single network prefix may create per day. */
+  signupsPerNetworkPerDay: 3,
+  /** Login attempts per handle+network per 15 minutes. */
+  loginAttemptsPer15Min: 10,
+  /** Distinct Established+ reporters that auto-hide a message pending review. */
+  autoHideReports: 3,
+  /** Promotion to Established. */
+  establishedMinDays: 7,
+  establishedMinMessages: 100,
+  establishedCleanDays: 30,
+  /** Verified users can't start private messages until the account is this old (future PM feature). */
+  pmMinAccountHours: 24,
+  /** Hashed device/network signals are deleted after this many days. */
+  signalRetentionDays: 90,
+  verificationCodeMinutes: 15,
+  verificationMaxAttempts: 5,
+  sessionDays: 30,
+} as const;
+
+/**
+ * Site rooms: the fixed pool of 20 official rooms every account can use.
+ * They run in strict auto-moderation mode (see server/safety/strikes.ts).
+ */
+export const SITE_ROOMS = {
+  count: 20,
+  /** Links are blocked for everyone below room moderator, whatever their trust level. */
+  blockLinksForAll: true,
+  maxMentions: 2,
+  /** Accounts younger than this post at most once per `newAccountSlowSeconds`. */
+  newAccountHours: 24,
+  newAccountSlowSeconds: 10,
+  /** Strikes = messages rejected for rule-breaking (filter, flood, caps, spam, rate). */
+  strikeWindowMinutes: 10,
+  strikesToRoomMute: 3,
+  roomMuteMinutes: 15,
+  strikesToSiteMute: 6, // within one hour, across all site rooms
+  siteMuteMinutes: 60,
+  /** Established reporters needed to auto-hide a line (member rooms use SAFETY.autoHideReports). */
+  autoHideReports: 2,
+  /** Joining more rooms than this per minute is treated as suspicious. */
+  maxRoomJoinsPerMinute: 8,
+} as const;
+
+/** Member rooms: created by verified members; optionally invite-only (whitelist). */
+export const MEMBER_ROOMS = {
+  maxOwnedPerUser: 3,
+  maxWhitelist: 200,
+  nameMin: 3,
+  nameMax: 32,
+  descriptionMax: 140,
+} as const;
+
+export const AGE = {
+  /** Youngest age allowed to sign up (COPPA-style floor). */
+  minimum: 13,
+  /** Under this age: chat filter locked on, profile and comments locked to friends only. */
+  adult: 18,
+} as const;
+
+export const PROFILE = {
+  bioMax: 500,
+  maxPhotos: 6,
+  photoMaxBytes: 5 * 1024 * 1024,
+  /** Photos are re-encoded to at most this many pixels on the long edge (also strips location data). */
+  photoMaxEdge: 1080,
+  /** A new photo this close (bits of 64) to another member's photo is refused as a copy. */
+  photoCloneDistance: 5,
+  commentMax: 420,
+  statusMax: 420,
+  feedPageSize: 20,
+} as const;
+
+export const VISIBILITY = ['everyone', 'friends'] as const;
+export type Visibility = (typeof VISIBILITY)[number];
+export const COMMENT_PERMISSION = ['everyone', 'friends', 'nobody'] as const;
+export type CommentPermission = (typeof COMMENT_PERMISSION)[number];
+export const FRIEND_REQUESTS = ['everyone', 'nobody'] as const;
+export type FriendRequestPermission = (typeof FRIEND_REQUESTS)[number];
+
+/** Every setting stored in users.prefs, with defaults. */
+export interface Prefs {
+  theme: Theme;
+  textSize: TextSize;
+  /** Mask mature language in chat, comments and statuses. Locked on under 18. */
+  chatFilter: boolean;
+  profileVisibility: Visibility;
+  whoCanComment: CommentPermission;
+  whoCanFriend: FriendRequestPermission;
+  showOnline: boolean;
+  mentionAlerts: boolean;
+  friendAlerts: boolean;
+  enterToSend: boolean;
+  showTimestamps: boolean;
+}
+
+export const DEFAULT_PREFS: Prefs = {
+  theme: 'system',
+  textSize: 'm',
+  chatFilter: true,
+  profileVisibility: 'everyone',
+  whoCanComment: 'friends',
+  whoCanFriend: 'everyone',
+  showOnline: true,
+  mentionAlerts: true,
+  friendAlerts: true,
+  enterToSend: true,
+  showTimestamps: true,
+};
+
+/** Settings a member under 18 cannot loosen. */
+export const MINOR_LOCKS: Partial<Prefs> = { chatFilter: true, profileVisibility: 'friends', whoCanComment: 'friends' };
+
+export const MOD = {
+  kickMinutes: 15,
+  muteMinMinutes: 5,
+  muteMaxMinutes: 7 * 24 * 60,
+} as const;
+
+/** Light = white background, black text, red borders. Dark = black background, white text, red borders. */
+export const THEMES = ['light', 'dark', 'system'] as const;
+export type Theme = (typeof THEMES)[number];
+export const TEXT_SIZES = ['s', 'm', 'l', 'xl'] as const;
+export type TextSize = (typeof TEXT_SIZES)[number];

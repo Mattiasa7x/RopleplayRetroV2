@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+client/public/app.js
+client/public/mod.js
+client/public/*.map
+uploads/

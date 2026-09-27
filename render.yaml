@@ -1,0 +1,46 @@
+# Render Blueprint: creates the website, its PostgreSQL database and Redis (Key Value) in one step.
+# In Render: New > Blueprint > pick this repository > Apply.
+services:
+  - type: web
+    name: roleplayretro
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: SIGNAL_SECRET
+        generateValue: true # Render makes a long random secret
+      - key: MAIL_ADAPTER
+        value: console # verification codes appear in the Logs tab until real email is added
+      - key: UPLOAD_DIR
+        value: uploads
+      - key: ADMIN_HANDLE
+        sync: false # Render asks you for this: the name you'll sign up with
+      - key: DATABASE_URL
+        fromDatabase:
+          name: roleplayretro-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: roleplayretro-kv
+          property: connectionString
+
+  - type: keyvalue
+    name: roleplayretro-kv
+    plan: free
+    ipAllowList: [] # only the website can reach it
+    maxmemoryPolicy: noeviction
+
+databases:
+  - name: roleplayretro-db
+    plan: free
+    databaseName: roleplayretro
+    user: roleplayretro

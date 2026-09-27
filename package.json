@@ -1,0 +1,42 @@
+{
+  "name": "roleplay-retro",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Clean-room, text-first room chat with modern safety tools.",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "npm run build:client && concurrently -k -n server,client \"tsx watch server/index.ts\" \"npm:watch:client\"",
+    "build": "npm run build:client && node scripts/build-server.mjs",
+    "build:client": "node scripts/build-client.mjs",
+    "watch:client": "node scripts/build-client.mjs --watch",
+    "start": "node dist/server.js",
+    "db:init": "tsx scripts/db-init.ts",
+    "make-admin": "tsx scripts/make-admin.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.1",
+    "@fastify/static": "^8.0.3",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.0",
+    "ioredis": "^5.4.2",
+    "pg": "^8.13.1",
+    "sharp": "^0.33.5",
+    "socket.io": "^4.8.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "concurrently": "^9.1.0",
+    "esbuild": "^0.24.2",
+    "socket.io-client": "^4.8.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,8 @@
+# Blocked words, one per line. Matching is case-, accent- and look-alike-insensitive.
+# A trailing * also blocks words that start with the entry (use sparingly: it can
+# catch innocent words). Keep this file out of public repos if you prefer.
+#
+# The entries below are harmless placeholders so the filter can be tested.
+# Replace them with your community's list before launch.
+badword
+spamword*

@@ -1,0 +1,7 @@
+# Mature language: allowed to send, but masked (h***) for anyone whose chat filter is on.
+# Members under 18 always have the filter on. Same format as blocklist.txt
+# (one entry per line, trailing * = also match words that start with it).
+#
+# Harmless placeholders so the feature can be tested. Replace with your own list.
+heck
+darn*

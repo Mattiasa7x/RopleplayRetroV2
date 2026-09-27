@@ -1,0 +1,164 @@
+import type { Prefs } from './config.js';
+
+/** Shapes shared by the HTTP API, the socket events and the browser client. */
+
+export interface MessageDTO {
+  id: string; // bigint as string
+  roomId: number;
+  userId: string;
+  handle: string;
+  body: string;
+  mentions: string[]; // user ids
+  createdAt: string; // ISO
+}
+
+export type RoomKind = 'site' | 'member';
+
+export interface RoomDetail {
+  id: number;
+  slug: string;
+  name: string;
+  kind: RoomKind;
+  description: string | null;
+  whitelistOnly: boolean;
+  slowModeSeconds: number;
+  ownerHandle: string | null;
+  /** Owner or admin: may edit the room, its invite list, or delete it. */
+  canManage: boolean;
+  /** May hide lines and kick/mute people here (owner, admin, or assigned site moderator). */
+  canModerate: boolean;
+  /** Invite list (handles); only sent to people who can manage the room. */
+  whitelist?: string[];
+}
+
+export interface HistoryPage {
+  room: RoomDetail;
+  /** Oldest → newest within the page, like a classic chat screen. */
+  messages: MessageDTO[];
+  /** 1 = newest page. */
+  page: number;
+  totalPages: number;
+  /** Pass as ?before= to load the next older page, or null at the oldest kept page. */
+  olderCursor: string | null;
+  /** Pass as ?after= to load the next newer page, or null when this is page 1. */
+  newerCursor: string | null;
+}
+
+export interface RoomSummary {
+  id: number;
+  slug: string;
+  name: string;
+  category: string;
+  kind: RoomKind;
+  description: string | null;
+  whitelistOnly: boolean;
+  ownerHandle: string | null;
+  isOwner: boolean;
+  online: number;
+  minTrustToPost: number;
+  unreadMentions: number;
+  favorite: boolean;
+}
+
+export interface MeDTO {
+  id: string;
+  handle: string;
+  trust: number;
+  email: string;
+  emailVerified: boolean;
+  prefs: Prefs;
+  /** Under 18 (or birthdate unknown): chat filter and privacy locks apply. */
+  isMinor: boolean;
+  lockedPrefs: string[];
+  twoFactor: boolean;
+  moderates: number[]; // room ids
+}
+
+export interface LoginResult {
+  /** Present when the account has 2FA on: send the code with this ticket to /api/login/2fa. */
+  twoFactorTicket?: string;
+  me?: MeDTO;
+}
+
+export interface SessionInfo {
+  id: string; // short public id
+  createdAt: string;
+  expiresAt: string;
+  current: boolean;
+}
+
+export interface PublicUser {
+  id: string;
+  handle: string;
+  avatar: string | null; // URL
+  online?: boolean;
+}
+
+export type FriendState = 'none' | 'friends' | 'request_sent' | 'request_received' | 'self';
+
+export interface ProfileDTO extends PublicUser {
+  bio: string | null;
+  joined: string;
+  trustLabel: string;
+  photos: { id: string; url: string }[];
+  friendCount: number;
+  friendState: FriendState;
+  canComment: boolean;
+  /** False when the profile is friends-only and the viewer isn't a friend: only the name and picture show. */
+  visible: boolean;
+  blockedByMe: boolean;
+}
+
+export interface CommentDTO {
+  id: string;
+  author: PublicUser;
+  body: string;
+  createdAt: string;
+  canDelete: boolean;
+}
+
+export interface StatusDTO {
+  id: string;
+  author: PublicUser;
+  body: string;
+  createdAt: string;
+  canDelete: boolean;
+}
+
+export interface FriendsDTO {
+  friends: PublicUser[];
+  incoming: PublicUser[];
+  outgoing: PublicUser[];
+}
+
+export interface HomeDTO {
+  favorites: RoomSummary[];
+  feed: StatusDTO[];
+  olderCursor: string | null;
+  pendingRequests: number;
+}
+
+export interface ApiError {
+  error: string; // machine code
+  message: string; // human sentence, safe to show
+}
+
+export type SendResult = { ok: true; message: MessageDTO } | ({ ok: false } & ApiError);
+
+export interface ServerToClient {
+  'msg:new': (m: MessageDTO) => void;
+  'msg:hidden': (p: { id: string; roomId: number }) => void;
+  presence: (p: { roomId: number; online: number }) => void;
+  typing: (p: { roomId: number; handle: string }) => void;
+  mention: (p: { roomId: number; roomSlug: string; from: string; messageId: string }) => void;
+  kicked: (p: { roomId: number; reason: string; minutes: number }) => void;
+  notice: (p: { message: string }) => void;
+  social: (p: { kind: 'friend_request' | 'friend_accept' | 'comment'; from: string }) => void;
+}
+
+export interface ClientToServer {
+  'room:join': (p: { slug: string }, ack: (r: { ok: boolean; message?: string; roomId?: number }) => void) => void;
+  'room:leave': () => void;
+  'msg:send': (p: { slug: string; body: string }, ack: (r: SendResult) => void) => void;
+  typing: (p: { slug: string }) => void;
+}
