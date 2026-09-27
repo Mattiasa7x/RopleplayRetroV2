@@ -61,10 +61,50 @@ export function timeShort(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-/** Send a file as the raw request body (used for photo uploads). */
+const SERVER_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+/**
+ * Read the whole photo into memory before sending. Phone browsers otherwise read it lazily
+ * while uploading, and photos kept in cloud storage (Google Photos, iCloud) or edited by the
+ * phone mid-read make the browser abort with "Failed to fetch" before anything is sent.
+ */
+async function readPhoto(file: File): Promise<Blob> {
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await file.arrayBuffer();
+  } catch {
+    throw new ApiErr('read', "Couldn't read that photo from your phone. If it's stored in the cloud, open it in your gallery first so it downloads, then try again.", 0);
+  }
+  if (SERVER_TYPES.includes(file.type)) return new Blob([bytes], { type: file.type });
+  // HEIC and other formats the server can't open: let the phone convert it to JPEG.
+  try {
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: file.type || 'application/octet-stream' }));
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const jpeg = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/jpeg', 0.92));
+    if (jpeg) return jpeg;
+  } catch {}
+  return new Blob([bytes], { type: 'application/octet-stream' }); // let the server give its own message
+}
+
+/** Upload a photo as the raw request body, with one automatic retry if the connection drops. */
 export async function apiUpload<T = unknown>(path: string, file: File): Promise<T> {
-  const res = await fetch(path, { method: 'POST', headers: { 'content-type': file.type }, body: file, credentials: 'same-origin' });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiErr(data.error ?? 'error', data.message ?? (res.status === 413 ? 'That photo is too large (5 MB max).' : 'Upload failed.'), res.status);
+  const blob = await readPhoto(file);
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 2 && !res; attempt++) {
+    try {
+      res = await fetch(path, { method: 'POST', headers: { 'content-type': blob.type || 'application/octet-stream' }, body: blob, credentials: 'same-origin' });
+    } catch {
+      if (attempt === 1) throw new ApiErr('network', 'The upload was interrupted. Check your connection and try again.', 0);
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+  const data = await res!.json().catch(() => ({}));
+  if (!res!.ok) {
+    throw new ApiErr(data.error ?? 'error', data.message ?? (res!.status === 413 ? 'That photo is too large (30 MB max).' : `Upload failed (error ${res!.status}).`), res!.status);
+  }
   return data as T;
 }
