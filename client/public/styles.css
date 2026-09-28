@@ -510,3 +510,21 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .photo-view figcaption { justify-content: space-between; }
 [data-theme="dark"] .photo-full { border-color: var(--pink); box-shadow: 0 0 14px rgba(255, 79, 163, 0.35); }
 [data-theme="dark"] .profile-status { color: #ffffff; }
+
+/* ---------- profile background theme ---------- */
+.profile-bg { position: fixed; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, 40rem); z-index: 0; pointer-events: none; overflow: hidden; }
+.profile-bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* A wash of the page colour over the picture keeps every line of text readable. */
+.profile-bg::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 72%, transparent); }
+.content.themed > :not(.profile-bg) { position: relative; z-index: 1; }
+.content.themed .profile-id .avatar.lg { box-shadow: 0 0 0 4px color-mix(in srgb, var(--bg) 80%, transparent); }
+
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.4rem, 1fr)); gap: 0.45rem; max-height: 26rem; overflow-y: auto; padding: 0.2rem; }
+.theme-tile { all: unset; box-sizing: border-box; position: relative; cursor: pointer; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; border: 2px solid color-mix(in srgb, var(--red) 35%, transparent); background: var(--soft); display: flex; align-items: flex-end; }
+.theme-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.theme-tile .theme-name { position: relative; width: 100%; padding: 0.15rem 0.35rem; font-size: 0.72rem; font-weight: 700; color: #fff; background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.8)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme-tile.none { align-items: center; justify-content: center; }
+.theme-tile.none .theme-name { background: none; color: var(--fg); text-align: center; font-size: 0.9rem; }
+.theme-tile[aria-pressed="true"] { border: 4px solid var(--red); }
+.theme-tile:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+[data-theme="dark"] .theme-tile[aria-pressed="true"] { border-color: var(--pink); box-shadow: 0 0 12px rgba(255, 79, 163, 0.6); }

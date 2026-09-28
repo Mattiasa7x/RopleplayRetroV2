@@ -6,6 +6,7 @@ import type { CommentDTO, ProfileDTO, StatusDTO } from '../shared/types.js';
 import { characterAgeText, publicUser, prefsOf, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
 import { canViewAlbum, looksLikeImage, photoDTO } from './photos.js';
+import { isPoolImage } from './room-images.js';
 import { slidingWindow } from './safety/limits.js';
 import { rooms, type IO } from './realtime.js';
 import { maskMature } from './safety/mature.js';
@@ -52,6 +53,7 @@ const ProfileBody = z.object({
   characterBirthday: z.string().regex(DATE, 'Pick a date').refine((d) => !Number.isNaN(Date.parse(d)) && d >= '0001-01-01', 'Pick a real date').nullable().optional(),
   rpStyle: z.enum(RP_STYLES).nullable().optional(),
   characterSheet: z.record(z.string(), z.string()).optional(),
+  profileThemeId: z.number().int().positive().nullable().optional(),
 }).strict();
 
 /** Keep only the sheet's own fields, trimmed and within their lengths; empty ones are dropped. */
@@ -93,6 +95,9 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     const { rows: ban } = a.visible
       ? await db.query<{ v: string }>('SELECT extract(epoch FROM updated_at)::bigint::text AS v FROM profile_banners WHERE user_id = $1', [t.id])
       : { rows: [] as { v: string }[] };
+    const { rows: th } = a.visible && t.profile_theme_id != null
+      ? await db.query<{ id: number; title: string }>('SELECT id, title FROM room_images WHERE id = $1 AND full_data IS NOT NULL', [t.profile_theme_id])
+      : { rows: [] as { id: number; title: string }[] };
     const sheet: CharacterSheet = {};
     if (a.visible) {
       for (const f of CHARACTER_SHEET) {
@@ -110,6 +115,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       rpStyle: a.visible && (RP_STYLES as readonly string[]).includes(t.rp_style ?? '') ? (t.rp_style as RpStyle) : null,
       characterSheet: sheet,
       banner: ban[0] ? `/banner/${t.id}?v=${ban[0].v}` : null,
+      theme: th[0] ? { id: th[0].id, image: `/room-img/${th[0].id}/full`, title: th[0].title } : null,
       ...(self ? { own: { characterBirthday: t.character_birthday, legacyAge: t.character_birthday ? null : t.character_age } } : {}),
       trustLabel: TRUST_LABEL[t.trust_level as Trust],
       photos: photos.map(photoDTO),
@@ -131,6 +137,11 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
   app.patch('/api/me/profile', async (req) => {
     const u = requireUser(req);
     const b = parse(ProfileBody, req.body);
+    if (b.profileThemeId !== undefined) {
+      if (b.profileThemeId !== null && !(await isPoolImage(b.profileThemeId))) throw new HttpError(400, 'bad_theme', 'Pick one of the themes shown.');
+      await db.query('UPDATE users SET profile_theme_id = $2 WHERE id = $1', [u.id, b.profileThemeId]);
+      if (Object.keys(b).length === 1) return { ok: true };
+    }
     const { rows } = await db.query<UserRow>(`SELECT ${USER_COLS} FROM users u WHERE u.id = $1`, [u.id]);
     const cur = rows[0];
     const next = {

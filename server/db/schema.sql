@@ -555,3 +555,6 @@ DO $$ BEGIN
   ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_kind;
   ALTER TABLE reports ADD CONSTRAINT reports_target_kind CHECK (target_kind IN ('message', 'profile', 'comment', 'status', 'photo', 'dm', 'photo_comment'));
 END $$;
+
+-- Profile background: one of the room pictures (site rooms and the pool).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme_id INTEGER REFERENCES room_images(id) ON DELETE SET NULL;

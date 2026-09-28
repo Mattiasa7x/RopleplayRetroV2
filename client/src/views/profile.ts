@@ -93,6 +93,12 @@ export async function viewProfile(handle: string) {
   });
 
   page('Profile', head, photoStrip, statusLine, bioCard, sheetCard, comments);
+  // Background theme: the chosen room picture behind the whole profile.
+  if (p.theme) {
+    const main = document.getElementById('main')!;
+    main.classList.add('themed');
+    main.prepend(h('div', { class: 'profile-bg', 'aria-hidden': 'true' }, h('img', { src: p.theme.image, alt: '' })));
+  }
   if (location.pathname !== `/profile/${p.handle}`) history.replaceState({}, '', `/profile/${p.handle}`);
 }
 

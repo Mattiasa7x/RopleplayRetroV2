@@ -1,5 +1,5 @@
 import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, characterAgeFrom, PROFILE, RP_STYLES, Trust, type RpStyle } from '../../../shared/config.js';
-import type { AccountDTO, ProfileDTO } from '../../../shared/types.js';
+import type { AccountDTO, ProfileDTO, RoomImageDTO } from '../../../shared/types.js';
 import { card, page, state, toast } from '../core.js';
 import { api, apiUpload, h } from '../dom.js';
 import { photoSection } from './photosection.js';
@@ -159,6 +159,43 @@ export async function viewEditProfile() {
     h('label', { class: 'field' }, h('span', {}, 'About'), about.ta, h('span', { class: 'row about-foot' }, h('span', { class: 'muted small' }, 'Tell your story.'), about.left)),
     saveProfile);
 
+  // ----- background theme: any room picture, saved the moment it's tapped -----
+  let pool: RoomImageDTO[] = [];
+  try { pool = await api<RoomImageDTO[]>('/api/room-images'); } catch { /* shown as empty below */ }
+  let themeId: number | null = p.theme?.id ?? null;
+  const themeState = h('span', { class: 'muted small', 'aria-live': 'polite' });
+  const themeBtns: HTMLButtonElement[] = [];
+  const paintThemes = () => themeBtns.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.id) === (themeId ?? 0))));
+  const pickTheme = async (id: number | null, title: string) => {
+    const before = themeId;
+    themeId = id;
+    paintThemes();
+    themeState.textContent = 'Saving…';
+    try {
+      await save({ profileThemeId: id });
+      themeState.textContent = id ? `Background set to ${title}.` : 'Background removed.';
+    } catch (e) {
+      themeId = before;
+      paintThemes();
+      themeState.textContent = (e as Error).message;
+    }
+  };
+  const noneBtn = h('button', { type: 'button', class: 'theme-tile none', 'data-id': '0', 'aria-label': 'No background' }, h('span', { class: 'theme-name' }, 'None'));
+  noneBtn.addEventListener('click', () => void pickTheme(null, 'None'));
+  themeBtns.push(noneBtn);
+  for (const img of pool) {
+    const b = h('button', { type: 'button', class: 'theme-tile', 'data-id': String(img.id), 'aria-label': img.title },
+      h('img', { src: img.thumb, alt: '', loading: 'lazy' }),
+      h('span', { class: 'theme-name' }, img.title));
+    b.addEventListener('click', () => void pickTheme(img.id, img.title));
+    themeBtns.push(b);
+  }
+  paintThemes();
+  const themeCard = card('Background theme',
+    h('p', { class: 'muted small' }, 'Shown behind your profile. Tap one and it saves right away.'),
+    h('div', { class: 'theme-grid' }, ...themeBtns),
+    themeState);
+
   // ----- 3. Character sheet -----
   const sheetInputs = new Map<string, HTMLInputElement | HTMLTextAreaElement>();
   const sheetFields = CHARACTER_SHEET.map((f) => {
@@ -189,7 +226,7 @@ export async function viewEditProfile() {
   const photosPane = h('div', { class: 'stack' }, bannerCard, await photoSection(p, { manage: true, reload }));
   const TABS: [string, string, HTMLElement][] = [
     ['account', 'Account', accountCard],
-    ['profile', 'Profile', characterCard],
+    ['profile', 'Profile', h('div', { class: 'stack' }, characterCard, themeCard)],
     ['sheet', 'Character Sheet', sheetCard],
     ['photos', 'Photos', photosPane],
   ];

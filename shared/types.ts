@@ -162,6 +162,8 @@ export interface ProfileDTO extends PublicUser {
   characterSheet: CharacterSheet;
   /** Wide banner picture, or null. */
   banner: string | null;
+  /** Background theme: one of the room pictures. */
+  theme: { id: number; image: string; title: string } | null;
   /** Only sent on your own profile: the editable values. */
   own?: { characterBirthday: string | null; legacyAge: string | null };
   trustLabel: string;
