@@ -146,7 +146,6 @@ export const CHARACTER_SHEET = [
   { key: 'likes', label: 'Likes', max: 300, long: true },
   { key: 'dislikes', label: 'Dislikes', max: 300, long: true },
   { key: 'relationships', label: 'Relationships', max: 1000, long: true },
-  { key: 'backstory', label: 'Backstory', max: 3000, long: true },
 ] as const;
 export type CharacterSheet = Partial<Record<(typeof CHARACTER_SHEET)[number]['key'], string>>;
 

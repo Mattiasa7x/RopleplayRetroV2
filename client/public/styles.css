@@ -485,3 +485,8 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .card { scroll-margin-top: 4.5rem; }
 .field input, .field textarea, .field select { font-weight: 400; }
 .locked-row .locked-value span:first-child { word-break: break-all; }
+.edit-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; overflow: visible; }
+.edit-tabs .tab { padding: 0.2rem 0.3rem; font-size: 0.88rem; min-width: 0; }
+.locked-row { flex-direction: column; align-items: stretch; gap: 0.25rem; }
+.locked-row .locked-value { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; }
+.locked-row .locked-value span:first-child { word-break: normal; overflow-wrap: anywhere; }

@@ -2,6 +2,7 @@ import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, cha
 import type { AccountDTO, ProfileDTO } from '../../../shared/types.js';
 import { card, page, state, toast } from '../core.js';
 import { api, apiUpload, h } from '../dom.js';
+import { photoSection } from './photosection.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -32,6 +33,7 @@ export async function viewEditProfile() {
     api<AccountDTO>('/api/me/account'),
     api<ProfileDTO>(`/api/profiles/${encodeURIComponent(me.handle)}`),
   ]);
+  const reload = () => void viewEditProfile();
   const save = async (body: Record<string, unknown>, ok?: string) => {
     await api('/api/me/profile', { method: 'PATCH', body });
     if (ok) toast(ok);
@@ -51,7 +53,7 @@ export async function viewEditProfile() {
         toast('Uploading banner…');
         await apiUpload('/api/me/banner', f);
         toast('Banner updated.');
-        void viewEditProfile();
+        reload();
       } catch (e) { toast((e as Error).message, true); }
     });
     input.click();
@@ -63,7 +65,7 @@ export async function viewEditProfile() {
       ? h('div', { class: 'row wrap' },
           h('button', { type: 'button', class: 'primary', onclick: pickBanner as EventListener }, p.banner ? 'Change banner' : 'Add a banner'),
           p.banner ? h('button', { type: 'button', class: 'quiet', onclick: (async () => {
-            try { await api('/api/me/banner', { method: 'DELETE' }); toast('Banner removed.'); void viewEditProfile(); } catch (e) { toast((e as Error).message, true); }
+            try { await api('/api/me/banner', { method: 'DELETE' }); toast('Banner removed.'); reload(); } catch (e) { toast((e as Error).message, true); }
           }) as EventListener }, 'Remove') : null)
       : h('p', { class: 'notice' }, 'Confirm your email to add a banner. ', h('a', { href: '/verify' }, 'Enter code')));
 
@@ -81,7 +83,7 @@ export async function viewEditProfile() {
         f.addEventListener('submit', async (e) => {
           e.preventDefault();
           if (!confirm(`Save ${phone.value.trim()} as your phone number? It can't be changed later.`)) return;
-          try { await api('/api/me/phone', { body: { phone: phone.value, password: pw.value } }); toast('Phone number saved.'); void viewEditProfile(); }
+          try { await api('/api/me/phone', { body: { phone: phone.value, password: pw.value } }); toast('Phone number saved.'); reload(); }
           catch (x) { toast((x as Error).message, true); }
         });
         return f;
@@ -162,7 +164,7 @@ export async function viewEditProfile() {
   const sheetFields = CHARACTER_SHEET.map((f) => {
     const val = p.characterSheet[f.key] ?? '';
     if ('long' in f) {
-      const t = countedTextarea(val, f.max, f.key === 'backstory' ? 8 : 3, f.label);
+      const t = countedTextarea(val, f.max, 3, f.label);
       sheetInputs.set(f.key, t.ta);
       return h('label', { class: 'field' }, h('span', { class: 'row about-foot' }, h('span', {}, f.label), t.left), t.ta);
     }
@@ -183,13 +185,36 @@ export async function viewEditProfile() {
     h('div', { class: 'sheet-grid' }, ...sheetFields),
     saveSheet);
 
+  // ----- tabs: one section at a time; the address remembers which (?tab=photos) -----
+  const photosPane = h('div', { class: 'stack' }, bannerCard, await photoSection(p, { manage: true, reload }));
+  const TABS: [string, string, HTMLElement][] = [
+    ['account', 'Account', accountCard],
+    ['character', 'Character', characterCard],
+    ['sheet', 'Sheet', sheetCard],
+    ['photos', 'Photos', photosPane],
+  ];
+  const wanted = new URLSearchParams(location.search).get('tab');
+  let current = TABS.some(([id]) => id === wanted) ? wanted! : 'character';
+  const tabButtons = TABS.map(([id, label]) => {
+    const b = h('button', { type: 'button', role: 'tab', id: `tab-${id}`, class: 'tab', 'aria-controls': `pane-${id}` }, label);
+    b.addEventListener('click', () => show(id));
+    return b;
+  });
+  const panes = TABS.map(([id, , el]) => h('div', { role: 'tabpanel', id: `pane-${id}`, 'aria-labelledby': `tab-${id}` }, el));
+  function show(id: string) {
+    current = id;
+    TABS.forEach(([tid], i) => {
+      const on = tid === id;
+      tabButtons[i].classList.toggle('active', on);
+      tabButtons[i].setAttribute('aria-selected', String(on));
+      panes[i].hidden = !on;
+    });
+    history.replaceState({}, '', `/edit-profile?tab=${id}`);
+  }
+  show(current);
+
   page('Edit profile',
-    h('div', { class: 'row edit-top' },
-      h('a', { href: `/profile/${me.handle}`, class: 'back' }, '‹ View my profile'),
-      ...[['Account', 'account'], ['Character', 'character'], ['Sheet', 'sheet']].map(([label, id]) =>
-        h('button', { type: 'button', class: 'link', onclick: (() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })) as EventListener }, label))),
-    bannerCard,
-    Object.assign(accountCard, { id: 'account' }),
-    Object.assign(characterCard, { id: 'character' }),
-    Object.assign(sheetCard, { id: 'sheet' }));
+    h('a', { href: `/profile/${me.handle}`, class: 'back' }, '‹ View my profile'),
+    h('div', { class: 'tabs-row edit-tabs', role: 'tablist', 'aria-label': 'Edit profile sections' }, ...tabButtons),
+    ...panes);
 }
