@@ -117,6 +117,8 @@ export const AGE = {
 
 /** Character age: public, roleplay-only free text on the profile ("0", "3,000 years"). Never affects safety rules. */
 export const CHARACTER_AGE = { maxLength: 24 } as const;
+/** Where the character lives, free text (a real city, "Gotham", "The Moon"). */
+export const CHARACTER_CITY = { maxLength: 40 } as const;
 
 export const PROFILE = {
   bioMax: 500,

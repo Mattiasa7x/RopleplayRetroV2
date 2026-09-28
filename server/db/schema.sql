@@ -445,3 +445,35 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS dm_same_age_group ON direct_messages;
 CREATE TRIGGER dm_same_age_group BEFORE INSERT ON direct_messages
   FOR EACH ROW EXECUTE FUNCTION dm_same_age_group();
+
+-- ---------------------------------------------------------------------------
+-- Room pictures. Photos come from room-images.json (free-licence photos, fetched
+-- and resized by the server on start) and are shared by site rooms and the pool
+-- members pick from for their own rooms.
+CREATE TABLE IF NOT EXISTS room_images (
+  id          SERIAL PRIMARY KEY,
+  slug        TEXT NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9-]{2,40}$'),
+  title       TEXT NOT NULL,
+  source_url  TEXT,
+  credit      TEXT,
+  credit_url  TEXT,
+  in_pool     BOOLEAN NOT NULL DEFAULT true,
+  full_data   BYTEA,
+  thumb_data  BYTEA,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS image_id INTEGER REFERENCES room_images(id) ON DELETE SET NULL;
+
+-- Where a member's character lives (roleplay, free text), shown in room people lists.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS character_city TEXT;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_character_city_len CHECK (character_city IS NULL OR char_length(character_city) BETWEEN 1 AND 40);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- When a member last edited their profile (bio, character age or city): feeds "updated their profile".
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_updated_at TIMESTAMPTZ;
+
+-- Friend activity feed reads these newest-first per person.
+CREATE INDEX IF NOT EXISTS profile_comments_author ON profile_comments (author_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS profile_photos_user_created ON profile_photos (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS statuses_user_created ON statuses (user_id, created_at DESC);

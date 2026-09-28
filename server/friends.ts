@@ -17,9 +17,10 @@ export interface UserRow {
   birthdate: string | null;
   avatar_id: string | null;
   character_age: string | null;
+  character_city: string | null;
 }
 
-export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.prefs, u.birthdate, u.character_age,
+export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.prefs, u.birthdate, u.character_age, u.character_city,
   (SELECT p.id FROM profile_photos p WHERE p.user_id = u.id AND NOT p.is_private ORDER BY p.position, p.id LIMIT 1) AS avatar_id`;
 
 export function prefsOf(u: UserRow): Prefs {

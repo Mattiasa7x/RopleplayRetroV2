@@ -1,7 +1,7 @@
 import { CHAT, Trust } from '../../../shared/config.js';
 import { cleanBody, visibleLength } from '../../../shared/text.js';
-import type { HistoryPage, MessageDTO, SendResult } from '../../../shared/types.js';
-import { navigate, page, state, toast } from '../core.js';
+import type { HistoryPage, MessageDTO, RoomPeopleDTO, SendResult } from '../../../shared/types.js';
+import { avatar, navigate, page, state, toast } from '../core.js';
 import { api, h, timeShort } from '../dom.js';
 
 function getLastSeen(slug: string): string | null { try { return localStorage.getItem(`seen:${slug}`); } catch { return null; } }
@@ -25,7 +25,45 @@ export async function viewRoom(slug: string) {
   const sendBtn = h('button', { type: 'submit', class: 'primary' }, 'Send');
   const composerBar = h('form', { class: 'chat-composer' }, input, sendBtn, counter);
   const actions = h('div', { class: 'actions', hidden: true });
-  const presence = h('span', { class: 'muted' });
+  const presence = h('button', { type: 'button', class: 'people-btn', 'aria-haspopup': 'dialog' });
+  let online = 0;
+  const paintPresence = () => {
+    presence.replaceChildren(h('span', { class: 'dot-live', 'aria-hidden': 'true' }), `${online} here · People`);
+    presence.setAttribute('aria-label', `${online} ${online === 1 ? 'person' : 'people'} here. Show who.`);
+  };
+
+  // ----- who's here: pictures, names, character city and character age -----
+  const peopleList = h('ul', { class: 'people room-people' });
+  const peopleNote = h('p', { class: 'muted small' });
+  const sheet = h('dialog', { class: 'sheet', 'aria-label': 'People in this room' },
+    h('div', { class: 'thread-head' }, h('h2', {}, 'People here'),
+      h('button', { type: 'button', class: 'quiet', onclick: (() => sheet.close()) as EventListener }, 'Close')),
+    h('p', { class: 'muted small' }, 'Ages shown are character ages from profiles, never anyone\'s real age.'),
+    peopleList, peopleNote);
+  let peopleTimer: number | undefined;
+  async function loadPeople() {
+    try {
+      const r = await api<RoomPeopleDTO>(`/api/rooms/${encodeURIComponent(slug)}/people`);
+      peopleList.replaceChildren(...r.people.map((p) => {
+        const details = [p.characterCity, p.characterAge != null ? `Age ${p.characterAge}` : null].filter(Boolean).join(' · ');
+        return h('li', {},
+          h('a', { href: `/profile/${p.handle}`, class: 'person-link', onclick: (() => sheet.close()) as EventListener },
+            avatar(p.avatar, p.handle, 'md'),
+            h('span', { class: 'person-text' },
+              h('strong', {}, p.handle, p.self ? ' (you)' : '', p.isFriend ? h('span', { class: 'tag friend-tag' }, 'friend') : null),
+              h('span', { class: 'muted small block' }, details || 'No character details'))));
+      }));
+      if (!r.people.length) peopleList.append(h('li', { class: 'muted' }, 'Nobody else is here right now.'));
+      peopleNote.textContent = r.hidden ? `${r.hidden} ${r.hidden === 1 ? 'person' : 'people'} you've ignored or blocked ${r.hidden === 1 ? 'is' : 'are'} not shown.` : '';
+    } catch (e) {
+      peopleNote.textContent = (e as Error).message;
+    }
+  }
+  presence.addEventListener('click', () => {
+    peopleList.replaceChildren(h('li', { class: 'muted' }, 'Loading…'));
+    sheet.showModal();
+    void loadPeople();
+  });
   const star = h('button', { type: 'button', class: 'star', 'aria-pressed': 'false' });
 
   function updateCounter() {
@@ -154,7 +192,13 @@ export async function viewRoom(slug: string) {
     typingTimer = window.setTimeout(() => { typing.textContent = ''; }, 4000);
   };
   const onPresence = (p: { roomId: number; online: number }) => {
-    if (p.roomId === state.currentRoomId) presence.textContent = `${p.online} here`;
+    if (p.roomId !== state.currentRoomId) return;
+    online = p.online;
+    paintPresence();
+    if (sheet.open) {
+      clearTimeout(peopleTimer);
+      peopleTimer = window.setTimeout(() => void loadPeople(), 700);
+    }
   };
   const onReconnect = () => {
     s.emit('room:join', { slug }, () => {});
@@ -173,6 +217,8 @@ export async function viewRoom(slug: string) {
     s.io.off('reconnect', onReconnect);
     s.emit('room:leave');
     state.currentRoomId = null;
+    clearTimeout(peopleTimer);
+    if (sheet.open) sheet.close();
   };
 
   newBar.addEventListener('click', () => void load());
@@ -232,7 +278,13 @@ export async function viewRoom(slug: string) {
   paintStar();
 
   const room = hist!.room;
+  online = Math.max(online, room.online);
+  paintPresence();
   page(room.name,
+    h('div', { class: `room-banner ${room.kind === 'member' ? 'art-member' : 'art-genre'}` },
+      room.image ? h('img', { src: room.image, alt: '' }) : null,
+      h('span', { class: 'banner-name' }, room.name),
+      room.imageCredit ? h('a', { class: 'banner-credit', href: room.imageCredit.url, target: '_blank', rel: 'noopener noreferrer' }, `Photo: ${room.imageCredit.name} / Unsplash`) : null),
     h('div', { class: 'room-head' },
       h('div', {},
         h('div', { class: 'room-tags' },
@@ -243,7 +295,7 @@ export async function viewRoom(slug: string) {
       h('div', { class: 'row' }, star, room.canManage && room.kind === 'member' ? h('a', { href: `/room/${slug}/manage`, class: 'button quiet' }, 'Manage') : null)),
     pager, newBar,
     h('div', { class: 'chat-box' }, list, actions),
-    typing, errBox, composerBar);
+    typing, errBox, composerBar, sheet);
   updateCounter();
   // Open at the newest lines with the message box in view, like any chat.
   requestAnimationFrame(() => window.scrollTo(0, document.documentElement.scrollHeight));

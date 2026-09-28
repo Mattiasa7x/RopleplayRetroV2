@@ -29,6 +29,37 @@ export interface RoomDetail {
   canModerate: boolean;
   /** Invite list (handles); only sent to people who can manage the room. */
   whitelist?: string[];
+  /** Room picture (wide) or null for the colour art. */
+  image: string | null;
+  imageId: number | null;
+  imageCredit: { name: string; url: string } | null;
+  online: number;
+}
+
+export interface RoomImageDTO {
+  id: number;
+  title: string;
+  thumb: string;
+  credit: string | null;
+  creditUrl: string | null;
+}
+
+/** Someone in a chat room right now. Details are null when their profile isn't visible to you. */
+export interface RoomPersonDTO {
+  id: string;
+  handle: string;
+  avatar: string | null;
+  /** Roleplay character's city and age as the member wrote them. Never the real age. */
+  characterCity: string | null;
+  characterAge: string | null;
+  isFriend: boolean;
+  self: boolean;
+}
+
+export interface RoomPeopleDTO {
+  people: RoomPersonDTO[];
+  /** People here you've ignored or blocked (not listed). */
+  hidden: number;
 }
 
 export interface HistoryPage {
@@ -58,6 +89,8 @@ export interface RoomSummary {
   minTrustToPost: number;
   unreadMentions: number;
   favorite: boolean;
+  /** Room picture thumbnail, or null for the colour art. */
+  image: string | null;
 }
 
 export interface MeDTO {
@@ -109,6 +142,8 @@ export interface ProfileDTO extends PublicUser {
   bio: string | null;
   /** Roleplay character age as the member wrote it ("0", "3,000 years"). Not their real age. */
   characterAge: string | null;
+  /** Roleplay character's city. */
+  characterCity: string | null;
   joined: string;
   trustLabel: string;
   /** Public photos; the first is the profile picture. */
@@ -175,10 +210,21 @@ export interface ConversationDTO {
   unread: number;
 }
 
+/** One entry in the friend activity feed. Your own actions never appear in it. */
+export type ActivityDTO =
+  | { kind: 'status'; key: string; at: string; actor: PublicUser; statusId: string; body: string }
+  | { kind: 'comment'; key: string; at: string; actor: PublicUser; commentId: string; body: string; target: PublicUser; onMe: boolean }
+  | { kind: 'photos'; key: string; at: string; actor: PublicUser; photos: PhotoDTO[]; count: number }
+  | { kind: 'profile'; key: string; at: string; actor: PublicUser };
+
 export interface HomeDTO {
-  favorites: RoomSummary[];
-  feed: StatusDTO[];
+  /** Your most recent status, shown above the status box. */
+  myStatus: StatusDTO | null;
+  feed: ActivityDTO[];
+  /** Pass as ?before= for older activity, or null when there's no more. */
   olderCursor: string | null;
+  /** The six busiest rooms you can enter, busiest first. */
+  topRooms: RoomSummary[];
   pendingRequests: number;
 }
 

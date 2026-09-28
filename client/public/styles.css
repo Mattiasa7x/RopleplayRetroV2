@@ -63,8 +63,14 @@ a { color: var(--red); }
   background: var(--bg);
   border-bottom: 3px solid var(--red);
 }
-.site-bar { display: flex; align-items: baseline; gap: 0.6rem; padding: 0.6rem 0.9rem 0.4rem; }
-.brand { font-weight: 800; font-size: 1.15rem; color: var(--red); text-decoration: none; letter-spacing: -0.01em; }
+.site-bar { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.9rem 0.4rem; }
+.brand { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 800; font-size: 1.15rem; color: var(--red); text-decoration: none; letter-spacing: -0.01em; flex: none; }
+.brand-mark { width: 2.1rem; height: auto; display: block; }
+.brand-word { font-weight: 900; font-size: 0.95rem; line-height: 1; letter-spacing: 0.02em; color: var(--red); }
+.brand-word span { color: var(--fg); }
+.page-title { border-left: 2px solid var(--red); padding-left: 0.6rem; }
+[data-theme="light"] .dark-only, [data-theme="dark"] .light-only { display: none; }
+@media (max-width: 22rem) { .brand-word { display: none; } }
 .page-title { color: var(--fg); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .site-nav { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid var(--red); }
 .site-nav a {
@@ -282,3 +288,56 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .card .row select { flex: 1 1 10rem; }
 
 .char-age { margin: 0.1rem 0 0; font-weight: 700; color: var(--red); font-size: 0.9rem; }
+
+/* ---------- room pictures ---------- */
+.room-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
+.room-tile {
+  position: relative; display: block; aspect-ratio: 16 / 11; overflow: hidden;
+  border: 2px solid var(--red); border-radius: 12px; color: #fff; text-decoration: none; isolation: isolate;
+}
+.room-tile > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; transition: transform 0.25s; }
+.room-tile::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.85) 100%); }
+.room-tile:hover > img, .room-tile:focus-visible > img { transform: scale(1.04); }
+.tile-top { position: absolute; top: 0.4rem; right: 0.4rem; left: 0.4rem; display: flex; justify-content: flex-end; gap: 0.3rem; align-items: center; }
+.tile-tag { font-size: 0.68rem; font-weight: 800; background: rgba(0,0,0,0.6); border-radius: 6px; padding: 0.05rem 0.35rem; }
+.user-count { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; font-weight: 800; background: rgba(0,0,0,0.65); color: #fff; border-radius: 999px; padding: 0.1rem 0.5rem; font-variant-numeric: tabular-nums; }
+.dot-live { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #9a9a9a; flex: none; }
+.user-count.live .dot-live, .people-btn .dot-live { background: #2ecc5f; }
+.tile-text { position: absolute; left: 0.55rem; right: 0.55rem; bottom: 0.45rem; display: grid; }
+.tile-name { font-weight: 800; font-size: 1rem; line-height: 1.15; text-shadow: 0 1px 3px rgba(0,0,0,0.8); overflow-wrap: anywhere; }
+.tile-sub { font-size: 0.72rem; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 34rem) { .room-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Colour art for rooms without a picture (and while pictures load). */
+.art-start   { background: linear-gradient(135deg, #c8102e, #5b0714); }
+.art-ooc     { background: linear-gradient(135deg, #3d2b1f, #a0522d); }
+.art-fantasy { background: linear-gradient(135deg, #1f3b2d, #6b8e23); }
+.art-scifi   { background: linear-gradient(135deg, #0b1a3a, #5a2d82); }
+.art-genre   { background: linear-gradient(135deg, #111111, #555555); }
+.art-hangout { background: linear-gradient(135deg, #3a0b2d, #c8102e); }
+.art-member  { background: linear-gradient(135deg, #111111, #c8102e); }
+
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr)); gap: 0.4rem; max-height: 17rem; overflow-y: auto; padding: 0.2rem; }
+.pick { all: unset; box-sizing: border-box; cursor: pointer; aspect-ratio: 4 / 3; border: 2px solid color-mix(in srgb, var(--red) 40%, transparent); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+.pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pick[aria-pressed="true"] { border: 4px solid var(--red); }
+.pick:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+
+/* ---------- inside a room ---------- */
+.room-banner { position: relative; height: 7.5rem; border: 2px solid var(--red); border-radius: 12px; overflow: hidden; isolation: isolate; }
+.room-banner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+.room-banner::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.8) 100%); }
+.banner-name { position: absolute; left: 0.75rem; bottom: 0.5rem; color: #fff; font-weight: 900; font-size: 1.35rem; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+.banner-credit { position: absolute; right: 0.5rem; top: 0.35rem; font-size: 0.65rem; color: #fff; background: rgba(0,0,0,0.5); padding: 0 0.35rem; border-radius: 5px; text-decoration: none; }
+.people-btn { min-height: 2.2rem; padding: 0.1rem 0.7rem; font-size: 0.85rem; border-radius: 999px; }
+.people-btn .dot-live { margin-right: 0.1rem; }
+.room-people .person-link { flex: 1 1 auto; }
+.person-text { min-width: 0; }
+.friend-tag { margin-left: 0.4rem; font-weight: 700; }
+
+/* ---------- home ---------- */
+.my-status .post { padding-top: 0; }
+.my-status + .composer-box { margin-top: 0.5rem; border-top: 1px solid color-mix(in srgb, var(--red) 30%, transparent); padding-top: 0.6rem; }
+.post-kind { margin: 0.15rem 0 0; }
+.post-body.quote { border-left: 3px solid var(--red); padding-left: 0.6rem; }
+.feed-photos { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 0.4rem; }

@@ -1,8 +1,10 @@
 import { PROFILE, Trust } from '../../../shared/config.js';
 import { cleanBody, visibleLength } from '../../../shared/text.js';
-import type { HomeDTO, StatusDTO } from '../../../shared/types.js';
+import type { ActivityDTO, HomeDTO, StatusDTO } from '../../../shared/types.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
+import { lightbox } from './photos.js';
+import { roomTile } from './rooms.js';
 
 /** One status update, used on Home and on profiles. */
 export function statusItem(s: StatusDTO, onRemoved: () => void): HTMLElement {
@@ -61,45 +63,86 @@ export function composer(placeholder: string, max: number, submitLabel: string, 
   return f;
 }
 
+/** One line of friend activity. */
+function activityItem(a: ActivityDTO): HTMLElement {
+  const who = h('a', { href: `/profile/${a.actor.handle}`, class: 'post-head' }, avatar(a.actor.avatar, a.actor.handle), h('strong', {}, a.actor.handle));
+  const when = h('span', { class: 'muted' }, timeAgo(a.at));
+  switch (a.kind) {
+    case 'status':
+      return h('li', { class: 'post' }, who,
+        h('p', { class: 'post-kind muted small' }, 'posted a status'),
+        h('p', { class: 'post-body' }, a.body),
+        h('div', { class: 'post-meta' }, when,
+          h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('status', a.statusId)) as EventListener }, 'Report')));
+    case 'comment':
+      return h('li', { class: 'post' }, who,
+        h('p', { class: 'post-kind muted small' }, a.onMe ? 'commented on your profile' : 'commented on ',
+          a.onMe ? null : h('a', { href: `/profile/${a.target.handle}` }, `${a.target.handle}'s profile`)),
+        h('p', { class: 'post-body quote' }, a.body),
+        h('div', { class: 'post-meta' }, when,
+          h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('comment', a.commentId)) as EventListener }, 'Report')));
+    case 'photos':
+      return h('li', { class: 'post' }, who,
+        h('p', { class: 'post-kind muted small' }, a.count === 1 ? 'added a new photo' : `added ${a.count} new photos`),
+        h('ul', { class: 'photo-grid feed-photos' }, ...a.photos.map((ph) => h('li', {},
+          h('button', { type: 'button', class: 'photo', 'aria-label': 'Open photo', onclick: (() => lightbox(ph.url)) as EventListener },
+            h('img', { src: ph.thumb, alt: '', loading: 'lazy' }))))),
+        h('div', { class: 'post-meta' }, when));
+    case 'profile':
+      return h('li', { class: 'post' }, who,
+        h('p', { class: 'post-kind muted small' }, 'updated their profile · ', h('a', { href: `/profile/${a.actor.handle}` }, 'Have a look')),
+        h('div', { class: 'post-meta' }, when));
+  }
+}
+
 export async function viewHome() {
   page('Home', h('p', { class: 'muted' }, 'Loading…'));
   let data: HomeDTO = await api<HomeDTO>('/api/home');
   state.friendRequests = data.pendingRequests;
   const me = state.me!;
 
-  const feed = h('ul', { class: 'posts' });
-  const empty = h('li', { class: 'muted empty' }, 'Nothing here yet. Post a status or add some friends.');
-  const moreBtn = h('button', { type: 'button', class: 'quiet wide' }, 'Show older');
-  const fill = (items: StatusDTO[]) => {
-    for (const s of items) feed.append(statusItem(s, () => {}));
-    if (!feed.children.length) feed.append(empty);
-    moreBtn.hidden = !data.olderCursor;
-  };
-  moreBtn.addEventListener('click', async () => {
-    data = await api<HomeDTO>(`/api/home?before=${data.olderCursor}`);
-    fill(data.feed);
-  });
-  fill(data.feed);
-
+  // 1. Your latest status, with the box to post a new one right under it.
+  const latest = h('div', { class: 'my-status' });
+  const paintLatest = (s: StatusDTO | null) => latest.replaceChildren(s
+    ? h('ul', { class: 'posts' }, statusItem(s, () => paintLatest(null)))
+    : h('p', { class: 'muted small' }, "You haven't posted a status yet."));
+  paintLatest(data.myStatus);
   const post = me.trust >= Trust.Verified
     ? composer("What's your status?", PROFILE.statusMax, 'Post', async (body) => {
         await api('/api/statuses', { body: { body } });
-        const fresh = await api<HomeDTO>('/api/home');
-        data = fresh;
-        feed.replaceChildren();
-        fill(fresh.feed);
+        paintLatest((await api<HomeDTO>('/api/home')).myStatus);
       })
     : h('p', { class: 'notice' }, 'Confirm your email to post status updates. ', h('a', { href: '/verify' }, 'Enter code'));
 
-  const favs = data.favorites.length
-    ? h('ul', { class: 'chips' }, ...data.favorites.map((r) =>
-        h('li', {}, h('a', { href: `/room/${r.slug}`, class: 'chip' }, '★ ', r.name, h('span', { class: 'count' }, ` ${r.online}`)))))
-    : h('p', { class: 'muted' }, 'Tap ☆ in any room to pin it here. ', h('a', { href: '/rooms' }, 'Browse rooms'));
+  // 2. What your friends have been doing (never your own posts).
+  const feed = h('ul', { class: 'posts' });
+  const moreBtn = h('button', { type: 'button', class: 'quiet wide' }, 'Show older');
+  const fill = (items: ActivityDTO[]) => {
+    for (const a of items) feed.append(activityItem(a));
+    if (!feed.children.length) {
+      feed.append(h('li', { class: 'muted empty' }, 'No friend activity yet. ', h('a', { href: '/friends' }, 'Find friends'), ' and their statuses, comments, new photos and profile updates will show up here.'));
+    }
+    moreBtn.hidden = !data.olderCursor;
+  };
+  moreBtn.addEventListener('click', async () => {
+    moreBtn.disabled = true;
+    try {
+      data = await api<HomeDTO>(`/api/home?before=${encodeURIComponent(data.olderCursor!)}`);
+      fill(data.feed);
+    } catch (e) { toast((e as Error).message, true); }
+    moreBtn.disabled = false;
+  });
+  fill(data.feed);
+
+  // 3. The six busiest rooms.
+  const top = data.topRooms.length
+    ? h('ul', { class: 'room-tiles' }, ...data.topRooms.map((r) => roomTile(r)))
+    : h('p', { class: 'muted' }, h('a', { href: '/rooms' }, 'Browse rooms'));
 
   page('Home',
     !me.emailVerified ? h('p', { class: 'notice' }, 'Confirm your email to unlock every room, member rooms and posting. ', h('a', { href: '/verify' }, 'Enter code')) : null,
     data.pendingRequests ? h('p', { class: 'notice' }, h('a', { href: '/friends' }, `You have ${data.pendingRequests} friend request${data.pendingRequests === 1 ? '' : 's'}`)) : null,
-    card('Status', post),
-    card('Favorite rooms', favs),
-    card('Friends feed', feed, moreBtn));
+    card('Your status', latest, post),
+    card('Friend activity', feed, moreBtn),
+    card('Busiest rooms', top, h('a', { href: '/rooms', class: 'button quiet wide' }, 'All rooms')));
 }

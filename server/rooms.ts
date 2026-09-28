@@ -5,7 +5,8 @@ import type { RoomDetail } from '../shared/types.js';
 import { HttpError, parse, requireUser } from './http.js';
 import { removeFromRoom, rooms as sockRooms, type IO } from './realtime.js';
 import { accessBlock, activeSanctions, textBlocked } from './safety/pipeline.js';
-import { audit, db, tx } from './store.js';
+import { roomImageUrl, isPoolImage } from './room-images.js';
+import { audit, db, redis, tx } from './store.js';
 
 export interface RoomRow {
   id: number;
@@ -18,10 +19,14 @@ export interface RoomRow {
   description: string | null;
   min_trust_to_post: number;
   slow_mode_seconds: number;
+  image_id: number | null;
+  /** The room's picture has been downloaded and can be shown. */
+  has_image: boolean;
 }
 
 export const ROOM_COLS =
-  'r.id, r.slug, r.name, r.category, r.kind, r.owner_id, r.whitelist_only, r.description, r.min_trust_to_post, r.slow_mode_seconds';
+  `r.id, r.slug, r.name, r.category, r.kind, r.owner_id, r.whitelist_only, r.description, r.min_trust_to_post, r.slow_mode_seconds,
+   r.image_id, COALESCE((SELECT ri.thumb_data IS NOT NULL FROM room_images ri WHERE ri.id = r.image_id), false) AS has_image`;
 
 export interface Viewer {
   id: string;
@@ -112,17 +117,19 @@ const CreateBody = z.object({
   name: z.string().trim().min(MEMBER_ROOMS.nameMin).max(MEMBER_ROOMS.nameMax),
   description: z.string().trim().max(MEMBER_ROOMS.descriptionMax).optional(),
   whitelistOnly: z.boolean().default(false),
+  imageId: z.number().int().positive().nullable().optional(),
 });
 const PatchBody = z.object({
   name: z.string().trim().min(MEMBER_ROOMS.nameMin).max(MEMBER_ROOMS.nameMax).optional(),
   description: z.string().trim().max(MEMBER_ROOMS.descriptionMax).optional(),
   whitelistOnly: z.boolean().optional(),
   slowModeSeconds: z.number().int().min(0).max(600).optional(),
+  imageId: z.number().int().positive().nullable().optional(),
 });
 
 async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
   const manage = isOwner(v, room) || v.trust >= Trust.Admin;
-  const [{ rows: owner }, whitelist] = await Promise.all([
+  const [{ rows: owner }, whitelist, { rows: img }, online] = await Promise.all([
     room.owner_id ? db.query<{ handle: string }>('SELECT handle FROM users WHERE id = $1', [room.owner_id]) : Promise.resolve({ rows: [] as { handle: string }[] }),
     manage
       ? db.query<{ handle: string }>(
@@ -130,13 +137,29 @@ async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
           [room.id],
         ).then((r) => r.rows.map((x) => x.handle))
       : Promise.resolve(undefined),
+    room.image_id != null
+      ? db.query<{ credit: string | null; credit_url: string | null }>('SELECT credit, credit_url FROM room_images WHERE id = $1', [room.image_id])
+      : Promise.resolve({ rows: [] as { credit: string | null; credit_url: string | null }[] }),
+    redis.hlen(`presence:${room.id}`),
   ]);
   return {
     id: room.id, slug: room.slug, name: room.name, kind: room.kind, description: room.description,
     whitelistOnly: room.whitelist_only, slowModeSeconds: room.slow_mode_seconds,
     ownerHandle: owner[0]?.handle ?? null, canManage: manage, canModerate: await canModerateRoom(v, room),
     ...(whitelist ? { whitelist } : {}),
+    image: roomImageUrl(room.image_id, room.has_image, 'full'),
+    imageId: room.image_id,
+    imageCredit: room.has_image && img[0]?.credit ? { name: img[0].credit, url: img[0].credit_url ?? '' } : null,
+    online,
   };
+}
+
+export async function roomDetail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
+  return detail(v, room);
+}
+
+async function assertPoolImage(id: number | null | undefined) {
+  if (id != null && !(await isPoolImage(id))) throw new HttpError(400, 'bad_image', 'Pick one of the pictures shown.');
 }
 
 export function registerRoomRoutes(app: FastifyInstance, io: IO) {
@@ -160,17 +183,18 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
     if (Number(owned[0].n) >= MEMBER_ROOMS.maxOwnedPerUser) {
       throw new HttpError(409, 'room_limit', `You can own up to ${MEMBER_ROOMS.maxOwnedPerUser} rooms. Delete one to make another.`);
     }
-    const room = await tx(async (q) => {
-      const { rows } = await q.query<RoomRow>(
-        `INSERT INTO rooms (slug, name, category, sort_order, min_trust_to_post, kind, owner_id, whitelist_only, description)
-         VALUES ($1, $2, 'Member rooms', 1000, $3, 'member', $4, $5, $6)
-         RETURNING id, slug, name, category, kind, owner_id, whitelist_only, description, min_trust_to_post, slow_mode_seconds`,
-        [slugify(b.name), b.name, Trust.Verified, u.id, b.whitelistOnly, b.description || null],
+    await assertPoolImage(b.imageId);
+    const slug = await tx(async (q) => {
+      const { rows } = await q.query<{ id: number; slug: string }>(
+        `INSERT INTO rooms (slug, name, category, sort_order, min_trust_to_post, kind, owner_id, whitelist_only, description, image_id)
+         VALUES ($1, $2, 'Member rooms', 1000, $3, 'member', $4, $5, $6, $7)
+         RETURNING id, slug`,
+        [slugify(b.name), b.name, Trust.Verified, u.id, b.whitelistOnly, b.description || null, b.imageId ?? null],
       );
       await audit(q, u.id, 'room_create', 'room', rows[0].id, { name: b.name, whitelistOnly: b.whitelistOnly });
-      return rows[0];
+      return rows[0].slug;
     });
-    return reply.status(201).send(await detail(u, room));
+    return reply.status(201).send(await detail(u, await roomBySlug(slug)));
   });
 
   app.patch<{ Params: { slug: string } }>('/api/rooms/:slug', async (req) => {
@@ -180,11 +204,14 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
     assertCanManage(u, room);
     const b = parse(PatchBody, req.body);
     if (textBlocked(`${b.name ?? ''} ${b.description ?? ''}`)) throw new HttpError(400, 'blocked_word', "The name or description contains a word that isn't allowed.");
+    if (room.kind === 'site' && b.whitelistOnly) throw new HttpError(400, 'site_room', 'Site rooms are open to everyone.');
+    await assertPoolImage(b.imageId);
     const { rows } = await db.query<RoomRow>(
       `UPDATE rooms r SET name = COALESCE($2, name), description = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF($3, '') END,
-              whitelist_only = COALESCE($4, whitelist_only), slow_mode_seconds = COALESCE($5, slow_mode_seconds)
+              whitelist_only = COALESCE($4, whitelist_only), slow_mode_seconds = COALESCE($5, slow_mode_seconds),
+              image_id = CASE WHEN $6 THEN $7::int ELSE image_id END
         WHERE id = $1 RETURNING ${ROOM_COLS}`,
-      [room.id, b.name ?? null, b.description ?? null, b.whitelistOnly ?? null, b.slowModeSeconds ?? null],
+      [room.id, b.name ?? null, b.description ?? null, b.whitelistOnly ?? null, b.slowModeSeconds ?? null, b.imageId !== undefined, b.imageId ?? null],
     );
     await audit(db, u.id, 'room_update', 'room', room.id, b);
     if (b.whitelistOnly && !room.whitelist_only) await evictUnauthorized(io, rows[0], 'This room is now invite-only.');

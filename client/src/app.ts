@@ -33,7 +33,7 @@ async function route() {
       case 'verify': return viewVerify();
       case 'home': return await viewHome();
       case 'rooms': return await viewRooms();
-      case 'new-room': return viewNewRoom();
+      case 'new-room': return await viewNewRoom();
       case 'room': return parts[2] === 'manage' ? await viewManage(parts[1] ?? '') : await viewRoom(parts[1] ?? '');
       case 'friends': return await viewFriends();
       case 'messages': return parts[1] ? await viewThread(decodeURIComponent(parts[1])) : await viewInbox();

@@ -1,21 +1,34 @@
 import { MEMBER_ROOMS, Trust } from '../../../shared/config.js';
-import type { RoomDetail, RoomSummary } from '../../../shared/types.js';
+import type { RoomDetail, RoomImageDTO, RoomSummary } from '../../../shared/types.js';
 import { card, field, form, navigate, page, state, toast } from '../core.js';
 import { api, h } from '../dom.js';
 
-function roomItem(r: RoomSummary): HTMLElement {
+/** Colour art used until (or instead of) a room picture, keyed by category. */
+const ART: Record<string, string> = {
+  'Start here': 'art-start', 'Out of character': 'art-ooc', Fantasy: 'art-fantasy', 'Sci-fi': 'art-scifi',
+  Genre: 'art-genre', Hangouts: 'art-hangout',
+};
+
+/** A picture tile for a room: its photo, name, and how many people are in it. */
+export function roomTile(r: RoomSummary, opts: { big?: boolean } = {}): HTMLElement {
   const me = state.me!;
   const locked = me.trust < r.minTrustToPost;
   return h('li', {},
-    h('a', { href: `/room/${r.slug}`, class: 'room-link' },
-      h('span', { class: 'room-name' }, r.favorite ? '★ ' : '', r.name),
-      h('span', { class: 'room-meta' },
+    h('a', { href: `/room/${r.slug}`, class: `room-tile ${ART[r.category] ?? 'art-member'}${opts.big ? ' big' : ''}` },
+      r.image ? h('img', { src: r.image, alt: '', loading: 'lazy', decoding: 'async' }) : null,
+      h('span', { class: 'tile-top' },
         r.unreadMentions ? h('span', { class: 'badge' }, `@${r.unreadMentions}`) : null,
-        r.whitelistOnly ? h('span', { class: 'tag' }, 'invite-only') : null,
-        r.kind === 'member' ? h('span', { class: 'muted small' }, r.isOwner ? 'yours' : `by ${r.ownerHandle ?? 'a member'}`) : null,
-        locked ? h('span', { class: 'muted small' }, 'read only') : null,
-        h('span', { class: 'online-count', 'aria-label': `${r.online} people here` }, String(r.online)))));
+        r.whitelistOnly ? h('span', { class: 'tile-tag' }, 'invite-only') : null,
+        h('span', { class: `user-count${r.online ? ' live' : ''}`, 'aria-label': `${r.online} ${r.online === 1 ? 'person' : 'people'} here` },
+          h('span', { class: 'dot-live', 'aria-hidden': 'true' }), String(r.online))),
+      h('span', { class: 'tile-text' },
+        h('span', { class: 'tile-name' }, r.favorite ? '★ ' : '', r.name),
+        h('span', { class: 'tile-sub' },
+          r.kind === 'member' ? (r.isOwner ? 'Your room' : `by ${r.ownerHandle ?? 'a member'}`) : r.description ?? '',
+          locked ? ' · read only' : ''))));
 }
+
+const tiles = (list: RoomSummary[]) => h('ul', { class: 'room-tiles' }, ...list.map((r) => roomTile(r)));
 
 export async function viewRooms() {
   page('Rooms', h('p', { class: 'muted' }, 'Loading rooms…'));
@@ -25,28 +38,57 @@ export async function viewRooms() {
   const byCat = new Map<string, RoomSummary[]>();
   for (const r of rooms.filter((x) => x.kind === 'site')) byCat.set(r.category, [...(byCat.get(r.category) ?? []), r]);
   const member = rooms.filter((r) => r.kind === 'member');
+  const favs = rooms.filter((r) => r.favorite);
 
   page('Rooms',
     !verified ? h('p', { class: 'notice' }, 'Until you confirm your email you can read every site room and chat in Newcomers and Help Desk. ', h('a', { href: '/verify' }, 'Enter code')) : null,
+    card('Your favorites',
+      favs.length ? tiles(favs) : h('p', { class: 'muted small' }, 'Tap ☆ Favorite inside any room to pin it here.')),
     card('Site rooms',
       h('p', { class: 'muted small' }, 'Official rooms, strictly auto-moderated: no links, and repeated rule-breaking earns an automatic mute.'),
-      ...[...byCat].map(([cat, list]) => h('div', { class: 'room-group' }, h('h3', {}, cat), h('ul', { class: 'room-list' }, ...list.map(roomItem))))),
+      ...[...byCat].map(([cat, list]) => h('div', { class: 'room-group' }, h('h3', {}, cat), tiles(list)))),
     card('Member rooms',
       verified
         ? h('div', {},
-            member.length ? h('ul', { class: 'room-list' }, ...member.map(roomItem)) : h('p', { class: 'muted' }, 'No member rooms yet. Start one!'),
+            member.length ? tiles(member) : h('p', { class: 'muted' }, 'No member rooms yet. Start one!'),
             h('a', { href: '/new-room', class: 'button primary wide' }, '+ Create a room'))
         : h('p', { class: 'muted' }, 'Member rooms are made and run by verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.')));
+}
+
+/** Pick a picture for a member room from the shared pool. Value is the chosen id, or '' for none. */
+async function imagePicker(current: number | null): Promise<{ el: HTMLElement; value: () => number | null }> {
+  let pool: RoomImageDTO[] = [];
+  try { pool = await api<RoomImageDTO[]>('/api/room-images'); } catch { /* pictures optional */ }
+  let chosen: number | null = current;
+  const buttons: HTMLButtonElement[] = [];
+  const paint = () => buttons.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.id) === (chosen ?? 0))));
+  const pick = (id: number | null) => { chosen = id; paint(); };
+  const none = h('button', { type: 'button', class: 'pick none', 'data-id': '0', 'aria-label': 'No picture' }, 'None');
+  none.addEventListener('click', () => pick(null));
+  buttons.push(none);
+  for (const img of pool) {
+    const b = h('button', { type: 'button', class: 'pick', 'data-id': String(img.id), 'aria-label': img.title, title: img.credit ? `${img.title} · photo by ${img.credit}` : img.title },
+      h('img', { src: img.thumb, alt: '', loading: 'lazy' }));
+    b.addEventListener('click', () => pick(img.id));
+    buttons.push(b);
+  }
+  paint();
+  const el = h('div', { class: 'field' },
+    h('span', {}, 'Room picture'),
+    pool.length ? h('div', { class: 'picker' }, ...buttons) : h('p', { class: 'muted small' }, 'Pictures are still loading on the server. You can pick one later from Manage.'),
+    pool.length ? h('span', { class: 'muted small' }, 'Photos from Unsplash, free to use.') : null);
+  return { el, value: () => chosen };
 }
 
 const checkbox = (label: string, name: string, checked = false) =>
   h('label', { class: 'check' }, h('input', { type: 'checkbox', name, checked }), h('span', {}, label));
 
-export function viewNewRoom() {
+export async function viewNewRoom() {
   if (state.me!.trust < Trust.Verified) {
     state.flash = 'Confirm your email to create member rooms.';
     return navigate('/verify', true);
   }
+  const picker = await imagePicker(null);
   page('New room',
     card(null,
       h('p', { class: 'muted small' }, `You can own up to ${MEMBER_ROOMS.maxOwnedPerUser} rooms. Only verified members can find or enter member rooms.`),
@@ -54,9 +96,10 @@ export function viewNewRoom() {
         field('Room name', 'name', 'text', { minlength: MEMBER_ROOMS.nameMin, maxlength: MEMBER_ROOMS.nameMax }),
         field('Description (optional)', 'description', 'text', { maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
         checkbox('Invite-only: only people on my list can see and enter', 'whitelistOnly'),
+        picker.el,
       ], 'Create room', async (d) => {
         const room = await api<RoomDetail>('/api/rooms', {
-          body: { name: d.get('name'), description: String(d.get('description') ?? ''), whitelistOnly: d.get('whitelistOnly') === 'on' },
+          body: { name: d.get('name'), description: String(d.get('description') ?? ''), whitelistOnly: d.get('whitelistOnly') === 'on', imageId: picker.value() },
         });
         state.flash = room.whitelistOnly ? 'Room created. Add people to the invite list.' : 'Room created.';
         navigate(room.whitelistOnly ? `/room/${room.slug}/manage` : `/room/${room.slug}`);
@@ -74,17 +117,21 @@ export async function viewManage(slug: string) {
   if (!room.canManage) return navigate(`/room/${slug}`, true);
   const reload = () => void viewManage(slug);
   const path = `/api/rooms/${encodeURIComponent(slug)}`;
+  const site = room.kind === 'site';
+  const picker = await imagePicker(room.imageId);
 
   const settings = form([
     field('Room name', 'name', 'text', { value: room.name, minlength: MEMBER_ROOMS.nameMin, maxlength: MEMBER_ROOMS.nameMax }),
     field('Description', 'description', 'text', { value: room.description ?? '', maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
-    checkbox('Invite-only (people not on the list are removed right away)', 'whitelistOnly', room.whitelistOnly),
+    site ? null : checkbox('Invite-only (people not on the list are removed right away)', 'whitelistOnly', room.whitelistOnly),
     h('label', { class: 'field' }, h('span', {}, 'Slow mode'),
       h('select', { name: 'slow' }, ...[0, 5, 10, 30, 60].map((s) => h('option', { value: s, selected: s === room.slowModeSeconds }, s ? `One message every ${s} seconds` : 'Off')))),
+    picker.el,
   ], 'Save', async (d) => {
     await api(path, { method: 'PATCH', body: {
       name: d.get('name'), description: String(d.get('description') ?? ''),
-      whitelistOnly: d.get('whitelistOnly') === 'on', slowModeSeconds: Number(d.get('slow')),
+      ...(site ? {} : { whitelistOnly: d.get('whitelistOnly') === 'on' }), slowModeSeconds: Number(d.get('slow')),
+      imageId: picker.value(),
     } });
     toast('Saved.');
     reload();
@@ -105,10 +152,10 @@ export async function viewManage(slug: string) {
   page(`Manage ${room.name}`,
     h('a', { href: `/room/${slug}`, class: 'back' }, '‹ Back to room'),
     card('Room settings', settings),
-    card(`Invite list (${room.whitelist?.length ?? 0})`,
+    site ? null : card(`Invite list (${room.whitelist?.length ?? 0})`,
       h('p', { class: 'muted small' }, room.whitelistOnly ? 'Only these members (and you) can see and enter this room.' : 'The room is open to all verified members; the list applies once invite-only is on.'),
       list, add),
-    card('Delete room',
+    site ? null : card('Delete room',
       h('button', { type: 'button', class: 'danger wide', onclick: (async () => {
         if (!confirm(`Delete "${room.name}" and all its messages? This can't be undone.`)) return;
         try { await api(path, { method: 'DELETE' }); state.flash = 'Room deleted.'; navigate('/rooms'); } catch (e) { toast((e as Error).message, true); }

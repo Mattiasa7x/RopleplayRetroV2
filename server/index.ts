@@ -18,6 +18,8 @@ import { registerProfileRoutes } from './profiles.js';
 import { migrate } from './migrate.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerRoomRoutes } from './rooms.js';
+import { registerPeopleRoutes } from './people.js';
+import { downloadMissingRoomImages, registerRoomImageRoutes, syncRoomImages } from './room-images.js';
 import { setupRealtime, type IO } from './realtime.js';
 import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
@@ -78,6 +80,8 @@ registerFriendRoutes(app, io);
 registerFeedRoutes(app);
 registerChatRoutes(app);
 registerRoomRoutes(app, io);
+registerRoomImageRoutes(app);
+registerPeopleRoutes(app);
 registerSocialRoutes(app, io);
 registerModerationRoutes(app, io);
 
@@ -110,4 +114,21 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 await migrate((m) => app.log.info(m));
+await syncRoomImages();
+
+// One server: nobody is connected yet, so start the online and in-room counts from zero.
+// (Open pages reconnect within seconds and rejoin their room.)
+if (process.env.RESET_PRESENCE_ON_START !== 'false') {
+  let cursor = '0';
+  do {
+    const [next, keys] = await redis.scan(cursor, 'MATCH', 'presence:*', 'COUNT', 200);
+    cursor = next;
+    if (keys.length) await redis.del(...keys);
+  } while (cursor !== '0');
+  await redis.del('online');
+}
+
 await app.listen({ port: env.port, host: env.host });
+
+// Fetch any room pictures not stored yet, without holding up the site.
+void downloadMissingRoomImages((m) => app.log.info(m)).catch((e) => app.log.error(e, 'room pictures failed'));

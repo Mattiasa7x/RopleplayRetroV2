@@ -85,7 +85,10 @@ export function page(title: string, ...content: (Node | string | null | undefine
   const here = location.pathname;
   const header = h('header', { class: 'site-header' },
     h('div', { class: 'site-bar' },
-      h('a', { href: state.me ? '/home' : '/login', class: 'brand' }, SITE_NAME),
+      h('a', { href: state.me ? '/home' : '/login', class: 'brand', 'aria-label': `${SITE_NAME} home` },
+        h('img', { src: '/logo-mark.svg', alt: '', class: 'brand-mark light-only', width: 34, height: 31 }),
+        h('img', { src: '/logo-mark-dark.svg', alt: '', class: 'brand-mark dark-only', width: 34, height: 31 }),
+        h('span', { class: 'brand-word', 'aria-hidden': 'true' }, 'ROLEPLAY', h('span', {}, 'RETRO'))),
       h('span', { class: 'page-title' }, title)),
     state.me
       ? h('nav', { class: 'site-nav', 'aria-label': 'Main' }, ...NAV.map((n) => {

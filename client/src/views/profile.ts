@@ -1,4 +1,4 @@
-import { CHARACTER_AGE, PROFILE, Trust } from '../../../shared/config.js';
+import { CHARACTER_AGE, CHARACTER_CITY, PROFILE, Trust } from '../../../shared/config.js';
 import type { CommentDTO, FriendsDTO, PhotoDTO, ProfileDTO, PublicUser, StatusDTO } from '../../../shared/types.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
@@ -42,7 +42,9 @@ export async function viewProfile(handle: string) {
     avatar(p.avatar, p.handle, 'lg'),
     h('div', {},
       h('h1', { class: 'handle' }, p.handle),
-      p.characterAge != null ? h('p', { class: 'char-age' }, `Character age: ${p.characterAge}`) : null,
+      p.characterAge != null || p.characterCity != null
+        ? h('p', { class: 'char-age' }, [p.characterAge != null ? `Character age: ${p.characterAge}` : null, p.characterCity != null ? `Lives in ${p.characterCity}` : null].filter(Boolean).join(' · '))
+        : null,
       h('p', { class: 'muted small' }, `${p.trustLabel} · joined ${new Date(p.joined).toLocaleDateString()} · ${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`),
       h('div', { class: 'row wrap' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, '✉ Message') : null,
@@ -62,13 +64,17 @@ export async function viewProfile(handle: string) {
     const count = h('span', { class: 'counter' }, `${PROFILE.bioMax - ta.value.length} left`);
     ta.addEventListener('input', () => { count.textContent = `${PROFILE.bioMax - ta.value.length} left`; });
     const ageInput = h('input', { type: 'text', maxlength: CHARACTER_AGE.maxLength, placeholder: 'e.g. 27, Newborn, 3,000 years, Ageless', 'aria-label': 'Character age', value: p.characterAge ?? '' });
+    const cityInput = h('input', { type: 'text', maxlength: CHARACTER_CITY.maxLength, placeholder: 'e.g. New Orleans, Gotham, The Moon', 'aria-label': 'Character city', value: p.characterCity ?? '' });
     bioCard = card('About me', ta,
       h('label', { class: 'field' }, h('span', {}, 'Character age (optional)'), ageInput,
-        h('span', { class: 'muted small' }, 'Shown on your profile for roleplay. It has nothing to do with your real age.')),
+        h('span', { class: 'muted small' }, 'Shown on your profile and in room people lists. It has nothing to do with your real age, which is never shown.')),
+      h('label', { class: 'field' }, h('span', {}, 'Character city (optional)'), cityInput,
+        h('span', { class: 'muted small' }, 'Where your character lives. Shown in room people lists.')),
       h('div', { class: 'row' }, count,
         btn('Save', 'primary', call(async () => {
           const raw = ageInput.value.trim();
-          await api('/api/me/profile', { method: 'PATCH', body: { bio: ta.value, characterAge: raw === '' ? null : raw } });
+          const city = cityInput.value.trim();
+          await api('/api/me/profile', { method: 'PATCH', body: { bio: ta.value, characterAge: raw === '' ? null : raw, characterCity: city === '' ? null : city } });
         }, 'Profile saved.'))));
   } else {
     bioCard = card('About', h('p', { class: 'bio' }, p.bio ?? 'No bio yet.'));

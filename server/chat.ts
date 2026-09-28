@@ -4,7 +4,8 @@ import { RETAINED_PER_ROOM, SAFETY, Trust } from '../shared/config.js';
 import type { HistoryPage, MessageDTO, RoomDetail, RoomSummary } from '../shared/types.js';
 import { parse, requireUser, type SessionUser } from './http.js';
 import { paginate } from './paging.js';
-import { ROOM_COLS, assertRoomAccess, canModerateRoom, roomBySlug, type RoomRow } from './rooms.js';
+import { roomImageUrl } from './room-images.js';
+import { ROOM_COLS, assertRoomAccess, roomBySlug, roomDetail, type RoomRow } from './rooms.js';
 import { maskMature } from './safety/mature.js';
 import { checkMessage } from './safety/pipeline.js';
 import { db, redis, tx } from './store.js';
@@ -143,6 +144,7 @@ export async function roomList(user: SessionUser): Promise<RoomSummary[]> {
     online: Number(res[i]?.[1] ?? 0), minTrustToPost: r.min_trust_to_post,
     unreadMentions: Number(mentions[r.id] ?? 0),
     favorite: r.favorite,
+    image: roomImageUrl(r.image_id, r.has_image),
   }));
 }
 
@@ -156,12 +158,8 @@ export function registerChatRoutes(app: FastifyInstance) {
     await assertRoomAccess(u, room);
     const all = (await visibleNewestFirst(room.id, u.id)).slice(0, RETAINED_PER_ROOM); // never more than 20 pages
     const p = paginate(u.prefs.chatFilter ? all.map((m) => ({ ...m, body: maskMature(m.body) })) : all, q);
-    const detail: RoomDetail = {
-      id: room.id, slug: room.slug, name: room.name, kind: room.kind, description: room.description,
-      whitelistOnly: room.whitelist_only, slowModeSeconds: room.slow_mode_seconds, ownerHandle: null,
-      canManage: (room.kind === 'member' && room.owner_id === u.id) || u.trust >= Trust.Admin,
-      canModerate: await canModerateRoom(u, room),
-    };
+    const detail: RoomDetail = await roomDetail(u, room);
+    delete detail.whitelist;
     return {
       room: detail,
       messages: p.items, page: p.page, totalPages: p.totalPages,

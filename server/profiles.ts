@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { CHARACTER_AGE, PROFILE, TRUST_LABEL, Trust } from '../shared/config.js';
+import { CHARACTER_AGE, CHARACTER_CITY, PROFILE, TRUST_LABEL, Trust } from '../shared/config.js';
 import type { CommentDTO, ProfileDTO, StatusDTO } from '../shared/types.js';
 import { publicUser, prefsOf, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
@@ -45,6 +45,7 @@ const view = (viewer: SessionUser, text: string) => (viewer.prefs.chatFilter ? m
 const BioBody = z.object({
   bio: z.string().trim().max(PROFILE.bioMax),
   characterAge: z.string().trim().max(CHARACTER_AGE.maxLength, `Character age can be up to ${CHARACTER_AGE.maxLength} characters`).nullable().optional(),
+  characterCity: z.string().trim().max(CHARACTER_CITY.maxLength, `Character city can be up to ${CHARACTER_CITY.maxLength} characters`).nullable().optional(),
 });
 const TextBody = z.object({ body: z.string().max(20_000) });
 
@@ -67,6 +68,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       ...publicUser(t, { showAvatar: a.visible }),
       bio: a.visible && t.bio ? view(u, t.bio) : null,
       characterAge: a.visible && t.character_age ? view(u, t.character_age) : null,
+      characterCity: a.visible && t.character_city ? view(u, t.character_city) : null,
       joined: t.created_at.toISOString(),
       trustLabel: TRUST_LABEL[t.trust_level as Trust],
       photos: photos.map(photoDTO),
@@ -83,14 +85,25 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
 
   app.patch('/api/me/profile', async (req) => {
     const u = requireUser(req);
-    const { bio, characterAge } = parse(BioBody, req.body);
+    const { bio, characterAge, characterCity } = parse(BioBody, req.body);
     if (bio && textBlocked(bio)) throw new HttpError(400, 'blocked_word', "Your bio contains a word that isn't allowed.");
     if (characterAge && textBlocked(characterAge)) throw new HttpError(400, 'blocked_word', "Your character age contains a word that isn't allowed.");
+    if (characterCity && textBlocked(characterCity)) throw new HttpError(400, 'blocked_word', "Your character city contains a word that isn't allowed.");
+    // New values, keeping whatever wasn't sent. A real change is announced to friends as "updated their profile".
     await db.query(
-      `UPDATE users SET bio = NULLIF($2, ''), character_age = CASE WHEN $3 THEN $4::text ELSE character_age END WHERE id = $1`,
-      [u.id, bio, characterAge !== undefined, characterAge ? characterAge : null],
+      `WITH n AS (
+         SELECT NULLIF($2, '') AS bio,
+                CASE WHEN $3 THEN $4::text ELSE (SELECT character_age FROM users WHERE id = $1) END AS age,
+                CASE WHEN $5 THEN $6::text ELSE (SELECT character_city FROM users WHERE id = $1) END AS city)
+       UPDATE users SET bio = n.bio, character_age = n.age, character_city = n.city,
+              profile_updated_at = CASE WHEN (users.bio, users.character_age, users.character_city) IS DISTINCT FROM (n.bio, n.age, n.city)
+                                        THEN now() ELSE users.profile_updated_at END
+         FROM n WHERE users.id = $1`,
+      [u.id, bio, characterAge !== undefined, characterAge || null, characterCity !== undefined, characterCity || null],
     ).catch((e) => {
-      if ((e as { constraint?: string }).constraint === 'users_character_age_len') throw new HttpError(400, 'too_long', `Character age can be up to ${CHARACTER_AGE.maxLength} characters.`);
+      const c = (e as { constraint?: string }).constraint;
+      if (c === 'users_character_age_len') throw new HttpError(400, 'too_long', `Character age can be up to ${CHARACTER_AGE.maxLength} characters.`);
+      if (c === 'users_character_city_len') throw new HttpError(400, 'too_long', `Character city can be up to ${CHARACTER_CITY.maxLength} characters.`);
       throw e;
     });
     return { ok: true };
