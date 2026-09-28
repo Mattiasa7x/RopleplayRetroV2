@@ -138,17 +138,17 @@ export async function viewEditProfile() {
 
   const about = countedTextarea(p.bio ?? '', PROFILE.bioMax, 8, 'About');
 
-  const saveProfile = h('button', { type: 'button', class: 'primary wide' }, 'Save character profile');
+  const saveProfile = h('button', { type: 'button', class: 'primary wide' }, 'Save profile');
   saveProfile.addEventListener('click', async () => {
     if (bday.value && bday.value > today()) return toast("A birthday can't be in the future.", true);
     saveProfile.disabled = true;
     try {
-      await save({ characterBirthday: bday.value || null, characterGender: gender.value.trim() || null, rpStyle: style, bio: about.ta.value }, 'Character profile saved.');
+      await save({ characterBirthday: bday.value || null, characterGender: gender.value.trim() || null, rpStyle: style, bio: about.ta.value }, 'Profile saved.');
     } catch (e) { toast((e as Error).message, true); }
     saveProfile.disabled = false;
   });
 
-  const characterCard = card('Character profile',
+  const characterCard = card('Profile',
     h('label', { class: 'field' }, h('span', {}, 'Birthday'), bday, agePreview),
     h('label', { class: 'field' }, h('span', {}, 'Gender'), gender),
     h('label', { class: 'field' }, h('span', {}, 'City'), city, h('span', { class: 'row' }, h('span', { class: 'muted small' }, 'Saves as you type.'), cityState)),
@@ -189,12 +189,12 @@ export async function viewEditProfile() {
   const photosPane = h('div', { class: 'stack' }, bannerCard, await photoSection(p, { manage: true, reload }));
   const TABS: [string, string, HTMLElement][] = [
     ['account', 'Account', accountCard],
-    ['character', 'Character', characterCard],
-    ['sheet', 'Sheet', sheetCard],
+    ['profile', 'Profile', characterCard],
+    ['sheet', 'Character Sheet', sheetCard],
     ['photos', 'Photos', photosPane],
   ];
   const wanted = new URLSearchParams(location.search).get('tab');
-  let current = TABS.some(([id]) => id === wanted) ? wanted! : 'character';
+  let current = TABS.some(([id]) => id === wanted) ? wanted! : 'profile';
   const tabButtons = TABS.map(([id, label]) => {
     const b = h('button', { type: 'button', role: 'tab', id: `tab-${id}`, class: 'tab', 'aria-controls': `pane-${id}` }, label);
     b.addEventListener('click', () => show(id));
