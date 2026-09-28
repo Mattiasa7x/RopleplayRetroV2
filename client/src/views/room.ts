@@ -24,7 +24,7 @@ export async function viewRoom(slug: string) {
   const input = h('input', { type: 'text', name: 'body', autocomplete: 'off', 'aria-label': 'Message', placeholder: 'Say something…', enterkeyhint: 'send' });
   const counter = h('span', { class: 'counter', 'aria-live': 'polite' });
   const sendBtn = h('button', { type: 'submit', class: 'primary' }, 'Send');
-  const composerBar = h('form', { class: 'chat-composer' }, input, sendBtn, counter);
+  const composerBar = h('form', { class: 'chat-composer at-top' }, input, sendBtn, counter);
   const actions = h('div', { class: 'actions', hidden: true });
   const presence = h('button', { type: 'button', class: 'people-btn', 'aria-haspopup': 'dialog' });
   let online = 0;
@@ -93,10 +93,15 @@ export async function viewRoom(slug: string) {
 
   function render() {
     list.replaceChildren();
+    // Newest line first, like a classic chat board. The divider sits between what's new and what you'd already seen.
+    const newestFirst = [...hist.messages].reverse();
+    let sawNew = false;
     let dividerPlaced = false;
-    for (const m of hist.messages) {
-      if (!dividerPlaced && hist.page === 1 && lastSeenOnEntry && BigInt(m.id) > BigInt(lastSeenOnEntry) && m !== hist.messages[0]) {
-        list.append(h('li', { class: 'divider' }, 'new since you were here'));
+    for (const m of newestFirst) {
+      const isNew = hist.page === 1 && !!lastSeenOnEntry && BigInt(m.id) > BigInt(lastSeenOnEntry);
+      if (isNew) sawNew = true;
+      else if (sawNew && !dividerPlaced) {
+        list.append(h('li', { class: 'divider' }, 'new since you were here ↑'));
         dividerPlaced = true;
       }
       list.append(line(m));
@@ -109,9 +114,9 @@ export async function viewRoom(slug: string) {
       if (last) setLastSeen(slug, last.id);
     }
     const pagerItems: (Node | null)[] = [
-      h('button', { type: 'button', class: 'quiet', disabled: !hist.olderCursor, onclick: (() => void load({ before: hist.olderCursor! })) as EventListener }, '‹ Older'),
+      h('button', { type: 'button', class: 'quiet', disabled: !hist.newerCursor, onclick: (() => void load({ after: hist.newerCursor! })) as EventListener }, '‹ Newer'),
       h('span', { class: 'muted' }, `Page ${hist.page} of ${hist.totalPages}`),
-      h('button', { type: 'button', class: 'quiet', disabled: !hist.newerCursor, onclick: (() => void load({ after: hist.newerCursor! })) as EventListener }, 'Newer ›'),
+      h('button', { type: 'button', class: 'quiet', disabled: !hist.olderCursor, onclick: (() => void load({ before: hist.olderCursor! })) as EventListener }, 'Older ›'),
       hist.newerCursor ? h('button', { type: 'button', class: 'quiet', onclick: (() => void load()) as EventListener }, 'Latest') : null,
     ];
     pager.replaceChildren(...pagerItems.filter((x): x is Node => x !== null));
@@ -176,11 +181,10 @@ export async function viewRoom(slug: string) {
       if (hist.messages.length > CHAT.PAGE_SIZE) hist.messages.shift();
       list.querySelector('.empty')?.remove();
       const lines = list.querySelectorAll('li.line');
-      if (lines.length >= CHAT.PAGE_SIZE) lines[0].remove();
-      list.append(line(m));
+      if (lines.length >= CHAT.PAGE_SIZE) lines[lines.length - 1].remove(); // oldest is at the bottom now
+      list.prepend(line(m));
       setLastSeen(slug, m.id);
       typing.textContent = '';
-      list.lastElementChild?.scrollIntoView({ block: 'nearest' });
     } else {
       pendingNew++;
       newBar.textContent = `${pendingNew} new · back to latest`;
@@ -305,12 +309,13 @@ export async function viewRoom(slug: string) {
           presence),
         h('p', { class: 'muted small' }, room.kind === 'site' ? 'Strictly auto-moderated · no links' : room.description ?? '')),
       h('div', { class: 'row' }, star, room.canManage && room.kind === 'member' ? h('a', { href: `/room/${slug}/manage`, class: 'button quiet' }, 'Manage') : null)),
-    pager, newBar,
+    // Message box above the conversation: you type where the newest line appears.
+    composerBar, errBox, typing, newBar,
     h('div', { class: 'chat-box' }, list, actions),
-    typing, errBox, composerBar, sheet);
+    pager, sheet);
   updateCounter();
-  // Open at the newest lines with the message box in view, like any chat.
-  requestAnimationFrame(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  // Newest lines and the message box are at the top.
+  window.scrollTo(0, 0);
   // On phones, wait for a tap: focusing would pop the keyboard up and tuck the bottom buttons away.
   if (!window.matchMedia('(pointer: coarse)').matches) input.focus({ preventScroll: true });
 }

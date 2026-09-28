@@ -567,3 +567,14 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .filter-hint { font-size: 0.85rem; margin: 0; }
 .chat-composer input.flagged { border-color: var(--red); box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 40%, transparent); }
 .chat-composer .filter-hint { grid-column: 1 / -1; padding: 0.35rem 0.6rem; }
+
+/* Chat rooms read newest first, with the message box above the conversation. */
+.chat-composer.at-top { position: static; margin: 0; padding: 0.55rem; border: 2px solid var(--red); border-radius: 12px; box-shadow: none; }
+[data-theme="dark"] .chat-composer.at-top { border: 1.5px solid var(--red); box-shadow: var(--glow-red); background: var(--surface); }
+
+/* ---------- Online Users ---------- */
+.card-title-link { display: flex; justify-content: space-between; align-items: baseline; text-decoration: none; color: var(--fg); margin-bottom: 0.5rem; }
+.card-title-link h2 { margin: 0; font-size: 1.05rem; }
+[data-theme="dark"] .card-title-link h2 { font-family: "Silkscreen", ui-monospace, monospace; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.06em; color: var(--pink); }
+.online-person .person-text { display: grid; justify-items: start; gap: 0.1rem; }
+.nameplate.small-plate { font-size: 0.62rem; padding: 0.05rem 0.5rem; letter-spacing: 0.08em; }

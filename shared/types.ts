@@ -59,6 +59,24 @@ export interface RoomPersonDTO {
   self: boolean;
 }
 
+/** A member in the Online Users list (adults only). Details are null when their profile is friends-only. */
+export interface OnlineUserDTO {
+  id: string;
+  handle: string;
+  avatar: string | null;
+  rpStyle: string | null;
+  /** "33, M, Hyrule": character age, gender and city. */
+  characterLine: string | null;
+  isFriend: boolean;
+}
+
+export interface OnlineUsersDTO {
+  users: OnlineUserDTO[];
+  total: number;
+  page: number;
+  pages: number;
+}
+
 export interface RoomPeopleDTO {
   people: RoomPersonDTO[];
   /** People here you've ignored or blocked (not listed). */

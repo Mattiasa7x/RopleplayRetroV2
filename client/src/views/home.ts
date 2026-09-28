@@ -4,6 +4,7 @@ import type { ActivityDTO, HomeDTO, StatusDTO } from '../../../shared/types.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
 import { lightbox } from './photos.js';
+import { onlineCard } from './online.js';
 import { roomTile } from './rooms.js';
 
 export async function reportContent(kind: 'status' | 'comment' | 'photo' | 'profile' | 'dm' | 'photo_comment', id?: string, handle?: string) {
@@ -127,5 +128,6 @@ export async function viewHome() {
     data.pendingRequests ? h('p', { class: 'notice' }, h('a', { href: '/friends' }, `You have ${data.pendingRequests} friend request${data.pendingRequests === 1 ? '' : 's'}`)) : null,
     card('Your status', latest, post),
     card('Friend activity', feed, moreBtn),
+    await onlineCard(),
     card('Busiest rooms', top, h('a', { href: '/rooms', class: 'button quiet wide' }, 'All rooms')));
 }
