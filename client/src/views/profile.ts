@@ -1,4 +1,4 @@
-import { CHARACTER_AGE, CHARACTER_CITY, PROFILE, Trust } from '../../../shared/config.js';
+import { CHARACTER_SHEET, PROFILE, Trust } from '../../../shared/config.js';
 import type { CommentDTO, FriendsDTO, PhotoDTO, ProfileDTO, PublicUser, StatusDTO } from '../../../shared/types.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
@@ -38,47 +38,34 @@ export async function viewProfile(handle: string) {
       }, `${p.handle} is blocked.`));
   const reportBtn = self ? null : btn('Report', 'quiet', () => void reportContent('profile', undefined, p.handle));
 
-  const head = h('section', { class: 'card profile-head' },
-    avatar(p.avatar, p.handle, 'lg'),
-    h('div', {},
+  // ----- top: banner, picture, name, gold nameplate, "33, M, Hyrule" -----
+  const charLine = [p.characterAge, p.characterGender, p.characterCity].filter((x) => x != null && x !== '').join(', ');
+  const head = h('section', { class: 'profile-top' },
+    h('div', { class: `profile-banner${p.banner ? '' : ' art-member'}` }, p.banner ? h('img', { src: p.banner, alt: '' }) : null),
+    h('div', { class: 'profile-id' },
+      avatar(p.avatar, p.handle, 'lg'),
       h('h1', { class: 'handle' }, p.handle),
-      p.characterAge != null || p.characterCity != null
-        ? h('p', { class: 'char-age' }, [p.characterAge != null ? `Character age: ${p.characterAge}` : null, p.characterCity != null ? `Lives in ${p.characterCity}` : null].filter(Boolean).join(' · '))
-        : null,
-      h('p', { class: 'muted small' }, `${p.trustLabel} · joined ${new Date(p.joined).toLocaleDateString()} · ${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`),
-      h('div', { class: 'row wrap' }, friendBtn,
-        p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, '✉ Message') : null,
-        self ? h('a', { href: '/settings', class: 'button quiet' }, 'Settings') : null, blockBtn, reportBtn)));
+      p.rpStyle ? h('span', { class: `nameplate${p.rpStyle === 'NSFW' ? ' adult' : ''}` }, p.rpStyle) : null,
+      charLine ? h('p', { class: 'char-line' }, charLine) : null,
+      h('p', { class: 'muted small' }, `${p.trustLabel} · ${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`),
+      self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
+        p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,
+        blockBtn, reportBtn)),
+    self ? h('a', { href: '/edit-profile', class: 'button primary edit-profile' }, 'Edit profile') : null);
 
   if (!p.visible) {
-    page(p.handle, head, card(null, h('p', { class: 'muted' },
+    page('Profile', head, card(null, h('p', { class: 'muted' },
       p.blockedByMe ? 'You have blocked this member.' : `${p.handle} shares their profile with friends only.`)));
     return;
   }
 
-  // ----- bio -----
-  let bioCard: HTMLElement;
-  if (self) {
-    const ta = h('textarea', { rows: 4, maxlength: PROFILE.bioMax, placeholder: 'Tell people about you and your characters…', 'aria-label': 'Bio' });
-    ta.value = p.bio ?? '';
-    const count = h('span', { class: 'counter' }, `${PROFILE.bioMax - ta.value.length} left`);
-    ta.addEventListener('input', () => { count.textContent = `${PROFILE.bioMax - ta.value.length} left`; });
-    const ageInput = h('input', { type: 'text', maxlength: CHARACTER_AGE.maxLength, placeholder: 'e.g. 27, Newborn, 3,000 years, Ageless', 'aria-label': 'Character age', value: p.characterAge ?? '' });
-    const cityInput = h('input', { type: 'text', maxlength: CHARACTER_CITY.maxLength, placeholder: 'e.g. New Orleans, Gotham, The Moon', 'aria-label': 'Character city', value: p.characterCity ?? '' });
-    bioCard = card('About me', ta,
-      h('label', { class: 'field' }, h('span', {}, 'Character age (optional)'), ageInput,
-        h('span', { class: 'muted small' }, 'Shown on your profile and in room people lists. It has nothing to do with your real age, which is never shown.')),
-      h('label', { class: 'field' }, h('span', {}, 'Character city (optional)'), cityInput,
-        h('span', { class: 'muted small' }, 'Where your character lives. Shown in room people lists.')),
-      h('div', { class: 'row' }, count,
-        btn('Save', 'primary', call(async () => {
-          const raw = ageInput.value.trim();
-          const city = cityInput.value.trim();
-          await api('/api/me/profile', { method: 'PATCH', body: { bio: ta.value, characterAge: raw === '' ? null : raw, characterCity: city === '' ? null : city } });
-        }, 'Profile saved.'))));
-  } else {
-    bioCard = card('About', h('p', { class: 'bio' }, p.bio ?? 'No bio yet.'));
-  }
+  // ----- about and character sheet (edited on the Edit profile page) -----
+  const bioCard = p.bio ? card('About', h('p', { class: 'bio' }, p.bio)) : self ? card('About', h('p', { class: 'muted' }, 'Tell your story on the Edit profile page.')) : null;
+  const sheetRows = CHARACTER_SHEET.filter((f) => p.characterSheet[f.key]);
+  const sheetCard = sheetRows.length
+    ? card('Character sheet', h('dl', { class: 'sheet-view' }, ...sheetRows.flatMap((f) => [
+        h('dt', {}, f.label), h('dd', { class: 'long' in f ? 'long' : '' }, p.characterSheet[f.key]!)])))
+    : null;
 
   // ----- photos: public photos and the private album, as two tabs -----
   const photoGrid = (photos: PhotoDTO[], inAlbum: boolean) => h('ul', { class: 'photo-grid' }, ...photos.map((ph, i) => h('li', {},
@@ -182,6 +169,6 @@ export async function viewProfile(handle: string) {
       })
     : h('p', { class: 'muted small' }, self ? '' : `${p.handle} isn't taking comments from you.`);
 
-  page(p.handle, head, bioCard, photosCard, statusCard, card('Comments', commentBox, commentList));
+  page('Profile', head, statusCard, bioCard, sheetCard, photosCard, card('Comments', commentBox, commentList));
   if (location.pathname !== `/profile/${p.handle}`) history.replaceState({}, '', `/profile/${p.handle}`);
 }

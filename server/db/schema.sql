@@ -480,3 +480,62 @@ CREATE INDEX IF NOT EXISTS statuses_user_created ON statuses (user_id, created_a
 
 -- One status per member (a new one replaces the old): drop any older ones left from before.
 DELETE FROM statuses s WHERE EXISTS (SELECT 1 FROM statuses n WHERE n.user_id = s.user_id AND n.id > s.id);
+
+-- ---------------------------------------------------------------------------
+-- Profile redesign: banner picture, character birthday/gender/style/sheet, 1000-character About,
+-- and a phone number that, like the birthdate, can't be changed once set.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_bio_check;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_bio_len CHECK (bio IS NULL OR char_length(bio) <= 1000);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS character_birthday DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS character_gender TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS rp_style TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS character_sheet JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_character_gender_len CHECK (character_gender IS NULL OR char_length(character_gender) BETWEEN 1 AND 16);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_rp_style_valid CHECK (rp_style IS NULL OR rp_style IN ('Literary', 'Casual', 'Worldbuilding', 'Slice of Life', 'NSFW', 'Chatter'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_character_sheet_size CHECK (octet_length(character_sheet::text) <= 20000);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_phone_format CHECK (phone IS NULL OR phone ~ '^\+?[0-9]{7,15}$');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Phone number, like the birthdate, is set once and then locked.
+CREATE OR REPLACE FUNCTION users_phone_locked() RETURNS trigger AS $$
+BEGIN
+  IF OLD.phone IS NOT NULL AND NEW.phone IS DISTINCT FROM OLD.phone THEN
+    RAISE EXCEPTION 'phone number cannot be changed' USING ERRCODE = '23514', CONSTRAINT = 'users_phone_locked';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS users_phone_locked ON users;
+CREATE TRIGGER users_phone_locked BEFORE UPDATE OF phone ON users
+  FOR EACH ROW EXECUTE FUNCTION users_phone_locked();
+
+-- NSFW as a roleplay style is for adults only.
+CREATE OR REPLACE FUNCTION users_rp_style_adult() RETURNS trigger AS $$
+BEGIN
+  IF NEW.rp_style = 'NSFW' AND NOT is_adult_user(NEW.id) THEN
+    RAISE EXCEPTION 'NSFW roleplay style is for members 18 and over' USING ERRCODE = '23514', CONSTRAINT = 'rp_style_adults_only';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS users_rp_style_adult ON users;
+CREATE TRIGGER users_rp_style_adult BEFORE UPDATE OF rp_style ON users
+  FOR EACH ROW EXECUTE FUNCTION users_rp_style_adult();
+
+-- One banner picture per member (wide, shown across the top of their profile).
+CREATE TABLE IF NOT EXISTS profile_banners (
+  user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  data       BYTEA NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

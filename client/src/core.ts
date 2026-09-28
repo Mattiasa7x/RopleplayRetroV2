@@ -100,7 +100,7 @@ export function page(title: string, ...content: (Node | string | null | undefine
   // Main buttons sit along the bottom of the screen, within reach of a thumb.
   const nav = state.me
     ? h('nav', { class: 'site-nav', 'aria-label': 'Main' }, ...NAV.map((n) => {
-        const active = n.label === 'Profile' ? here.toLowerCase() === n.path().toLowerCase() : n.match.test(here);
+        const active = n.label === 'Profile' ? here.toLowerCase() === n.path().toLowerCase() || here === '/edit-profile' : n.match.test(here);
         return h('a', { href: n.path(), class: active ? 'active' : '', 'aria-current': active ? 'page' : undefined },
           h('span', { class: 'nav-icon', 'aria-hidden': 'true' }, n.icon),
           h('span', { class: 'nav-label' }, n.label),

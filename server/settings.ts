@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { COMMENT_PERMISSION, FRIEND_REQUESTS, PASSWORD_MIN, SITE_NAME, TEXT_SIZES, THEMES, VISIBILITY, type Prefs } from '../shared/config.js';
-import type { SessionInfo } from '../shared/types.js';
+import { COMMENT_PERMISSION, FRIEND_REQUESTS, PASSWORD_MIN, PHONE_PATTERN, SITE_NAME, TEXT_SIZES, THEMES, VISIBILITY, type Prefs } from '../shared/config.js';
+import type { AccountDTO, SessionInfo } from '../shared/types.js';
 import { lockedChanges } from './account.js';
 import { checkSecondFactor, hashPassword, issueCode, meDTO, sha256, verifyPassword } from './auth.js';
 import { HttpError, parse, requireUser } from './http.js';
@@ -30,11 +30,12 @@ const PrefsBody = z
 const PasswordBody = z.object({ current: z.string().min(1).max(200), next: z.string().min(PASSWORD_MIN, `at least ${PASSWORD_MIN} characters`).max(200) });
 const EmailBody = z.object({ password: z.string().min(1).max(200), email: z.string().trim().toLowerCase().email().max(254) });
 const PasswordOnly = z.object({ password: z.string().min(1).max(200) });
+const PhoneBody = z.object({ password: z.string().min(1).max(200), phone: z.string().trim().min(7).max(24) });
 const CodeBody = z.object({ code: z.string().trim().min(6).max(12) });
 const DisableBody = z.object({ password: z.string().min(1).max(200), code: z.string().trim().min(6).max(12) });
 const DeleteBody = z.object({ password: z.string().min(1).max(200), confirmHandle: z.string() });
 
-async function assertPassword(userId: string, password: string) {
+export async function assertPassword(userId: string, password: string) {
   if (!(await slidingWindow(redis, `pwcheck:${userId}`, 10, 15 * 60_000))) {
     throw new HttpError(429, 'pw_rate', 'Too many attempts. Wait 15 minutes.');
   }
@@ -56,6 +57,35 @@ export function registerSettingsRoutes(app: FastifyInstance, io: IO) {
     return meDTO({ ...u, prefs: { ...u.prefs, ...patch } });
   });
 
+  // ----- private account details -----
+  // Only ever the signed-in member's own details: no name or id in the address, so nothing can be
+  // swapped to read someone else's, and nothing is cached by the browser or anything in between.
+  app.get('/api/me/account', async (req, reply): Promise<AccountDTO> => {
+    const u = requireUser(req);
+    reply.header('Cache-Control', 'no-store, private');
+    const { rows } = await db.query<{ handle: string; email: string; email_verified: boolean; phone: string | null; birthdate: string | null }>(
+      `SELECT handle, email, email_verified_at IS NOT NULL AS email_verified, phone, to_char(birthdate, 'YYYY-MM-DD') AS birthdate
+         FROM users WHERE id = $1`,
+      [u.id],
+    );
+    const r = rows[0];
+    return { handle: r.handle, email: r.email, emailVerified: r.email_verified, phone: r.phone, birthdate: r.birthdate };
+  });
+
+  // Phone number: set once (password required), then locked like the birthdate.
+  app.post('/api/me/phone', async (req, reply) => {
+    const u = requireUser(req);
+    reply.header('Cache-Control', 'no-store, private');
+    const b = parse(PhoneBody, req.body);
+    const phone = b.phone.replace(/[\s().-]/g, '');
+    if (!PHONE_PATTERN.test(phone)) throw new HttpError(400, 'bad_phone', 'Enter the number with digits only, for example +13035551234.');
+    await assertPassword(u.id, b.password);
+    const { rowCount } = await db.query('UPDATE users SET phone = $2 WHERE id = $1 AND phone IS NULL', [u.id, phone]);
+    if (!rowCount) throw new HttpError(403, 'locked', 'Your phone number is already set and locked.');
+    await audit(db, u.id, 'phone_set', 'user', u.id);
+    return { ok: true };
+  });
+
   // ----- password -----
   app.post('/api/me/password', async (req) => {
     const u = requireUser(req);
@@ -74,6 +104,8 @@ export function registerSettingsRoutes(app: FastifyInstance, io: IO) {
   // ----- email -----
   app.post('/api/me/email', async (req) => {
     const u = requireUser(req);
+    // Once confirmed, the email is part of the account's identity and is locked (a typo can still be fixed before then).
+    if (u.emailVerified) throw new HttpError(403, 'locked', 'Your email is confirmed and locked. It can no longer be changed.');
     const b = parse(EmailBody, req.body);
     await assertPassword(u.id, b.password);
     try {

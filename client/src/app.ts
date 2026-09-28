@@ -1,6 +1,7 @@
 import { connect, navigate, page, refreshMe, refreshUnread, setRouter, state } from './core.js';
 import { h } from './dom.js';
 import { viewLogin, viewSignup, viewVerify } from './views/auth.js';
+import { viewEditProfile } from './views/editprofile.js';
 import { viewFriends } from './views/friends.js';
 import { viewHome } from './views/home.js';
 import { viewInbox, viewThread } from './views/messages.js';
@@ -38,6 +39,7 @@ async function route() {
       case 'friends': return await viewFriends();
       case 'messages': return parts[1] ? await viewThread(decodeURIComponent(parts[1])) : await viewInbox();
       case 'profile': return await viewProfile(decodeURIComponent(parts[1] ?? state.me!.handle));
+      case 'edit-profile': return await viewEditProfile();
       case 'settings': return await viewSettings();
       default: return page('Not found', h('p', { class: 'notice' }, 'That page does not exist. '), h('a', { href: '/home' }, 'Go home'));
     }

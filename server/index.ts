@@ -57,7 +57,7 @@ await app.register(fastifyStatic, { root: resolve('client/public'), index: false
 
 // Every page is a real address (/home, /rooms, /room/tavern, /profile/John, /settings...).
 // Anything that isn't the API or a file gets the site's single HTML page, which draws that page.
-const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|friends|messages(\/[A-Za-z0-9_]{3,16})?|profile\/[A-Za-z0-9_]{3,16}|settings(\/[a-z-]+)?|login|signup|verify|mod)\/?$/;
+const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|edit-profile|friends|messages(\/[A-Za-z0-9_]{3,16})?|profile\/[A-Za-z0-9_]{3,16}|settings(\/[a-z-]+)?|login|signup|verify|mod)\/?$/;
 const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
   const path = req.url.split('?')[0];
   if (path === '/mod') return reply.sendFile('mod.html');

@@ -119,9 +119,52 @@ export const AGE = {
 export const CHARACTER_AGE = { maxLength: 24 } as const;
 /** Where the character lives, free text (a real city, "Gotham", "The Moon"). */
 export const CHARACTER_CITY = { maxLength: 40 } as const;
+/** Character gender as the member writes it: "M", "F", "NB", "Male"... */
+export const CHARACTER_GENDER = { maxLength: 16 } as const;
+
+/** Roleplay styles a member can show on the gold nameplate under their picture (one at a time). */
+export const RP_STYLES = ['Literary', 'Casual', 'Worldbuilding', 'Slice of Life', 'NSFW', 'Chatter'] as const;
+export type RpStyle = (typeof RP_STYLES)[number];
+/** Styles members under 18 can't choose. */
+export const ADULT_RP_STYLES: readonly RpStyle[] = ['NSFW'];
+
+/** The character sheet: a classic roleplay sheet, every field optional. */
+export const CHARACTER_SHEET = [
+  { key: 'fullName', label: 'Full name', max: 80 },
+  { key: 'aliases', label: 'Nicknames / aliases', max: 120 },
+  { key: 'species', label: 'Species / race', max: 60 },
+  { key: 'occupation', label: 'Occupation', max: 80 },
+  { key: 'affiliation', label: 'Allegiance / faction', max: 80 },
+  { key: 'height', label: 'Height', max: 30 },
+  { key: 'build', label: 'Build', max: 60 },
+  { key: 'hair', label: 'Hair', max: 60 },
+  { key: 'eyes', label: 'Eyes', max: 60 },
+  { key: 'marks', label: 'Distinguishing features', max: 300, long: true },
+  { key: 'personality', label: 'Personality', max: 1000, long: true },
+  { key: 'skills', label: 'Skills & abilities', max: 1000, long: true },
+  { key: 'weaknesses', label: 'Weaknesses & flaws', max: 600, long: true },
+  { key: 'likes', label: 'Likes', max: 300, long: true },
+  { key: 'dislikes', label: 'Dislikes', max: 300, long: true },
+  { key: 'relationships', label: 'Relationships', max: 1000, long: true },
+  { key: 'backstory', label: 'Backstory', max: 3000, long: true },
+] as const;
+export type CharacterSheet = Partial<Record<(typeof CHARACTER_SHEET)[number]['key'], string>>;
+
+/** Phone number on the account: digits with an optional leading +, set once. */
+export const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
+
+/** Whole years from a character's birthday (YYYY-MM-DD, any past date) to today. */
+export function characterAgeFrom(birthday: string, today = new Date()): number {
+  const [y, m, d] = birthday.split('-').map(Number);
+  let age = today.getUTCFullYear() - y;
+  const mm = today.getUTCMonth() + 1, dd = today.getUTCDate();
+  if (mm < m || (mm === m && dd < d)) age--;
+  return Math.max(0, age);
+}
 
 export const PROFILE = {
-  bioMax: 500,
+  /** "About" on the profile: a character's story. */
+  bioMax: 1000,
   /** Largest photo file accepted, in bytes (phone originals are usually 2-20 MB). There's no limit on how many photos. */
   photoMaxBytes: 30 * 1024 * 1024,
   /** Any resolution is accepted up to this many pixels (250 MP covers every phone camera). */

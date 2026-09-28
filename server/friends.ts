@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { HANDLE_PATTERN, Trust, type Prefs } from '../shared/config.js';
+import { characterAgeFrom, HANDLE_PATTERN, Trust, type Prefs } from '../shared/config.js';
 import type { FriendState, FriendsDTO, PublicUser } from '../shared/types.js';
 import { effectivePrefs, isMinor } from './account.js';
 import { HttpError, requireUser } from './http.js';
@@ -18,9 +18,21 @@ export interface UserRow {
   avatar_id: string | null;
   character_age: string | null;
   character_city: string | null;
+  /** YYYY-MM-DD */
+  character_birthday: string | null;
+  character_gender: string | null;
+  rp_style: string | null;
+  character_sheet: Record<string, string> | null;
+}
+
+/** The character's age to show: from their character birthday, else what they typed before birthdays existed. */
+export function characterAgeText(u: Pick<UserRow, 'character_birthday' | 'character_age'>): string | null {
+  if (u.character_birthday) return String(characterAgeFrom(u.character_birthday));
+  return u.character_age;
 }
 
 export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.prefs, u.birthdate, u.character_age, u.character_city,
+  to_char(u.character_birthday, 'YYYY-MM-DD') AS character_birthday, u.character_gender, u.rp_style, u.character_sheet,
   (SELECT p.id FROM profile_photos p WHERE p.user_id = u.id AND NOT p.is_private ORDER BY p.position, p.id LIMIT 1) AS avatar_id`;
 
 export function prefsOf(u: UserRow): Prefs {

@@ -142,9 +142,9 @@ export async function viewSettings() {
   page('Settings', jump,
     withId('account', card('Account',
       h('div', { class: 'setting' }, h('span', {}, h('span', { class: 'setting-label' }, 'Name'), h('span', { class: 'muted small block' }, 'Permanent and protected from lookalikes')), h('strong', {}, me.handle)),
-      h('div', { class: 'setting' }, h('span', {}, h('span', { class: 'setting-label' }, 'Email'), h('span', { class: 'muted small block' }, me.emailVerified ? 'Confirmed' : 'Not confirmed yet')), h('span', { class: 'truncate' }, me.email)),
+      h('div', { class: 'setting' }, h('span', {}, h('span', { class: 'setting-label' }, 'Email'), h('span', { class: 'muted small block' }, me.emailVerified ? 'Confirmed and locked' : 'Not confirmed yet')), h('span', { class: 'truncate' }, me.email)),
       !me.emailVerified ? h('a', { href: '/verify', class: 'button quiet wide' }, 'Confirm email') : null,
-      details('Change email', form([
+      me.emailVerified ? null : details('Fix email (until confirmed)', form([
         field('New email', 'email', 'email', { autocomplete: 'email' }),
         field('Password', 'password', 'password', { autocomplete: 'current-password' }),
       ], 'Change email', async (d) => {
@@ -153,6 +153,7 @@ export async function viewSettings() {
         state.flash = 'We sent a code to your new email.';
         navigate('/verify');
       })),
+      h('a', { href: '/edit-profile', class: 'button quiet wide' }, 'Phone, birthday and profile details'),
       h('button', { type: 'button', class: 'quiet wide', onclick: (async () => {
         await api('/api/logout', { body: {} });
         state.me = null;

@@ -1,3 +1,4 @@
+import type { CharacterSheet, RpStyle } from './config.js';
 import type { Prefs } from './config.js';
 
 /** Shapes shared by the HTTP API, the socket events and the browser client. */
@@ -138,13 +139,31 @@ export interface PhotoDTO {
   private: boolean;
 }
 
+/** The signed-in member's own private details. Never about anyone else. */
+export interface AccountDTO {
+  handle: string;
+  email: string;
+  emailVerified: boolean;
+  phone: string | null;
+  /** Real birthdate, YYYY-MM-DD. */
+  birthdate: string | null;
+}
+
 export interface ProfileDTO extends PublicUser {
   bio: string | null;
-  /** Roleplay character age as the member wrote it ("0", "3,000 years"). Not their real age. */
+  /** Character's age (from their character birthday). Never the member's real age. */
   characterAge: string | null;
+  characterGender: string | null;
   /** Roleplay character's city. */
   characterCity: string | null;
-  joined: string;
+  /** Gold nameplate: preferred roleplay style. */
+  rpStyle: RpStyle | null;
+  /** Filled-in character sheet fields. */
+  characterSheet: CharacterSheet;
+  /** Wide banner picture, or null. */
+  banner: string | null;
+  /** Only sent on your own profile: the editable values. */
+  own?: { characterBirthday: string | null; legacyAge: string | null };
   trustLabel: string;
   /** Public photos; the first is the profile picture. */
   photos: PhotoDTO[];

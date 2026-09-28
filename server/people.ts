@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Trust } from '../shared/config.js';
 import type { RoomPeopleDTO } from '../shared/types.js';
-import { prefsOf, USER_COLS, type UserRow } from './friends.js';
+import { characterAgeText, prefsOf, USER_COLS, type UserRow } from './friends.js';
 import { requireUser } from './http.js';
 import { assertRoomAccess, roomBySlug } from './rooms.js';
 import { maskMature } from './safety/mature.js';
@@ -40,7 +40,7 @@ export function registerPeopleRoutes(app: FastifyInstance) {
         handle: r.handle,
         avatar: visible && r.avatar_id ? `/media/${r.avatar_id}/thumb` : null,
         characterCity: visible ? show(r.character_city) : null,
-        characterAge: visible ? show(r.character_age) : null,
+        characterAge: visible ? show(characterAgeText(r)) : null,
         isFriend: r.is_friend,
         self,
       };
