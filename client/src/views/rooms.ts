@@ -49,11 +49,11 @@ export async function viewRooms() {
   const tabs: [string, string, HTMLElement, RoomSummary[]][] = [];
   if (favs.length) tabs.push(['favorites', '★ Favorites', tiles(favs), favs]);
   for (const c of cats) tabs.push([tabId(c), TAB_LABEL[c] ?? c, tiles(byCat.get(c)!), byCat.get(c)!]);
-  tabs.push(['member-rooms', 'Member Rooms', verified
+  tabs.push(['member-realms', 'Member Realms', verified
     ? h('div', { class: 'stack' },
-        member.length ? tiles(member) : h('p', { class: 'muted' }, 'No member rooms yet. Start one!'),
+        member.length ? tiles(member) : h('p', { class: 'muted' }, 'No member realms yet. Start one!'),
         h('a', { href: '/new-room', class: 'button primary wide' }, '+ Create a room'))
-    : h('p', { class: 'muted' }, 'Member rooms are made and run by verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.'), member]);
+    : h('p', { class: 'muted' }, 'Member realms are made and run by verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.'), member]);
 
   const wanted = new URLSearchParams(location.search).get('tab');
   // Every theme is visible at once as a list of buttons: nothing hidden off to the side.
