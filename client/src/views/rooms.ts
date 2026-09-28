@@ -30,6 +30,11 @@ export function roomTile(r: RoomSummary, opts: { big?: boolean } = {}): HTMLElem
 
 const tiles = (list: RoomSummary[]) => h('ul', { class: 'room-tiles' }, ...list.map((r) => roomTile(r)));
 
+/** Theme tabs, in the order the site rooms were planned. Member rooms get their own tab. */
+const THEME_ORDER = ['Start here', 'Out of character', 'Fantasy', 'Sci-fi', 'Genre', 'Hangouts'];
+const TAB_LABEL: Record<string, string> = { 'Start here': 'Start Here', 'Out of character': 'Out of Character', 'Sci-fi': 'Sci-Fi' };
+const tabId = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
 export async function viewRooms() {
   page('Rooms', h('p', { class: 'muted' }, 'Loading rooms…'));
   const rooms = await api<RoomSummary[]>('/api/rooms');
@@ -37,22 +42,46 @@ export async function viewRooms() {
   const verified = me.trust >= Trust.Verified;
   const byCat = new Map<string, RoomSummary[]>();
   for (const r of rooms.filter((x) => x.kind === 'site')) byCat.set(r.category, [...(byCat.get(r.category) ?? []), r]);
-  const member = rooms.filter((r) => r.kind === 'member');
+  const cats = [...byCat.keys()].sort((x, y) => (THEME_ORDER.indexOf(x) + 1 || 99) - (THEME_ORDER.indexOf(y) + 1 || 99));
+  const member = rooms.filter((r) => r.kind === 'member').sort((x, y) => x.name.localeCompare(y.name, undefined, { sensitivity: 'base' }));
   const favs = rooms.filter((r) => r.favorite);
+
+  const tabs: [string, string, HTMLElement][] = [];
+  if (favs.length) tabs.push(['favorites', '★ Favorites', tiles(favs)]);
+  for (const c of cats) tabs.push([tabId(c), TAB_LABEL[c] ?? c, tiles(byCat.get(c)!)]);
+  tabs.push(['member-rooms', 'Member Rooms', verified
+    ? h('div', { class: 'stack' },
+        member.length ? tiles(member) : h('p', { class: 'muted' }, 'No member rooms yet. Start one!'),
+        h('a', { href: '/new-room', class: 'button primary wide' }, '+ Create a room'))
+    : h('p', { class: 'muted' }, 'Member rooms are made and run by verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.')]);
+
+  const wanted = new URLSearchParams(location.search).get('tab');
+  const buttons = tabs.map(([id, label]) => {
+    const b = h('button', { type: 'button', role: 'tab', id: `rt-${id}`, class: 'tab', 'aria-controls': `rp-${id}` }, label);
+    b.addEventListener('click', () => show(id, true));
+    return b;
+  });
+  const panes = tabs.map(([id, , el]) => h('div', { role: 'tabpanel', id: `rp-${id}`, 'aria-labelledby': `rt-${id}` }, el));
+  function show(id: string, scroll = false) {
+    tabs.forEach(([tid], i) => {
+      const on = tid === id;
+      buttons[i].classList.toggle('active', on);
+      buttons[i].setAttribute('aria-selected', String(on));
+      panes[i].hidden = !on;
+      if (on && scroll) buttons[i].scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    });
+    history.replaceState({}, '', `/rooms?tab=${id}`);
+  }
+  const bar = h('div', { class: 'tabs-row room-tabs', role: 'tablist', 'aria-label': 'Room themes' }, ...buttons);
 
   page('Rooms',
     !verified ? h('p', { class: 'notice' }, 'Until you confirm your email you can read every site room and chat in Newcomers and Help Desk. ', h('a', { href: '/verify' }, 'Enter code')) : null,
-    card('Your favorites',
-      favs.length ? tiles(favs) : h('p', { class: 'muted small' }, 'Tap ☆ Favorite inside any room to pin it here.')),
-    card('Site rooms',
-      h('p', { class: 'muted small' }, 'Official rooms, strictly auto-moderated: no links, and repeated rule-breaking earns an automatic mute.'),
-      ...[...byCat].map(([cat, list]) => h('div', { class: 'room-group' }, h('h3', {}, cat), tiles(list)))),
-    card('Member rooms',
-      verified
-        ? h('div', {},
-            member.length ? tiles(member) : h('p', { class: 'muted' }, 'No member rooms yet. Start one!'),
-            h('a', { href: '/new-room', class: 'button primary wide' }, '+ Create a room'))
-        : h('p', { class: 'muted' }, 'Member rooms are made and run by verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.')));
+    bar,
+    ...panes,
+    h('p', { class: 'muted small center' }, 'Site rooms are strictly auto-moderated: no links, and repeated rule-breaking earns an automatic mute.'));
+  const start = tabs.some(([id]) => id === wanted) ? wanted! : tabs[0][0];
+  show(start);
+  buttons[tabs.findIndex(([id]) => id === start)].scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
 /** Pick a picture for a member room from the shared pool. Value is the chosen id, or '' for none. */

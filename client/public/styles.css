@@ -528,3 +528,20 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .theme-tile[aria-pressed="true"] { border: 4px solid var(--red); }
 .theme-tile:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
 [data-theme="dark"] .theme-tile[aria-pressed="true"] { border-color: var(--pink); box-shadow: 0 0 12px rgba(255, 79, 163, 0.6); }
+
+/* ---------- rooms: slim banner tiles and theme tabs ---------- */
+.room-tiles { grid-template-columns: 1fr; gap: 0.5rem; }
+@media (min-width: 34rem) { .room-tiles { grid-template-columns: 1fr; } }
+.room-tile { aspect-ratio: auto; height: 5.2rem; border-radius: 12px; }
+.room-tile::after { background: linear-gradient(90deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.35) 55%, rgba(0, 0, 0, 0.15) 100%); }
+.tile-top { top: 50%; transform: translateY(-50%); left: auto; right: 0.6rem; }
+.tile-text { left: 0.8rem; right: 5.5rem; bottom: 50%; transform: translateY(50%); gap: 0.1rem; }
+.tile-name { font-size: 1.1rem; }
+.tile-sub { font-size: 0.78rem; }
+.user-count { font-size: 0.85rem; padding: 0.15rem 0.6rem; }
+[data-theme="dark"] .tile-name { font-size: 0.95rem; }
+
+.room-tabs { position: sticky; top: 3.6rem; z-index: 3; background: var(--bg); margin: -0.2rem -0.8rem 0; padding: 0.4rem 0.8rem; scrollbar-width: none; }
+.room-tabs::-webkit-scrollbar { display: none; }
+.room-tabs .tab { font-size: 0.85rem; }
+[data-theme="dark"] .room-tile, [data-theme="dark"] .room-tile:hover { color: #ffffff; }
