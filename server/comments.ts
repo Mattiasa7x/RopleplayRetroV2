@@ -8,6 +8,7 @@ import { canViewPhoto, photoDTO, photoRow } from './photos.js';
 import { profileAccess } from './profiles.js';
 import { rooms, type IO } from './realtime.js';
 import { maskMature } from './safety/mature.js';
+import { pushTo } from './push.js';
 import { checkSocialText } from './safety/social-text.js';
 import { audit, db, tx } from './store.js';
 
@@ -96,7 +97,10 @@ export function registerCommentRoutes(app: FastifyInstance, io: IO) {
     const a = await profileAccess(u, req.params.handle);
     if (!a.canComment) throw new HttpError(403, 'no_comment', `${a.target.handle} isn't taking comments from you.`);
     const c = await addComment({ table: 'profile_comments', parentCol: 'profile_user_id', parentId: a.target.id }, u, parse(TextBody, req.body).body);
-    if (!c.shadow && a.target.id !== u.id) io.to(rooms.user(a.target.id)).emit('social', { kind: 'comment', from: u.handle });
+    if (!c.shadow && a.target.id !== u.id) {
+      io.to(rooms.user(a.target.id)).emit('social', { kind: 'comment', from: u.handle });
+      pushTo(a.target.id, 'comment', { title: `${u.handle} commented on your profile`, url: `/profile/${a.target.handle}`, tag: 'profile-comment' });
+    }
     return reply.status(201).send({ id: c.id });
   });
 
@@ -129,7 +133,10 @@ export function registerCommentRoutes(app: FastifyInstance, io: IO) {
     const f = await photoFor(u, req.params.id);
     if (!f.canComment) throw new HttpError(403, 'no_comment', `${f.owner.handle} isn't taking comments from you.`);
     const c = await addComment({ table: 'photo_comments', parentCol: 'photo_id', parentId: f.photo.id }, u, parse(TextBody, req.body).body);
-    if (!c.shadow && f.owner.id !== u.id) io.to(rooms.user(f.owner.id)).emit('social', { kind: 'comment', from: u.handle });
+    if (!c.shadow && f.owner.id !== u.id) {
+      io.to(rooms.user(f.owner.id)).emit('social', { kind: 'comment', from: u.handle });
+      pushTo(f.owner.id, 'comment', { title: `${u.handle} commented on your photo`, url: `/photo/${f.photo.id}`, tag: `photo-${f.photo.id}` });
+    }
     return reply.status(201).send({ id: c.id });
   });
 

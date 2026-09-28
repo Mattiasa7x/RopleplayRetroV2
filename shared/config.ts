@@ -213,6 +213,8 @@ export interface Prefs {
   showOnline: boolean;
   mentionAlerts: boolean;
   friendAlerts: boolean;
+  /** Browser push notifications (phone/computer notifications when the site isn't open). */
+  pushAlerts: boolean;
   enterToSend: boolean;
   showTimestamps: boolean;
 }
@@ -227,6 +229,7 @@ export const DEFAULT_PREFS: Prefs = {
   showOnline: true,
   mentionAlerts: true,
   friendAlerts: true,
+  pushAlerts: false,
   enterToSend: true,
   showTimestamps: true,
 };

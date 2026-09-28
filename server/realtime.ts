@@ -7,6 +7,7 @@ import { HttpError } from './http.js';
 import { assertRoomAccess, roomBySlug } from './rooms.js';
 import { slidingWindow } from './safety/limits.js';
 import { maskMature } from './safety/mature.js';
+import { pushTo } from './push.js';
 import { recordStrike } from './safety/strikes.js';
 import { db, redis } from './store.js';
 
@@ -133,6 +134,7 @@ export function setupRealtime(io: IO) {
               if (skipSet.has(id)) continue;
               await redis.hincrby(`mentions:${id}`, String(m.roomId), 1);
               io.to(rooms.user(id)).emit('mention', { roomId: m.roomId, roomSlug: String(slug), from: handle, messageId: m.id });
+              pushTo(id, 'mention', { title: `${handle} mentioned you`, body: 'Tap to open the room.', url: `/room/${String(slug)}`, tag: `mention-${m.roomId}` });
             }
           }
         }

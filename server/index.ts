@@ -19,6 +19,7 @@ import { migrate } from './migrate.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerRoomRoutes } from './rooms.js';
 import { registerOnlineRoutes, registerPeopleRoutes } from './people.js';
+import { registerPushRoutes, setupPush } from './push.js';
 import { registerCommentRoutes } from './comments.js';
 import { downloadMissingRoomImages, registerRoomImageRoutes, syncRoomImages } from './room-images.js';
 import { setupRealtime, type IO } from './realtime.js';
@@ -84,6 +85,7 @@ registerRoomRoutes(app, io);
 registerRoomImageRoutes(app);
 registerPeopleRoutes(app);
 registerOnlineRoutes(app);
+registerPushRoutes(app);
 registerCommentRoutes(app, io);
 registerSocialRoutes(app, io);
 registerModerationRoutes(app, io);
@@ -118,6 +120,7 @@ process.on('SIGTERM', shutdown);
 
 await migrate((m) => app.log.info(m));
 await syncRoomImages();
+await setupPush((m) => app.log.info(m)).catch((e) => app.log.error(e, 'push notifications unavailable'));
 
 // One server: nobody is connected yet, so start the online and in-room counts from zero.
 // (Open pages reconnect within seconds and rejoin their room.)

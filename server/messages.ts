@@ -7,6 +7,7 @@ import { HttpError, parse, requireUser, type SessionUser } from './http.js';
 import { ADULTS_ONLY, bothAdults, canViewPhoto, photoDTO, photoRow } from './photos.js';
 import { rooms, type IO } from './realtime.js';
 import { maskMature } from './safety/mature.js';
+import { pushTo } from './push.js';
 import { checkSocialText } from './safety/social-text.js';
 import { db } from './store.js';
 
@@ -179,7 +180,10 @@ export function registerMessageRoutes(app: FastifyInstance, io: IO) {
     if (photo?.is_private && !shadow) {
       await db.query('INSERT INTO photo_shares (photo_id, recipient_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [photo.id, other.id]);
     }
-    if (!shadow) io.to(rooms.user(other.id)).emit('dm', { from: me.handle, id: rows[0].id });
+    if (!shadow) {
+      io.to(rooms.user(other.id)).emit('dm', { from: me.handle, id: rows[0].id });
+      pushTo(other.id, 'dm', { title: `${me.handle} sent you a message`, body: 'Tap to read it.', url: `/messages/${me.handle}`, tag: `dm-${me.handle}` });
+    }
     return reply.status(201).send({ id: rows[0].id });
   });
 

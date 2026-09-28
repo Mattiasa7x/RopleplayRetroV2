@@ -573,3 +573,20 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS rooms_member_name_locked ON rooms;
 CREATE TRIGGER rooms_member_name_locked BEFORE UPDATE OF name ON rooms
   FOR EACH ROW EXECUTE FUNCTION rooms_member_name_locked();
+
+-- Browser push notifications: one row per device that turned them on.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id         BIGSERIAL PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint   TEXT NOT NULL UNIQUE CHECK (char_length(endpoint) <= 1000),
+  p256dh     TEXT NOT NULL CHECK (char_length(p256dh) <= 200),
+  auth       TEXT NOT NULL CHECK (char_length(auth) <= 100),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_user ON push_subscriptions (user_id);
+
+-- Server-generated keys (e.g. the push signing key pair), created once on first start.
+CREATE TABLE IF NOT EXISTS app_secrets (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

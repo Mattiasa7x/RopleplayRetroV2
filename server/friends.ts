@@ -4,6 +4,7 @@ import type { FriendState, FriendsDTO, PublicUser } from '../shared/types.js';
 import { effectivePrefs, isMinor } from './account.js';
 import { HttpError, requireUser } from './http.js';
 import { isOnline, rooms, type IO } from './realtime.js';
+import { pushTo } from './push.js';
 import { slidingWindow } from './safety/limits.js';
 import { audit, db, redis, type Tx } from './store.js';
 
@@ -137,6 +138,7 @@ export function registerFriendRoutes(app: FastifyInstance, io: IO) {
         [u.id, t.id],
       );
       io.to(rooms.user(t.id)).emit('social', { kind: 'friend_accept', from: u.handle });
+      pushTo(t.id, 'friend', { title: `${u.handle} accepted your friend request`, url: `/profile/${u.handle}`, tag: `friend-${u.handle}` });
       return { ok: true, state: 'friends' };
     }
     if (prefsOf(t).whoCanFriend === 'nobody') throw new HttpError(403, 'closed', `${t.handle} isn't accepting friend requests.`);
@@ -149,6 +151,7 @@ export function registerFriendRoutes(app: FastifyInstance, io: IO) {
       [u.id, t.id],
     );
     io.to(rooms.user(t.id)).emit('social', { kind: 'friend_request', from: u.handle });
+    pushTo(t.id, 'friend', { title: `${u.handle} sent you a friend request`, url: '/friends', tag: `friend-${u.handle}` });
     return { ok: true, state: 'request_sent' };
   });
 

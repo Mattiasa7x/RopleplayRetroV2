@@ -24,7 +24,7 @@ export async function viewRoom(slug: string) {
   const input = h('input', { type: 'text', name: 'body', autocomplete: 'off', 'aria-label': 'Message', placeholder: 'Say something…', enterkeyhint: 'send' });
   const counter = h('span', { class: 'counter', 'aria-live': 'polite' });
   const sendBtn = h('button', { type: 'submit', class: 'primary' }, 'Send');
-  const composerBar = h('form', { class: 'chat-composer at-top' }, input, sendBtn, counter);
+  const composerBar = h('form', { class: 'chat-composer' }, input, sendBtn, counter);
   const actions = h('div', { class: 'actions', hidden: true });
   const presence = h('button', { type: 'button', class: 'people-btn', 'aria-haspopup': 'dialog' });
   let online = 0;
@@ -309,12 +309,11 @@ export async function viewRoom(slug: string) {
           presence),
         h('p', { class: 'muted small' }, room.kind === 'site' ? 'Strictly auto-moderated · no links' : room.description ?? '')),
       h('div', { class: 'row' }, star, room.canManage && room.kind === 'member' ? h('a', { href: `/room/${slug}/manage`, class: 'button quiet' }, 'Manage') : null)),
-    // Message box above the conversation: you type where the newest line appears.
-    composerBar, errBox, typing, newBar,
+    newBar,
     h('div', { class: 'chat-box' }, list, actions),
-    pager, sheet);
+    pager, typing, errBox, composerBar, sheet);
   updateCounter();
-  // Newest lines and the message box are at the top.
+  // Newest lines are at the top; the message box stays pinned to the bottom of the screen.
   window.scrollTo(0, 0);
   // On phones, wait for a tap: focusing would pop the keyboard up and tuck the bottom buttons away.
   if (!window.matchMedia('(pointer: coarse)').matches) input.focus({ preventScroll: true });

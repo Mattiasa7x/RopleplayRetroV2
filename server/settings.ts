@@ -21,6 +21,7 @@ const PrefsBody = z
     showOnline: z.boolean(),
     mentionAlerts: z.boolean(),
     friendAlerts: z.boolean(),
+    pushAlerts: z.boolean(),
     enterToSend: z.boolean(),
     showTimestamps: z.boolean(),
   })
