@@ -404,3 +404,37 @@ CREATE TRIGGER photo_share_adults_only BEFORE INSERT OR UPDATE ON photo_shares
 DELETE FROM album_access WHERE NOT is_adult_user(owner_id) OR NOT is_adult_user(viewer_id);
 DELETE FROM photo_shares s USING profile_photos p
  WHERE s.photo_id = p.id AND (NOT is_adult_user(s.recipient_id) OR NOT is_adult_user(p.user_id));
+
+-- ================= Character age, and no private messages between adults and under-18s =================
+-- Character age is roleplay only (15-999) and shown on the profile. Safety rules use the real birthdate.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS character_age SMALLINT;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_character_age CHECK (character_age IS NULL OR character_age BETWEEN 15 AND 999);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- The real birthdate can never be changed once set (so an under-18 account can't make itself "adult").
+CREATE OR REPLACE FUNCTION users_birthdate_locked() RETURNS trigger AS $$
+BEGIN
+  IF OLD.birthdate IS NOT NULL AND NEW.birthdate IS DISTINCT FROM OLD.birthdate THEN
+    RAISE EXCEPTION 'birthdate cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS users_birthdate_locked ON users;
+CREATE TRIGGER users_birthdate_locked BEFORE UPDATE OF birthdate ON users
+  FOR EACH ROW EXECUTE FUNCTION users_birthdate_locked();
+
+-- Private messages only between two adults or two under-18 members, never across.
+CREATE OR REPLACE FUNCTION dm_same_age_group() RETURNS trigger AS $$
+BEGIN
+  IF is_adult_user(NEW.sender_id) <> is_adult_user(NEW.recipient_id) THEN
+    RAISE EXCEPTION 'private messages between adults and members under 18 are not allowed'
+      USING ERRCODE = '23514', CONSTRAINT = 'dm_same_age_group';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS dm_same_age_group ON direct_messages;
+CREATE TRIGGER dm_same_age_group BEFORE INSERT ON direct_messages
+  FOR EACH ROW EXECUTE FUNCTION dm_same_age_group();

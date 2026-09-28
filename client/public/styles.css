@@ -280,3 +280,5 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 
 .card > div > .row:has(select) { flex-wrap: wrap; }
 .card .row select { flex: 1 1 10rem; }
+
+.char-age { margin: 0.1rem 0 0; font-weight: 700; color: var(--red); font-size: 0.9rem; }

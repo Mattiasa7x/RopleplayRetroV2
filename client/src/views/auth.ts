@@ -57,8 +57,8 @@ export function viewSignup() {
           h('p', { class: 'hint' }, 'Your name is yours for good: it can’t be changed, and nobody can register a lookalike of it.'),
           field('Email', 'email', 'email', { autocomplete: 'email' }),
           field(`Password (${PASSWORD_MIN}+ characters)`, 'password', 'password', { minlength: PASSWORD_MIN, autocomplete: 'new-password' }),
-          field('Birthdate', 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
-          h('p', { class: 'hint' }, `You must be ${AGE.minimum} or older. Your birthdate is never shown to anyone. Members under 18 have the chat filter and some privacy settings locked on.`),
+          field('Your real birthdate', 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
+          h('p', { class: 'hint' }, `You must be ${AGE.minimum} or older. Your birthdate is private, never shown, and can't be changed later: it keeps younger members safe. Your character's age is separate: you can set any age from 15 to 999 on your profile.`),
         ],
         'Create account',
         async (d) => {

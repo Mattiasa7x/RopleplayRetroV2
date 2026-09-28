@@ -1,4 +1,4 @@
-import { PROFILE, Trust } from '../../../shared/config.js';
+import { CHARACTER_AGE, PROFILE, Trust } from '../../../shared/config.js';
 import type { CommentDTO, FriendsDTO, PhotoDTO, ProfileDTO, PublicUser, StatusDTO } from '../../../shared/types.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
@@ -42,6 +42,7 @@ export async function viewProfile(handle: string) {
     avatar(p.avatar, p.handle, 'lg'),
     h('div', {},
       h('h1', { class: 'handle' }, p.handle),
+      p.characterAge != null ? h('p', { class: 'char-age' }, `Character age ${p.characterAge}`) : null,
       h('p', { class: 'muted small' }, `${p.trustLabel} · joined ${new Date(p.joined).toLocaleDateString()} · ${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`),
       h('div', { class: 'row wrap' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, '✉ Message') : null,
@@ -60,8 +61,19 @@ export async function viewProfile(handle: string) {
     ta.value = p.bio ?? '';
     const count = h('span', { class: 'counter' }, `${PROFILE.bioMax - ta.value.length} left`);
     ta.addEventListener('input', () => { count.textContent = `${PROFILE.bioMax - ta.value.length} left`; });
-    bioCard = card('About me', ta, h('div', { class: 'row' }, count,
-      btn('Save bio', 'primary', call(() => api('/api/me/profile', { method: 'PATCH', body: { bio: ta.value } }), 'Bio saved.'))));
+    const ageInput = h('input', { type: 'number', inputmode: 'numeric', min: CHARACTER_AGE.min, max: CHARACTER_AGE.max, placeholder: 'e.g. 27 or 500', 'aria-label': 'Character age', value: p.characterAge ?? '' });
+    bioCard = card('About me', ta,
+      h('label', { class: 'field' }, h('span', {}, `Character age (${CHARACTER_AGE.min}–${CHARACTER_AGE.max}, optional)`), ageInput,
+        h('span', { class: 'muted small' }, 'Shown on your profile for roleplay. It has nothing to do with your real age.')),
+      h('div', { class: 'row' }, count,
+        btn('Save', 'primary', call(async () => {
+          const raw = ageInput.value.trim();
+          const n = raw === '' ? null : Number(raw);
+          if (n !== null && (!Number.isInteger(n) || n < CHARACTER_AGE.min || n > CHARACTER_AGE.max)) {
+            throw new Error(`Character age must be a whole number from ${CHARACTER_AGE.min} to ${CHARACTER_AGE.max}.`);
+          }
+          await api('/api/me/profile', { method: 'PATCH', body: { bio: ta.value, characterAge: n } });
+        }, 'Profile saved.'))));
   } else {
     bioCard = card('About', h('p', { class: 'bio' }, p.bio ?? 'No bio yet.'));
   }

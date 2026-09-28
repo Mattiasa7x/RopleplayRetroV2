@@ -34,6 +34,13 @@ async function cannotMessage(me: SessionUser, otherId: string): Promise<string |
   const rel = await relation(me.id, otherId);
   if (rel.theyBlocked || rel.iBlocked) return "You can't message this member.";
   if (rel.friendState !== 'friends') return 'You can message friends only. Send a friend request first.';
+  const { rows } = await db.query<{ same: boolean }>('SELECT is_adult_user($1) = is_adult_user($2) AS same', [me.id, otherId]);
+  if (!rows[0]?.same) {
+    // Adults see a vague message so the site never reveals a member's age.
+    return me.isMinor
+      ? 'Private messages with this member unlock on your 18th birthday. You can still chat in rooms and comment on profiles.'
+      : "You can't send private messages to this member. You can still chat in rooms and comment on profiles.";
+  }
   return null;
 }
 
@@ -157,10 +164,17 @@ export function registerMessageRoutes(app: FastifyInstance, io: IO) {
     }
     if (!body && !photo) throw new HttpError(400, 'empty', 'Type a message or pick a photo.');
 
-    const { rows } = await db.query<{ id: string }>(
-      'INSERT INTO direct_messages (sender_id, recipient_id, body, photo_id, is_shadow) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [me.id, other.id, body, photo?.id ?? null, shadow],
-    );
+    let rows: { id: string }[];
+    try {
+      ({ rows } = await db.query<{ id: string }>(
+        'INSERT INTO direct_messages (sender_id, recipient_id, body, photo_id, is_shadow) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [me.id, other.id, body, photo?.id ?? null, shadow],
+      ));
+    } catch (e) {
+      // The database's own age-group guard (backstop for the check above).
+      if ((e as { constraint?: string }).constraint === 'dm_same_age_group') throw new HttpError(403, 'cannot_message', "You can't send private messages to this member.");
+      throw e;
+    }
     // Sharing a private photo lets this one friend see this one photo.
     if (photo?.is_private && !shadow) {
       await db.query('INSERT INTO photo_shares (photo_id, recipient_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [photo.id, other.id]);

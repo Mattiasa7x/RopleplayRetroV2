@@ -105,11 +105,18 @@ export const MEMBER_ROOMS = {
 } as const;
 
 export const AGE = {
-  /** Youngest age allowed to sign up (COPPA-style floor). */
-  minimum: 13,
-  /** Under this age: chat filter locked on, profile and comments locked to friends only. */
+  /** Youngest real age allowed to sign up. */
+  minimum: 15,
+  /**
+   * Under this real age: chat filter locked on, profile and comments friends-only, no private
+   * album, and no private messages with adults. Based on the real birthdate given at signup,
+   * which is never shown and can't be changed.
+   */
   adult: 18,
 } as const;
+
+/** Character age: a public, roleplay-only number on the profile. It never affects safety rules. */
+export const CHARACTER_AGE = { min: 15, max: 999 } as const;
 
 export const PROFILE = {
   bioMax: 500,

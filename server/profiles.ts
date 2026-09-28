@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { PROFILE, TRUST_LABEL, Trust } from '../shared/config.js';
+import { CHARACTER_AGE, PROFILE, TRUST_LABEL, Trust } from '../shared/config.js';
 import type { CommentDTO, ProfileDTO, StatusDTO } from '../shared/types.js';
 import { publicUser, prefsOf, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
@@ -42,7 +42,10 @@ const view = (viewer: SessionUser, text: string) => (viewer.prefs.chatFilter ? m
 
 // ---------------- routes ----------------
 
-const BioBody = z.object({ bio: z.string().trim().max(PROFILE.bioMax) });
+const BioBody = z.object({
+  bio: z.string().trim().max(PROFILE.bioMax),
+  characterAge: z.number().int().min(CHARACTER_AGE.min, `Character age must be ${CHARACTER_AGE.min}–${CHARACTER_AGE.max}`).max(CHARACTER_AGE.max, `Character age must be ${CHARACTER_AGE.min}–${CHARACTER_AGE.max}`).nullable().optional(),
+});
 const TextBody = z.object({ body: z.string().max(20_000) });
 
 export function registerProfileRoutes(app: FastifyInstance, io: IO) {
@@ -63,6 +66,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     return {
       ...publicUser(t, { showAvatar: a.visible }),
       bio: a.visible && t.bio ? view(u, t.bio) : null,
+      characterAge: a.visible ? t.character_age : null,
       joined: t.created_at.toISOString(),
       trustLabel: TRUST_LABEL[t.trust_level as Trust],
       photos: photos.map(photoDTO),
@@ -79,9 +83,12 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
 
   app.patch('/api/me/profile', async (req) => {
     const u = requireUser(req);
-    const { bio } = parse(BioBody, req.body);
+    const { bio, characterAge } = parse(BioBody, req.body);
     if (bio && textBlocked(bio)) throw new HttpError(400, 'blocked_word', "Your bio contains a word that isn't allowed.");
-    await db.query('UPDATE users SET bio = NULLIF($2, \'\') WHERE id = $1', [u.id, bio]);
+    await db.query(
+      `UPDATE users SET bio = NULLIF($2, ''), character_age = CASE WHEN $3 THEN $4::smallint ELSE character_age END WHERE id = $1`,
+      [u.id, bio, characterAge !== undefined, characterAge ?? null],
+    );
     return { ok: true };
   });
 
