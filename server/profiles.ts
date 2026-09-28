@@ -213,55 +213,6 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     return { ok: true };
   });
 
-  // ----- comments on a profile -----
-  app.get<{ Params: { handle: string }; Querystring: { before?: string } }>('/api/profiles/:handle/comments', async (req): Promise<CommentDTO[]> => {
-    const u = requireUser(req);
-    const a = await profileAccess(u, req.params.handle);
-    if (!a.visible) return [];
-    const before = /^\d{1,19}$/.test(req.query.before ?? '') ? req.query.before : null;
-    const { rows } = await db.query<UserRow & { cid: string; body: string; ccreated: Date }>(
-      `SELECT c.id AS cid, c.body, c.created_at AS ccreated, ${USER_COLS}
-         FROM profile_comments c JOIN users u ON u.id = c.author_id
-        WHERE c.profile_user_id = $1 AND ($3::bigint IS NULL OR c.id < $3)
-          AND (c.hidden_at IS NULL OR c.author_id = $2)
-          AND NOT EXISTS (SELECT 1 FROM ignores i WHERE (i.user_id = $2 AND i.ignored_user_id = c.author_id)
-                                                   OR (i.user_id = c.author_id AND i.ignored_user_id = $2 AND i.mode = 'block'))
-        ORDER BY c.id DESC LIMIT 20`,
-      [a.target.id, u.id, before],
-    );
-    const owner = a.target.id === u.id;
-    return rows.map((r) => ({
-      id: r.cid, author: publicUser(r), body: view(u, r.body), createdAt: r.ccreated.toISOString(),
-      canDelete: owner || r.id === u.id || u.trust >= Trust.RoomModerator,
-    }));
-  });
-
-  app.post<{ Params: { handle: string } }>('/api/profiles/:handle/comments', async (req, reply) => {
-    const u = requireUser(req);
-    const a = await profileAccess(u, req.params.handle);
-    if (!a.canComment) throw new HttpError(403, 'no_comment', `${a.target.handle} isn't taking comments from you.`);
-    const v = await checkSocialText(u, parse(TextBody, req.body).body, 'comment');
-    if (!v.ok) throw new HttpError(400, v.error, v.message);
-    const { rows } = await db.query<{ id: string; created_at: Date }>(
-      `INSERT INTO profile_comments (profile_user_id, author_id, body, hidden_at)
-       VALUES ($1, $2, $3, CASE WHEN $4 THEN now() END) RETURNING id, created_at`,
-      [a.target.id, u.id, v.body, v.shadow],
-    );
-    if (!v.shadow && a.target.id !== u.id) io.to(rooms.user(a.target.id)).emit('social', { kind: 'comment', from: u.handle });
-    return reply.status(201).send({ id: rows[0].id });
-  });
-
-  app.delete<{ Params: { id: string } }>('/api/comments/:id', async (req) => {
-    const u = requireUser(req);
-    const { rowCount } = await db.query(
-      'DELETE FROM profile_comments WHERE id = $1 AND (author_id = $2 OR profile_user_id = $2 OR $3)',
-      [req.params.id, u.id, u.trust >= Trust.RoomModerator],
-    );
-    if (!rowCount) throw new HttpError(404, 'no_comment', 'Comment not found.');
-    if (u.trust >= Trust.RoomModerator) await audit(db, u.id, 'comment_delete', 'comment', req.params.id);
-    return { ok: true };
-  });
-
   // ----- a member's own status updates, on their profile -----
   app.get<{ Params: { handle: string } }>('/api/profiles/:handle/statuses', async (req): Promise<StatusDTO[]> => {
     const u = requireUser(req);

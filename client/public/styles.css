@@ -493,3 +493,20 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .edit-tabs .tab { line-height: 1.1; white-space: normal; text-align: center; }
 .edit-tabs { grid-template-columns: 1fr 0.95fr 1.45fr 0.95fr; gap: 0.3rem; }
 .edit-tabs .tab { border-radius: 12px; font-size: 0.84rem; padding: 0.2rem 0.25rem; }
+
+/* ---------- profile: newest photos, status, comments ---------- */
+.recent-photos { display: grid; gap: 0.5rem; justify-items: center; }
+.photo-strip { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.35rem; }
+.photo-strip .photo { border-radius: 8px; }
+.small-btn { min-height: 2.2rem; padding: 0.15rem 0.8rem; font-size: 0.82rem; border-radius: 999px; justify-self: center; }
+.center-btn { display: flex; width: max-content; margin: 0 auto; }
+.profile-status { margin: 0.2rem 0.3rem; font-size: 1.15rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; text-align: center; }
+.comments { display: grid; gap: 0.6rem; padding: 0 0.2rem; }
+.comment-footer { display: flex; justify-content: center; }
+.comment-footer .pager { width: 100%; }
+.photo-view { margin: 0; display: grid; gap: 0.5rem; }
+.photo-full { all: unset; cursor: zoom-in; display: block; border-radius: 12px; overflow: hidden; border: 2px solid var(--red); }
+.photo-full img { display: block; width: 100%; max-height: 70vh; object-fit: contain; background: #000; }
+.photo-view figcaption { justify-content: space-between; }
+[data-theme="dark"] .photo-full { border-color: var(--pink); box-shadow: 0 0 14px rgba(255, 79, 163, 0.35); }
+[data-theme="dark"] .profile-status { color: #ffffff; }

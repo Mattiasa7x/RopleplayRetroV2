@@ -177,6 +177,13 @@ export const PROFILE = {
   /** A new photo this close (bits of 64) to another member's photo is refused as a copy. */
   photoCloneDistance: 5,
   commentMax: 420,
+  /** Each profile and each photo keeps its newest 1000 comments; the oldest goes first. */
+  commentsKept: 1000,
+  /** Comments shown on the profile itself, and per page on the full comments page. */
+  commentsOnProfile: 5,
+  commentsPerPage: 10,
+  /** Newest photos shown on the profile above the gallery button. */
+  recentPhotos: 5,
   statusMax: 420,
   feedPageSize: 20,
 } as const;

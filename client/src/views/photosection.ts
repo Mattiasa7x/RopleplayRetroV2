@@ -2,7 +2,7 @@ import type { FriendsDTO, PhotoDTO, ProfileDTO, PublicUser } from '../../../shar
 import { avatar, card, state, toast } from '../core.js';
 import { api, h } from '../dom.js';
 import { reportContent } from './home.js';
-import { lightbox, uploadPhotos } from './photos.js';
+import { uploadPhotos } from './photos.js';
 
 /**
  * Public photos and the private album, as two tabs. With `manage` (the owner, on Edit profile)
@@ -19,7 +19,7 @@ export async function photoSection(p: ProfileDTO, opts: { manage: boolean; reloa
   const btn = (label: string, cls: string, fn: () => void) => h('button', { type: 'button', class: cls, onclick: fn as EventListener }, label);
 
   const photoGrid = (photos: PhotoDTO[], inAlbum: boolean) => h('ul', { class: 'photo-grid' }, ...photos.map((ph, i) => h('li', {},
-    h('button', { type: 'button', class: 'photo', 'aria-label': `Open photo ${i + 1}`, onclick: (() => lightbox(ph.url)) as EventListener },
+    h('a', { href: `/photo/${ph.id}`, class: 'photo', 'aria-label': `Open photo ${i + 1}` },
       h('img', { src: ph.thumb, alt: '', loading: 'lazy' })),
     manage
       ? h('div', { class: 'photo-tools' },

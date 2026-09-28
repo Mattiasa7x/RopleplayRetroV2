@@ -186,6 +186,22 @@ export interface CommentDTO {
   canDelete: boolean;
 }
 
+export interface CommentPageDTO {
+  comments: CommentDTO[];
+  /** 1 = newest. */
+  page: number;
+  pages: number;
+  total: number;
+}
+
+export interface PhotoPageDTO {
+  photo: PhotoDTO;
+  owner: PublicUser;
+  canComment: boolean;
+  /** Owner's own photo. */
+  mine: boolean;
+}
+
 export interface StatusDTO {
   id: string;
   author: PublicUser;

@@ -5,7 +5,7 @@ import { viewEditProfile } from './views/editprofile.js';
 import { viewFriends } from './views/friends.js';
 import { viewHome } from './views/home.js';
 import { viewInbox, viewThread } from './views/messages.js';
-import { viewProfile } from './views/profile.js';
+import { viewGallery, viewPhoto, viewProfile, viewProfileComments } from './views/profile.js';
 import { viewRoom } from './views/room.js';
 import { viewManage, viewNewRoom, viewRooms } from './views/rooms.js';
 import { viewSettings } from './views/settings.js';
@@ -38,7 +38,13 @@ async function route() {
       case 'room': return parts[2] === 'manage' ? await viewManage(parts[1] ?? '') : await viewRoom(parts[1] ?? '');
       case 'friends': return await viewFriends();
       case 'messages': return parts[1] ? await viewThread(decodeURIComponent(parts[1])) : await viewInbox();
-      case 'profile': return await viewProfile(decodeURIComponent(parts[1] ?? state.me!.handle));
+      case 'profile': {
+        const who = decodeURIComponent(parts[1] ?? state.me!.handle);
+        if (parts[2] === 'photos') return await viewGallery(who);
+        if (parts[2] === 'comments') return await viewProfileComments(who);
+        return await viewProfile(who);
+      }
+      case 'photo': return await viewPhoto(parts[1] ?? '');
       case 'edit-profile': return await viewEditProfile();
       case 'settings': return await viewSettings();
       default: return page('Not found', h('p', { class: 'notice' }, 'That page does not exist. '), h('a', { href: '/home' }, 'Go home'));

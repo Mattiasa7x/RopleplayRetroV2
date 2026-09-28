@@ -539,3 +539,19 @@ CREATE TABLE IF NOT EXISTS profile_banners (
   data       BYTEA NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Comments under each photo (each photo keeps its newest 1000, like profiles).
+CREATE TABLE IF NOT EXISTS photo_comments (
+  id         BIGSERIAL PRIMARY KEY,
+  photo_id   BIGINT NOT NULL REFERENCES profile_photos(id) ON DELETE CASCADE,
+  author_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body       TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 5000),
+  hidden_at  TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS photo_comments_photo ON photo_comments (photo_id, id DESC);
+
+DO $$ BEGIN
+  ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_kind;
+  ALTER TABLE reports ADD CONSTRAINT reports_target_kind CHECK (target_kind IN ('message', 'profile', 'comment', 'status', 'photo', 'dm', 'photo_comment'));
+END $$;

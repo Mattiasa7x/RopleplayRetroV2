@@ -39,7 +39,7 @@ async function userByHandle(handle: string) {
 
 const ReportBody = z.object({ messageId: z.string().regex(/^\d{1,19}$/), reason: z.string().trim().min(1).max(300) });
 const ContentReportBody = z.object({
-  kind: z.enum(['profile', 'photo', 'comment', 'status', 'dm']),
+  kind: z.enum(['profile', 'photo', 'comment', 'status', 'dm', 'photo_comment']),
   id: z.string().regex(/^\d{1,19}$/).optional(),
   handle: z.string().max(16).optional(),
   reason: z.string().trim().min(1).max(300),
@@ -127,8 +127,8 @@ export function registerModerationRoutes(app: FastifyInstance, io: IO) {
       );
       target = r.rows[0];
     } else {
-      const table = b.kind === 'comment' ? 'profile_comments' : 'statuses';
-      const col = b.kind === 'comment' ? 'author_id' : 'user_id';
+      const table = b.kind === 'comment' ? 'profile_comments' : b.kind === 'photo_comment' ? 'photo_comments' : 'statuses';
+      const col = b.kind === 'status' ? 'user_id' : 'author_id';
       const r = await db.query(`SELECT t.${col} AS user_id, u.handle, t.body, t.created_at, t.id FROM ${table} t JOIN users u ON u.id = t.${col} WHERE t.id = $1`, [b.id ?? '0']);
       target = r.rows[0];
     }

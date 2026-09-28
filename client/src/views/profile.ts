@@ -1,8 +1,10 @@
 import { CHARACTER_SHEET, PROFILE, Trust } from '../../../shared/config.js';
-import type { CommentDTO, ProfileDTO, StatusDTO } from '../../../shared/types.js';
+import type { PhotoPageDTO, ProfileDTO, StatusDTO } from '../../../shared/types.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
-import { composer, reportContent } from './home.js';
+import { commentThread } from './comments.js';
+import { reportContent } from './home.js';
+import { lightbox } from './photos.js';
 import { photoSection } from './photosection.js';
 
 export async function viewProfile(handle: string) {
@@ -59,47 +61,94 @@ export async function viewProfile(handle: string) {
     return;
   }
 
-  // ----- about and character sheet (edited on the Edit profile page) -----
-  const bioCard = p.bio ? card('About', h('p', { class: 'bio' }, p.bio)) : self ? card('About', h('p', { class: 'muted' }, 'Tell your story on the Edit profile page.')) : null;
+  // ----- newest photos, then a small button to the full gallery -----
+  const recent = [...p.photos].sort((x, y) => (BigInt(y.id) > BigInt(x.id) ? 1 : -1)).slice(0, PROFILE.recentPhotos);
+  const photoStrip = recent.length || p.canViewAlbum
+    ? h('section', { class: 'recent-photos', 'aria-label': 'Newest photos' },
+        recent.length ? h('ul', { class: 'photo-strip' }, ...recent.map((ph, i) =>
+          h('li', {}, h('a', { href: `/photo/${ph.id}`, class: 'photo', 'aria-label': `Photo ${i + 1}` }, h('img', { src: ph.thumb, alt: '', loading: 'lazy' }))))) : null,
+        h('a', { href: `/profile/${p.handle}/photos`, class: 'button quiet small-btn' }, `Photo gallery (${p.photos.length})`))
+    : null;
+
+  // ----- status: just the words -----
+  const statuses = await api<StatusDTO[]>(`/api/profiles/${encodeURIComponent(p.handle)}/statuses`);
+  const statusLine = statuses[0] ? h('p', { class: 'profile-status' }, statuses[0].body) : null;
+
+  // ----- the story (no heading), then the character sheet -----
+  const bioCard = p.bio ? card(null, h('p', { class: 'bio' }, p.bio)) : self ? card(null, h('p', { class: 'muted' }, 'Tell your story on the Edit profile page.')) : null;
   const sheetRows = CHARACTER_SHEET.filter((f) => p.characterSheet[f.key]);
   const sheetCard = sheetRows.length
     ? card('Character sheet', h('dl', { class: 'sheet-view' }, ...sheetRows.flatMap((f) => [
         h('dt', {}, f.label), h('dd', { class: 'long' in f ? 'long' : '' }, p.characterSheet[f.key]!)])))
     : null;
 
-  // ----- photos (read-only here; managed on Edit profile > Photos) -----
-  const photosCard = await photoSection(p, { manage: false, reload });
+  // ----- comments: newest 5 here, the rest 10 at a time on their own page -----
+  const comments = commentThread({
+    url: `/api/profiles/${encodeURIComponent(p.handle)}/comments`,
+    deleteUrl: (id) => `/api/comments/${id}`,
+    reportKind: 'comment',
+    canComment: p.canComment,
+    placeholder: self ? 'Write on your own profile…' : `Write something to ${p.handle}…`,
+    preview: { size: PROFILE.commentsOnProfile, moreHref: `/profile/${p.handle}/comments` },
+  });
 
-  // ----- statuses -----
-  const statuses = await api<StatusDTO[]>(`/api/profiles/${encodeURIComponent(p.handle)}/statuses`);
-  const current = statuses[0];
-  const statusCard = current
-    ? card('Status', h('p', { class: 'my-status' }, current.body),
-        self ? null : h('div', { class: 'post-meta' }, h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('status', current.id)) as EventListener }, 'Report')))
-    : null;
-
-  // ----- comments -----
-  const comments = await api<CommentDTO[]>(`/api/profiles/${encodeURIComponent(p.handle)}/comments`);
-  const commentList = h('ul', { class: 'posts' }, ...comments.map((c) => {
-    const li = h('li', { class: 'post' },
-      h('a', { href: `/profile/${c.author.handle}`, class: 'post-head' }, avatar(c.author.avatar, c.author.handle), h('strong', {}, c.author.handle)),
-      h('p', { class: 'post-body' }, c.body),
-      h('div', { class: 'post-meta' }, h('span', { class: 'muted' }, timeAgo(c.createdAt)),
-        c.canDelete ? btn('Delete', 'link', async () => {
-          if (!confirm('Delete this comment?')) return;
-          try { await api(`/api/comments/${c.id}`, { method: 'DELETE' }); li.remove(); } catch (e) { toast((e as Error).message, true); }
-        }) : null,
-        c.author.id !== me.id ? btn('Report', 'link', () => void reportContent('comment', c.id)) : null));
-    return li;
-  }));
-  if (!comments.length) commentList.append(h('li', { class: 'muted empty' }, 'No comments yet.'));
-  const commentBox = p.canComment
-    ? composer(self ? 'Write on your own profile…' : `Write something to ${p.handle}…`, PROFILE.commentMax, 'Comment', async (body) => {
-        await api(`/api/profiles/${encodeURIComponent(p.handle)}/comments`, { body: { body } });
-        reload();
-      })
-    : h('p', { class: 'muted small' }, self ? '' : `${p.handle} isn't taking comments from you.`);
-
-  page('Profile', head, statusCard, bioCard, sheetCard, photosCard, card('Comments', commentBox, commentList));
+  page('Profile', head, photoStrip, statusLine, bioCard, sheetCard, comments);
   if (location.pathname !== `/profile/${p.handle}`) history.replaceState({}, '', `/profile/${p.handle}`);
+}
+
+/** Every photo on a profile (and the private album, for those allowed), each opening its own page. */
+export async function viewGallery(handle: string) {
+  page('Photos', h('p', { class: 'muted' }, 'Loading…'));
+  const p = await api<ProfileDTO>(`/api/profiles/${encodeURIComponent(handle)}`);
+  const self = p.friendState === 'self';
+  page('Photos',
+    h('a', { href: `/profile/${p.handle}`, class: 'back' }, `‹ ${p.handle}`),
+    p.visible ? await photoSection(p, { manage: false, reload: () => void viewGallery(handle) }) : card(null, h('p', { class: 'muted' }, `${p.handle} shares their profile with friends only.`)),
+    self ? h('a', { href: '/edit-profile?tab=photos', class: 'button quiet small-btn center-btn' }, 'Manage photos') : null);
+}
+
+/** All comments on a profile, 10 at a time. */
+export async function viewProfileComments(handle: string) {
+  page('Comments', h('p', { class: 'muted' }, 'Loading…'));
+  const p = await api<ProfileDTO>(`/api/profiles/${encodeURIComponent(handle)}`);
+  const self = p.friendState === 'self';
+  page('Comments',
+    h('a', { href: `/profile/${p.handle}`, class: 'back' }, `‹ ${p.handle}`),
+    p.visible
+      ? commentThread({
+          url: `/api/profiles/${encodeURIComponent(p.handle)}/comments`,
+          deleteUrl: (id) => `/api/comments/${id}`,
+          reportKind: 'comment',
+          canComment: p.canComment,
+          placeholder: self ? 'Write on your own profile…' : `Write something to ${p.handle}…`,
+        })
+      : card(null, h('p', { class: 'muted' }, `${p.handle} shares their profile with friends only.`)));
+}
+
+/** One photo, big, with its comments underneath. */
+export async function viewPhoto(id: string) {
+  page('Photo', h('p', { class: 'muted' }, 'Loading…'));
+  let d: PhotoPageDTO;
+  try {
+    d = await api<PhotoPageDTO>(`/api/photos/${encodeURIComponent(id)}`);
+  } catch (e) {
+    page('Photo', h('p', { class: 'notice' }, (e as Error).message));
+    return;
+  }
+  page('Photo',
+    h('a', { href: `/profile/${d.owner.handle}/photos`, class: 'back' }, `‹ ${d.owner.handle}'s photos`),
+    h('figure', { class: 'photo-view' },
+      h('button', { type: 'button', class: 'photo-full', 'aria-label': 'View full screen', onclick: (() => lightbox(d.photo.url)) as EventListener },
+        h('img', { src: d.photo.url, alt: `Photo by ${d.owner.handle}` })),
+      h('figcaption', { class: 'row' },
+        h('a', { href: `/profile/${d.owner.handle}`, class: 'post-head' }, avatar(d.owner.avatar, d.owner.handle), h('strong', {}, d.owner.handle)),
+        d.photo.private ? h('span', { class: 'tag' }, 'Private') : null,
+        d.mine ? null : h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('photo', d.photo.id)) as EventListener }, 'Report'))),
+    commentThread({
+      url: `/api/photos/${encodeURIComponent(d.photo.id)}/comments`,
+      deleteUrl: (cid) => `/api/photo-comments/${cid}`,
+      reportKind: 'photo_comment',
+      canComment: d.canComment,
+      placeholder: 'Say something about this photo…',
+    }));
 }
