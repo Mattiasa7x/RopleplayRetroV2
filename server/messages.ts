@@ -4,7 +4,7 @@ import { MESSAGES, Trust } from '../shared/config.js';
 import type { ConversationDTO, DirectMessageDTO, ThreadDTO } from '../shared/types.js';
 import { publicUser, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
-import { canViewPhoto, photoDTO, photoRow } from './photos.js';
+import { ADULTS_ONLY, bothAdults, canViewPhoto, photoDTO, photoRow } from './photos.js';
 import { rooms, type IO } from './realtime.js';
 import { maskMature } from './safety/mature.js';
 import { checkSocialText } from './safety/social-text.js';
@@ -149,6 +149,11 @@ export function registerMessageRoutes(app: FastifyInstance, io: IO) {
     if (b.photoId) {
       photo = await photoRow(b.photoId);
       if (!photo || photo.user_id !== me.id) throw new HttpError(400, 'photo', 'You can only share your own photos.');
+      if (photo.is_private) {
+        if (me.isMinor) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
+        // Deliberately vague, so the message never reveals the other member's age.
+        if (!(await bothAdults(me.id, other.id))) throw new HttpError(403, 'not_allowed', "Private photos can't be shared with this member. Try one of your public photos.");
+      }
     }
     if (!body && !photo) throw new HttpError(400, 'empty', 'Type a message or pick a photo.');
 

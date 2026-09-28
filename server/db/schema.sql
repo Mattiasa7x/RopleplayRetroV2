@@ -353,3 +353,54 @@ DO $$ BEGIN
   ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_kind;
   ALTER TABLE reports ADD CONSTRAINT reports_target_kind CHECK (target_kind IN ('message', 'profile', 'comment', 'status', 'photo', 'dm'));
 END $$;
+
+-- ================= Private album: members 18 and over only =================
+-- 18 here matches AGE.adult in shared/config.ts. No birthdate on file counts as under 18.
+CREATE OR REPLACE FUNCTION is_adult_user(uid BIGINT) RETURNS BOOLEAN STABLE LANGUAGE sql AS $fn$
+  SELECT COALESCE((SELECT birthdate <= current_date - interval '18 years' FROM users WHERE id = uid), false)
+$fn$;
+
+-- No new private photos for under-18 accounts (uploading as private, or moving a photo to private).
+CREATE OR REPLACE FUNCTION private_photo_adults_only() RETURNS trigger AS $$
+BEGIN
+  IF NEW.is_private AND NOT is_adult_user(NEW.user_id) THEN
+    RAISE EXCEPTION 'private photos are for members 18 and over' USING ERRCODE = '23514', CONSTRAINT = 'private_album_adults';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS private_photo_adults_only ON profile_photos;
+CREATE TRIGGER private_photo_adults_only BEFORE INSERT OR UPDATE OF is_private ON profile_photos
+  FOR EACH ROW EXECUTE FUNCTION private_photo_adults_only();
+
+-- Album access only between two adults.
+CREATE OR REPLACE FUNCTION album_access_adults_only() RETURNS trigger AS $$
+BEGIN
+  IF NOT is_adult_user(NEW.owner_id) OR NOT is_adult_user(NEW.viewer_id) THEN
+    RAISE EXCEPTION 'album access is for members 18 and over' USING ERRCODE = '23514', CONSTRAINT = 'private_album_adults';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS album_access_adults_only ON album_access;
+CREATE TRIGGER album_access_adults_only BEFORE INSERT OR UPDATE ON album_access
+  FOR EACH ROW EXECUTE FUNCTION album_access_adults_only();
+
+-- A private photo can only be shared from an adult to an adult.
+CREATE OR REPLACE FUNCTION photo_share_adults_only() RETURNS trigger AS $$
+BEGIN
+  IF NOT is_adult_user(NEW.recipient_id)
+     OR NOT is_adult_user((SELECT user_id FROM profile_photos WHERE id = NEW.photo_id)) THEN
+    RAISE EXCEPTION 'private photos are for members 18 and over' USING ERRCODE = '23514', CONSTRAINT = 'private_album_adults';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS photo_share_adults_only ON photo_shares;
+CREATE TRIGGER photo_share_adults_only BEFORE INSERT OR UPDATE ON photo_shares
+  FOR EACH ROW EXECUTE FUNCTION photo_share_adults_only();
+
+-- Clean up anything from before this rule (runs on every start; cheap).
+DELETE FROM album_access WHERE NOT is_adult_user(owner_id) OR NOT is_adult_user(viewer_id);
+DELETE FROM photo_shares s USING profile_photos p
+ WHERE s.photo_id = p.id AND (NOT is_adult_user(s.recipient_id) OR NOT is_adult_user(p.user_id));

@@ -66,7 +66,8 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       joined: t.created_at.toISOString(),
       trustLabel: TRUST_LABEL[t.trust_level as Trust],
       photos: photos.map(photoDTO),
-      canViewAlbum: albumOk,
+      // Under 18 there's no private album; the tab only appears if old private photos need moving.
+      canViewAlbum: albumOk && !(u.id === t.id && u.isMinor && Number(ac[0].n) === 0),
       albumCount: albumOk ? Number(ac[0].n) : 0,
       friendCount: Number(fc[0].n),
       friendState: a.friendState,

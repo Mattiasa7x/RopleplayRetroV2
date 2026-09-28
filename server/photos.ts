@@ -66,9 +66,21 @@ async function isFriend(a: string, b: string): Promise<boolean> {
   return !!rowCount;
 }
 
-/** Owner, or a friend the owner granted album access to. */
+export const ADULTS_ONLY = 'Private albums are for members 18 and over.';
+
+/** Both accounts are 18 or over (same rule the database enforces; no birthdate counts as under 18). */
+export async function bothAdults(a: string, b: string): Promise<boolean> {
+  const { rows } = await db.query<{ ok: boolean }>('SELECT is_adult_user($1) AND is_adult_user($2) AS ok', [a, b]);
+  return !!rows[0]?.ok;
+}
+
+/** True if the database refused something because of the 18+ private-album rule. */
+export const isAdultsOnlyError = (e: unknown) => (e as { constraint?: string })?.constraint === 'private_album_adults';
+
+/** Owner, or an adult friend the adult owner granted album access to. */
 export async function canViewAlbum(viewer: { id: string; trust: number }, ownerId: string): Promise<boolean> {
   if (viewer.id === ownerId) return true;
+  if (!(await bothAdults(viewer.id, ownerId))) return false;
   const rel = await relation(viewer.id, ownerId);
   if (rel.iBlocked || rel.theyBlocked) return false;
   if (rel.friendState !== 'friends') return false;
@@ -78,14 +90,16 @@ export async function canViewAlbum(viewer: { id: string; trust: number }, ownerI
 
 /**
  * Public photos follow the owner's profile visibility. Private-album photos are seen only by
- * the owner, friends granted album access, and anyone the photo was shared with in a message.
- * Blocks hide everything both ways. Moderators can open any photo to review reports.
+ * the owner, friends granted album access, and anyone the photo was shared with in a message,
+ * and never by or from anyone under 18. Blocks hide everything both ways. Moderators can open
+ * any photo to review reports.
  */
 export async function canViewPhoto(viewer: { id: string; trust: number }, photo: { id: string; user_id: string; is_private: boolean }): Promise<boolean> {
   if (viewer.id === photo.user_id) return true;
   if (viewer.trust >= Trust.RoomModerator) return true;
   const rel = await relation(viewer.id, photo.user_id);
   if (rel.iBlocked || rel.theyBlocked) return false;
+  if (photo.is_private && !(await bothAdults(viewer.id, photo.user_id))) return false;
   const { rowCount: shared } = await db.query('SELECT 1 FROM photo_shares WHERE photo_id = $1 AND recipient_id = $2', [photo.id, viewer.id]);
   if (shared) return true;
   if (photo.is_private) return canViewAlbum(viewer, photo.user_id);
@@ -165,6 +179,7 @@ export function registerPhotoRoutes(app: FastifyInstance) {
       throw new HttpError(409, 'clone', "This photo matches another member's photo, so it can't be used. Please upload your own.");
     }
     const isPrivate = req.query.private === '1';
+    if (isPrivate && u.isMinor) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -209,7 +224,14 @@ export function registerPhotoRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>('/api/me/photos/:id/visibility', async (req) => {
     const u = requireUser(req);
     const b = parse(VisibilityBody, req.body);
-    const { rowCount } = await db.query('UPDATE profile_photos SET is_private = $3 WHERE id = $1 AND user_id = $2', [req.params.id, u.id, b.private]);
+    if (b.private && u.isMinor) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
+    let rowCount: number | null;
+    try {
+      ({ rowCount } = await db.query('UPDATE profile_photos SET is_private = $3 WHERE id = $1 AND user_id = $2', [req.params.id, u.id, b.private]));
+    } catch (e) {
+      if (isAdultsOnlyError(e)) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
+      throw e;
+    }
     if (!rowCount) throw new HttpError(404, 'no_photo', 'Photo not found.');
     return { ok: true };
   });
@@ -226,12 +248,12 @@ export function registerPhotoRoutes(app: FastifyInstance) {
     return rows.map(photoDTO);
   });
 
-  /** All my photos (public and private), e.g. to pick one to share in a message. */
+  /** All my photos (public, plus private for adults), e.g. to pick one to share in a message. */
   app.get('/api/me/photos', async (req) => {
     const u = requireUser(req);
     const { rows } = await db.query<{ id: string; is_private: boolean }>(
-      'SELECT id, is_private FROM profile_photos WHERE user_id = $1 ORDER BY is_private, position, id',
-      [u.id],
+      'SELECT id, is_private FROM profile_photos WHERE user_id = $1 AND (NOT is_private OR NOT $2) ORDER BY is_private, position, id',
+      [u.id, u.isMinor],
     );
     return rows.map(photoDTO);
   });
@@ -248,8 +270,11 @@ export function registerPhotoRoutes(app: FastifyInstance) {
 
   app.put<{ Params: { handle: string } }>('/api/me/album-access/:handle', async (req) => {
     const u = requireUser(req);
+    if (u.isMinor) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
     const t = await userByHandle(req.params.handle);
     if (!(await isFriend(u.id, t.id))) throw new HttpError(400, 'not_friend', 'You can only give album access to friends.');
+    // Deliberately vague, so the message never reveals another member's age.
+    if (!(await bothAdults(u.id, t.id))) throw new HttpError(403, 'not_allowed', "Album access can't be given to this member.");
     await db.query('INSERT INTO album_access (owner_id, viewer_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [u.id, t.id]);
     return { ok: true };
   });
