@@ -1,4 +1,5 @@
 import { CHAT, Trust } from '../../../shared/config.js';
+import { containsBlocked, type BlockEntry } from '../../../shared/filter.js';
 import { cleanBody, visibleLength } from '../../../shared/text.js';
 import type { HistoryPage, MessageDTO, RoomPeopleDTO, SendResult } from '../../../shared/types.js';
 import { avatar, navigate, page, state, toast } from '../core.js';
@@ -66,11 +67,17 @@ export async function viewRoom(slug: string) {
   });
   const star = h('button', { type: 'button', class: 'star', 'aria-pressed': 'false' });
 
+  // Rooms whose owner turned the chat filter on: swear words are stopped as they're typed.
+  let roomWords: BlockEntry[] = [];
+  const filterHint = h('p', { class: 'notice filter-hint', role: 'status', hidden: true }, "This room's chat filter is on: swear words can't be sent here.");
   function updateCounter() {
     const left = CHAT.MAX_CHARS - visibleLength(cleanBody(input.value));
     counter.textContent = `${left}`;
     counter.className = 'counter' + (left < 0 ? ' over' : left <= CHAT.WARN_REMAINING ? ' warn' : '');
-    sendBtn.disabled = left < 0 || left === CHAT.MAX_CHARS;
+    const flagged = roomWords.length > 0 && containsBlocked(input.value, roomWords);
+    filterHint.hidden = !flagged;
+    input.classList.toggle('flagged', flagged);
+    sendBtn.disabled = left < 0 || left === CHAT.MAX_CHARS || flagged;
   }
 
   function line(m: MessageDTO): HTMLElement {
@@ -278,6 +285,10 @@ export async function viewRoom(slug: string) {
   paintStar();
 
   const room = hist!.room;
+  if (room.chatFilter) {
+    composerBar.prepend(filterHint);
+    try { roomWords = (await api<{ entries: BlockEntry[] }>('/api/filter/room-words')).entries; } catch { /* the server still checks on send */ }
+  }
   online = Math.max(online, room.online);
   paintPresence();
   page(room.name,
@@ -290,6 +301,7 @@ export async function viewRoom(slug: string) {
         h('div', { class: 'room-tags' },
           h('span', { class: 'tag' }, room.kind === 'site' ? 'Site room' : 'Member room'),
           room.whitelistOnly ? h('span', { class: 'tag' }, 'Invite-only') : null,
+          room.chatFilter ? h('span', { class: 'tag' }, 'Chat filter on') : null,
           presence),
         h('p', { class: 'muted small' }, room.kind === 'site' ? 'Strictly auto-moderated · no links' : room.description ?? '')),
       h('div', { class: 'row' }, star, room.canManage && room.kind === 'member' ? h('a', { href: `/room/${slug}/manage`, class: 'button quiet' }, 'Manage') : null)),

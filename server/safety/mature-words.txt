@@ -1,7 +1,46 @@
-# Mature language: allowed to send, but masked (h***) for anyone whose chat filter is on.
-# Members under 18 always have the filter on. Same format as blocklist.txt
-# (one entry per line, trailing * = also match words that start with it).
-#
-# Harmless placeholders so the feature can be tested. Replace with your own list.
-heck
-darn*
+# Swear words. Allowed in rooms whose chat filter is off, but masked (f***) for anyone
+# whose personal chat filter is on; members under 18 always have it on. Rooms whose
+# owner turns the chat filter on refuse messages containing these outright.
+# Same format as blocklist.txt. Repeated letters are collapsed before matching, so
+# entries like "ass" (which becomes "as") are deliberately left out.
+fuck*
+motherfuck*
+shit
+shits
+shitty
+shitting
+shithead*
+shithole*
+shitshow
+bullshit
+horseshit
+bitch*
+bastard*
+asshole*
+dumbass
+jackass
+cunt*
+dick
+dicks
+dickhead*
+pussy
+pussies
+prick
+pricks
+twat*
+wank*
+whore*
+slut*
+cocksucker*
+piss
+pissed
+pissing
+damn
+damned
+goddamn*
+bollocks
+tits
+titties
+retard
+retards
+retarded

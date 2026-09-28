@@ -6,7 +6,7 @@ import { parse, requireUser, type SessionUser } from './http.js';
 import { paginate } from './paging.js';
 import { roomImageUrl } from './room-images.js';
 import { ROOM_COLS, assertRoomAccess, roomBySlug, roomDetail, type RoomRow } from './rooms.js';
-import { maskMature } from './safety/mature.js';
+import { maskMature, matureEntries } from './safety/mature.js';
 import { checkMessage } from './safety/pipeline.js';
 import { db, redis, tx } from './store.js';
 
@@ -150,6 +150,13 @@ export async function roomList(user: SessionUser): Promise<RoomSummary[]> {
 
 export function registerChatRoutes(app: FastifyInstance) {
   app.get('/api/rooms', async (req) => roomList(requireUser(req)));
+
+  /** Swear-word list (normalised) so a filtered room can stop them as they're typed; the server checks again on send. */
+  app.get('/api/filter/room-words', async (req, reply) => {
+    requireUser(req);
+    reply.header('Cache-Control', 'private, max-age=3600');
+    return { entries: matureEntries() };
+  });
 
   app.get<{ Params: { slug: string } }>('/api/rooms/:slug/messages', async (req): Promise<HistoryPage> => {
     const u = requireUser(req);

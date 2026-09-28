@@ -1,8 +1,136 @@
-# Blocked words, one per line. Matching is case-, accent- and look-alike-insensitive.
-# A trailing * also blocks words that start with the entry (use sparingly: it can
-# catch innocent words). Keep this file out of public repos if you prefer.
+# BLOCKED everywhere on the site: chat in every room, private messages, comments,
+# statuses, profiles and room names. A message containing any of these is refused.
+# Matching ignores case, accents, look-alike letters (0 for o, @ for a), stretched
+# letters, and spacing tricks (s p a c e d). A trailing * also blocks words that
+# start with the entry. Lines with several words block that exact phrase; apostrophes
+# don't matter ("dont" also catches "don't").
 #
-# The entries below are harmless placeholders so the filter can be tested.
-# Replace them with your community's list before launch.
-badword
-spamword*
+# Note: repeated letters are collapsed before matching, so a short entry can clash
+# with an innocent word. Check new entries against everyday words before adding them.
+
+# ---- racial and ethnic slurs ----
+nigger
+niggers
+nigga
+niggas
+niggaz
+nigguh
+niglet
+nigglet
+jigaboo
+jiggaboo
+porch monkey
+porch monkeys
+jungle bunny
+jungle bunnies
+tar baby
+pickaninny
+darkie
+darkies
+darky
+golliwog
+sambos
+coonass
+spic
+spics
+wetback
+wetbacks
+beaner
+beaners
+chink
+chinks
+chinky
+ching chong
+gook
+gooks
+zipperhead
+zipperheads
+slant eye
+slant eyes
+slanteye
+slanteyes
+chinaman
+jap
+japs
+kike
+kikes
+hymie
+yid
+yids
+jewboy
+raghead
+ragheads
+towelhead
+towelheads
+sandnigger
+sandniggers
+sand monkey
+sand monkeys
+camel jockey
+camel jockeys
+paki
+pakis
+wog
+wogs
+dago
+dagos
+wop
+wops
+polack
+polacks
+redskin
+redskins
+squaw
+injun
+injuns
+half breed
+halfbreed
+kaffir
+kaffirs
+abo
+abos
+wigger
+wiggers
+wigga
+
+# ---- other hate slurs ----
+faggot
+faggots
+fag
+fags
+tranny
+trannies
+dyke
+dykes
+
+# ---- sexual content involving children / grooming ----
+jailbait
+pedo
+pedos
+pedophile
+paedophile
+send nudes
+send me nudes
+send me a nude
+send pics
+send me pics
+send me a pic of you
+nude pics
+naked pics
+dont tell your parents
+dont tell your mom
+dont tell your dad
+dont tell ur parents
+dont tell anyone about us
+our little secret
+keep this our secret
+keep it our secret
+delete our chat
+delete this chat
+are you home alone
+are you alone right now
+what school do you go to
+which school do you go to
+what grade are you in
+age is just a number
+mature for your age

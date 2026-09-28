@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { normalizeForFilter, parseBlocklist, type BlockEntry } from './filter.js';
+import { containsBlocked, normalizeForFilter, parseBlocklist, type BlockEntry } from './filter.js';
 
 /**
  * The personal chat filter. Unlike the blocklist (slurs and worse, refused for everyone),
@@ -28,4 +28,14 @@ export function maskWith(text: string, entries: BlockEntry[]): string {
 
 export function maskMature(text: string): string {
   return maskWith(text, list);
+}
+
+/** True if the text has a swear word (used by rooms whose owner turned the chat filter on). */
+export function containsMature(text: string): boolean {
+  return containsBlocked(text, list);
+}
+
+/** The list itself, for the browser to warn while typing in a filtered room. Normalised entries only. */
+export function matureEntries(): BlockEntry[] {
+  return list;
 }

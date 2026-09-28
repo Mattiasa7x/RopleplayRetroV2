@@ -6,6 +6,7 @@ import { db, redis } from '../store.js';
 import { containsBlocked, containsLink, floodKey, isShouting, parseBlocklist, type BlockEntry } from './filter.js';
 import { notRepeated, slidingWindow, slowMode } from './limits.js';
 import { STRIKE_CODES, recordStrike } from './strikes.js';
+import { containsMature } from './mature.js';
 
 const BLOCKLIST_PATH = resolve(process.env.BLOCKLIST_PATH ?? 'server/safety/blocklist.txt');
 let blocklist: BlockEntry[] = parseBlocklist(readFileSync(BLOCKLIST_PATH, 'utf8'));
@@ -58,7 +59,7 @@ export function accessBlock(s: Sanction[]): string | null {
 
 export interface SendContext {
   user: { id: string; trust: number; createdAt: Date };
-  room: { id: number; kind: 'site' | 'member'; min_trust_to_post: number; slow_mode_seconds: number };
+  room: { id: number; kind: 'site' | 'member'; min_trust_to_post: number; slow_mode_seconds: number; chat_filter?: boolean };
   raw: string;
 }
 
@@ -140,6 +141,9 @@ async function runChecks(ctx: SendContext): Promise<Verdict> {
 
   // 5. Content
   if (containsBlocked(body, blocklist)) return no('blocked_word', "That message contains a word that isn't allowed here.");
+  if (room.kind === 'member' && room.chat_filter && containsMature(body)) {
+    return no('room_filter', "This room's chat filter is on, so swear words can't be sent here.");
+  }
   if (containsLink(body)) {
     if (strict && SITE_ROOMS.blockLinksForAll && !staff) return no('link', "Links aren't allowed in site rooms. Share them in a member room.");
     if (user.trust < Trust.Established) return no('link', 'Links unlock once your account is established (7 days and 100 messages).');

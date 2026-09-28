@@ -20,13 +20,15 @@ export interface RoomRow {
   min_trust_to_post: number;
   slow_mode_seconds: number;
   image_id: number | null;
+  /** Owner's chat filter: messages with swear words are refused in this room. */
+  chat_filter: boolean;
   /** The room's picture has been downloaded and can be shown. */
   has_image: boolean;
 }
 
 export const ROOM_COLS =
   `r.id, r.slug, r.name, r.category, r.kind, r.owner_id, r.whitelist_only, r.description, r.min_trust_to_post, r.slow_mode_seconds,
-   r.image_id, COALESCE((SELECT ri.thumb_data IS NOT NULL FROM room_images ri WHERE ri.id = r.image_id), false) AS has_image`;
+   r.image_id, r.chat_filter, COALESCE((SELECT ri.thumb_data IS NOT NULL FROM room_images ri WHERE ri.id = r.image_id), false) AS has_image`;
 
 export interface Viewer {
   id: string;
@@ -118,9 +120,11 @@ const CreateBody = z.object({
   description: z.string().trim().max(MEMBER_ROOMS.descriptionMax).optional(),
   whitelistOnly: z.boolean().default(false),
   imageId: z.number().int().positive().nullable().optional(),
+  chatFilter: z.boolean().default(true),
 });
 const PatchBody = z.object({
   name: z.string().trim().min(MEMBER_ROOMS.nameMin).max(MEMBER_ROOMS.nameMax).optional(),
+  chatFilter: z.boolean().optional(),
   description: z.string().trim().max(MEMBER_ROOMS.descriptionMax).optional(),
   whitelistOnly: z.boolean().optional(),
   slowModeSeconds: z.number().int().min(0).max(600).optional(),
@@ -151,6 +155,7 @@ async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
     imageId: room.image_id,
     imageCredit: room.has_image && img[0]?.credit ? { name: img[0].credit, url: img[0].credit_url ?? '' } : null,
     online,
+    chatFilter: room.kind === 'member' && room.chat_filter,
   };
 }
 
@@ -186,10 +191,10 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
     await assertPoolImage(b.imageId);
     const slug = await tx(async (q) => {
       const { rows } = await q.query<{ id: number; slug: string }>(
-        `INSERT INTO rooms (slug, name, category, sort_order, min_trust_to_post, kind, owner_id, whitelist_only, description, image_id)
-         VALUES ($1, $2, 'Member rooms', 1000, $3, 'member', $4, $5, $6, $7)
+        `INSERT INTO rooms (slug, name, category, sort_order, min_trust_to_post, kind, owner_id, whitelist_only, description, image_id, chat_filter)
+         VALUES ($1, $2, 'Member rooms', 1000, $3, 'member', $4, $5, $6, $7, $8)
          RETURNING id, slug`,
-        [slugify(b.name), b.name, Trust.Verified, u.id, b.whitelistOnly, b.description || null, b.imageId ?? null],
+        [slugify(b.name), b.name, Trust.Verified, u.id, b.whitelistOnly, b.description || null, b.imageId ?? null, b.chatFilter],
       );
       await audit(q, u.id, 'room_create', 'room', rows[0].id, { name: b.name, whitelistOnly: b.whitelistOnly });
       return rows[0].slug;
@@ -205,16 +210,26 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
     const b = parse(PatchBody, req.body);
     if (textBlocked(`${b.name ?? ''} ${b.description ?? ''}`)) throw new HttpError(400, 'blocked_word', "The name or description contains a word that isn't allowed.");
     if (room.kind === 'site' && b.whitelistOnly) throw new HttpError(400, 'site_room', 'Site rooms are open to everyone.');
+    // A member room keeps the name it was made with.
+    if (room.kind === 'member' && b.name !== undefined && b.name !== room.name) {
+      throw new HttpError(400, 'name_locked', "A room's name can't be changed after it's made.");
+    }
     await assertPoolImage(b.imageId);
     const { rows } = await db.query<RoomRow>(
       `UPDATE rooms r SET name = COALESCE($2, name), description = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF($3, '') END,
               whitelist_only = COALESCE($4, whitelist_only), slow_mode_seconds = COALESCE($5, slow_mode_seconds),
-              image_id = CASE WHEN $6 THEN $7::int ELSE image_id END
+              image_id = CASE WHEN $6 THEN $7::int ELSE image_id END,
+              chat_filter = COALESCE($8, chat_filter)
         WHERE id = $1 RETURNING ${ROOM_COLS}`,
-      [room.id, b.name ?? null, b.description ?? null, b.whitelistOnly ?? null, b.slowModeSeconds ?? null, b.imageId !== undefined, b.imageId ?? null],
+      [room.id, room.kind === 'member' ? null : b.name ?? null, b.description ?? null, b.whitelistOnly ?? null, b.slowModeSeconds ?? null, b.imageId !== undefined, b.imageId ?? null, room.kind === 'member' ? b.chatFilter ?? null : null],
     );
     await audit(db, u.id, 'room_update', 'room', room.id, b);
     if (b.whitelistOnly && !room.whitelist_only) await evictUnauthorized(io, rows[0], 'This room is now invite-only.');
+    if (b.chatFilter !== undefined && room.kind === 'member' && b.chatFilter !== room.chat_filter) {
+      io.to(sockRooms.chat(room.id)).emit('notice', {
+        message: b.chatFilter ? 'The chat filter is on: messages with swear words are blocked in this room.' : 'The chat filter is off: swear words are allowed in this room.',
+      });
+    }
     if (b.slowModeSeconds !== undefined) {
       io.to(sockRooms.chat(room.id)).emit('notice', {
         message: b.slowModeSeconds ? `Slow mode is on: one message every ${b.slowModeSeconds} seconds.` : 'Slow mode is off.',

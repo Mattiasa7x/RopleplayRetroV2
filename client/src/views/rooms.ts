@@ -2,6 +2,7 @@ import { MEMBER_ROOMS, Trust } from '../../../shared/config.js';
 import type { RoomDetail, RoomImageDTO, RoomSummary } from '../../../shared/types.js';
 import { card, field, form, navigate, page, state, toast } from '../core.js';
 import { api, h } from '../dom.js';
+import { pagedGrid } from './pagedgrid.js';
 
 /** Colour art used until (or instead of) a room picture, keyed by category. */
 const ART: Record<string, string> = {
@@ -108,7 +109,7 @@ async function imagePicker(current: number | null): Promise<{ el: HTMLElement; v
   paint();
   const el = h('div', { class: 'field' },
     h('span', {}, 'Room picture'),
-    pool.length ? h('div', { class: 'picker' }, ...buttons) : h('p', { class: 'muted small' }, 'Pictures are still loading on the server. You can pick one later from Manage.'),
+    pool.length ? pagedGrid(buttons, { className: 'picker', label: 'Room pictures', startIndex: Math.max(0, buttons.findIndex((b) => Number(b.dataset.id) === (current ?? 0))) }) : h('p', { class: 'muted small' }, 'Pictures are still loading on the server. You can pick one later from Manage.'),
     pool.length ? h('span', { class: 'muted small' }, 'Photos from Unsplash, free to use.') : null);
   return { el, value: () => chosen };
 }
@@ -129,10 +130,12 @@ export async function viewNewRoom() {
         field('Room name', 'name', 'text', { minlength: MEMBER_ROOMS.nameMin, maxlength: MEMBER_ROOMS.nameMax }),
         field('Description (optional)', 'description', 'text', { maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
         checkbox('Invite-only: only people on my list can see and enter', 'whitelistOnly'),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'chatFilter', checked: true }),
+      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on, and everyone under 18, still sees them masked)."))),
         picker.el,
       ], 'Create room', async (d) => {
         const room = await api<RoomDetail>('/api/rooms', {
-          body: { name: d.get('name'), description: String(d.get('description') ?? ''), whitelistOnly: d.get('whitelistOnly') === 'on', imageId: picker.value() },
+          body: { name: d.get('name'), description: String(d.get('description') ?? ''), whitelistOnly: d.get('whitelistOnly') === 'on', chatFilter: d.get('chatFilter') === 'on', imageId: picker.value() },
         });
         state.flash = room.whitelistOnly ? 'Room created. Add people to the invite list.' : 'Room created.';
         navigate(room.whitelistOnly ? `/room/${room.slug}/manage` : `/room/${room.slug}`);
@@ -154,16 +157,22 @@ export async function viewManage(slug: string) {
   const picker = await imagePicker(room.imageId);
 
   const settings = form([
-    field('Room name', 'name', 'text', { value: room.name, minlength: MEMBER_ROOMS.nameMin, maxlength: MEMBER_ROOMS.nameMax }),
+    site
+      ? field('Room name', 'name', 'text', { value: room.name, minlength: MEMBER_ROOMS.nameMin, maxlength: MEMBER_ROOMS.nameMax })
+      : h('div', { class: 'setting locked-row' },
+          h('div', {}, h('span', { class: 'setting-label' }, 'Room name'), h('span', { class: 'muted small block' }, "Set when the room was made; it can't be changed.")),
+          h('div', { class: 'locked-value' }, h('span', {}, room.name), h('span', { class: 'tag' }, 'Locked'))),
     field('Description', 'description', 'text', { value: room.description ?? '', maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
     site ? null : checkbox('Invite-only (people not on the list are removed right away)', 'whitelistOnly', room.whitelistOnly),
+    site ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'chatFilter', checked: room.chatFilter }),
+      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on, and everyone under 18, still sees them masked)."))),
     h('label', { class: 'field' }, h('span', {}, 'Slow mode'),
       h('select', { name: 'slow' }, ...[0, 5, 10, 30, 60].map((s) => h('option', { value: s, selected: s === room.slowModeSeconds }, s ? `One message every ${s} seconds` : 'Off')))),
     picker.el,
   ], 'Save', async (d) => {
     await api(path, { method: 'PATCH', body: {
-      name: d.get('name'), description: String(d.get('description') ?? ''),
-      ...(site ? {} : { whitelistOnly: d.get('whitelistOnly') === 'on' }), slowModeSeconds: Number(d.get('slow')),
+      ...(site ? { name: d.get('name') } : { whitelistOnly: d.get('whitelistOnly') === 'on', chatFilter: d.get('chatFilter') === 'on' }),
+      description: String(d.get('description') ?? ''), slowModeSeconds: Number(d.get('slow')),
       imageId: picker.value(),
     } });
     toast('Saved.');

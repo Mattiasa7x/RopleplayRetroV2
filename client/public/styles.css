@@ -559,3 +559,11 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 [data-theme="dark"] .theme-btn[aria-selected="true"] { background: var(--pink); border-color: var(--pink); color: var(--bg); box-shadow: 0 0 12px rgba(255, 79, 163, 0.55); }
 [data-theme="dark"] .theme-btn[aria-selected="true"] .theme-btn-meta, [data-theme="dark"] .theme-btn[aria-selected="true"] .live-text { color: var(--bg); }
 [role="tabpanel"] { scroll-margin-top: 4.5rem; }
+
+/* ---------- paged picture pickers ---------- */
+.paged-grid { display: grid; gap: 0.4rem; }
+.picker, .theme-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; max-height: none; overflow: visible; padding: 0.2rem; }
+.paged-nav button { min-height: 2.3rem; padding: 0.15rem 0.7rem; }
+.filter-hint { font-size: 0.85rem; margin: 0; }
+.chat-composer input.flagged { border-color: var(--red); box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 40%, transparent); }
+.chat-composer .filter-hint { grid-column: 1 / -1; padding: 0.35rem 0.6rem; }

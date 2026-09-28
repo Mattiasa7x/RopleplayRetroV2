@@ -558,3 +558,18 @@ END $$;
 
 -- Profile background: one of the room pictures (site rooms and the pool).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme_id INTEGER REFERENCES room_images(id) ON DELETE SET NULL;
+
+-- Member room settings: the owner's chat filter (on = messages with swear words are refused
+-- in that room), and names that can't be changed once the room is made.
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS chat_filter BOOLEAN NOT NULL DEFAULT true;
+CREATE OR REPLACE FUNCTION rooms_member_name_locked() RETURNS trigger AS $$
+BEGIN
+  IF OLD.kind = 'member' AND NEW.name IS DISTINCT FROM OLD.name THEN
+    RAISE EXCEPTION 'member room names cannot be changed' USING ERRCODE = '23514', CONSTRAINT = 'room_name_locked';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS rooms_member_name_locked ON rooms;
+CREATE TRIGGER rooms_member_name_locked BEFORE UPDATE OF name ON rooms
+  FOR EACH ROW EXECUTE FUNCTION rooms_member_name_locked();

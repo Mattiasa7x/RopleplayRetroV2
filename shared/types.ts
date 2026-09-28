@@ -35,6 +35,8 @@ export interface RoomDetail {
   imageId: number | null;
   imageCredit: { name: string; url: string } | null;
   online: number;
+  /** Member room owner's chat filter: messages with swear words can't be sent here. */
+  chatFilter: boolean;
 }
 
 export interface RoomImageDTO {

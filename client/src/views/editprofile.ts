@@ -2,6 +2,7 @@ import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, cha
 import type { AccountDTO, ProfileDTO, RoomImageDTO } from '../../../shared/types.js';
 import { card, page, state, toast } from '../core.js';
 import { api, apiUpload, h } from '../dom.js';
+import { pagedGrid } from './pagedgrid.js';
 import { photoSection } from './photosection.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -193,7 +194,7 @@ export async function viewEditProfile() {
   paintThemes();
   const themeCard = card('Background theme',
     h('p', { class: 'muted small' }, 'Shown behind your profile. Tap one and it saves right away.'),
-    h('div', { class: 'theme-grid' }, ...themeBtns),
+    pagedGrid(themeBtns, { className: 'theme-grid', label: 'Background themes', startIndex: Math.max(0, themeBtns.findIndex((b) => Number(b.dataset.id) === (themeId ?? 0))) }),
     themeState);
 
   // ----- 3. Character sheet -----
