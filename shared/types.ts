@@ -107,8 +107,8 @@ export interface PhotoDTO {
 
 export interface ProfileDTO extends PublicUser {
   bio: string | null;
-  /** Roleplay character age (15-999), set by the member. Not their real age. */
-  characterAge: number | null;
+  /** Roleplay character age as the member wrote it ("0", "3,000 years"). Not their real age. */
+  characterAge: string | null;
   joined: string;
   trustLabel: string;
   /** Public photos; the first is the profile picture. */

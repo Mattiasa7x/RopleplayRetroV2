@@ -115,8 +115,8 @@ export const AGE = {
   adult: 18,
 } as const;
 
-/** Character age: a public, roleplay-only number on the profile. It never affects safety rules. */
-export const CHARACTER_AGE = { min: 15, max: 999 } as const;
+/** Character age: public, roleplay-only free text on the profile ("0", "3,000 years"). Never affects safety rules. */
+export const CHARACTER_AGE = { maxLength: 24 } as const;
 
 export const PROFILE = {
   bioMax: 500,

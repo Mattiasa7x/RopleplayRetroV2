@@ -16,7 +16,7 @@ export interface UserRow {
   prefs: Partial<Prefs>;
   birthdate: string | null;
   avatar_id: string | null;
-  character_age: number | null;
+  character_age: string | null;
 }
 
 export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.prefs, u.birthdate, u.character_age,

@@ -407,9 +407,16 @@ DELETE FROM photo_shares s USING profile_photos p
 
 -- ================= Character age, and no private messages between adults and under-18s =================
 -- Character age is roleplay only (15-999) and shown on the profile. Safety rules use the real birthdate.
-ALTER TABLE users ADD COLUMN IF NOT EXISTS character_age SMALLINT;
+-- Free text up to 24 characters ("0", "Newborn", "12,000 years", "Ageless"); no age limits.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS character_age TEXT;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_character_age;
 DO $$ BEGIN
-  ALTER TABLE users ADD CONSTRAINT users_character_age CHECK (character_age IS NULL OR character_age BETWEEN 15 AND 999);
+  IF (SELECT data_type FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'character_age') <> 'text' THEN
+    ALTER TABLE users ALTER COLUMN character_age TYPE TEXT USING character_age::text;
+  END IF;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_character_age_len CHECK (character_age IS NULL OR char_length(character_age) BETWEEN 1 AND 24);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- The real birthdate can never be changed once set (so an under-18 account can't make itself "adult").

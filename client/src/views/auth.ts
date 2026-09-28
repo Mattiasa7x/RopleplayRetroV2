@@ -58,7 +58,7 @@ export function viewSignup() {
           field('Email', 'email', 'email', { autocomplete: 'email' }),
           field(`Password (${PASSWORD_MIN}+ characters)`, 'password', 'password', { minlength: PASSWORD_MIN, autocomplete: 'new-password' }),
           field('Your real birthdate', 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
-          h('p', { class: 'hint' }, `You must be ${AGE.minimum} or older. Your birthdate is private, never shown, and can't be changed later: it keeps younger members safe. Your character's age is separate: you can set any age from 15 to 999 on your profile.`),
+          h('p', { class: 'hint' }, `You must be ${AGE.minimum} or older. Your birthdate is private, never shown, and can't be changed later: it keeps younger members safe. Your character's age is separate: set any age you like on your profile.`),
         ],
         'Create account',
         async (d) => {
