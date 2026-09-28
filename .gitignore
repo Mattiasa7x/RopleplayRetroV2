@@ -5,3 +5,4 @@ client/public/app.js
 client/public/mod.js
 client/public/*.map
 uploads/
+client/public/fonts/

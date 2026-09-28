@@ -57,7 +57,7 @@ export function applyPrefs(p: Partial<Prefs>) {
   const dark = currentTheme === 'dark' || (currentTheme === 'system' && darkQuery.matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.dataset.size = p.textSize ?? document.documentElement.dataset.size ?? 'm';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#000000' : '#ffffff');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0b0a14' : '#ffffff');
   try {
     localStorage.setItem('prefs', JSON.stringify({ theme: currentTheme, textSize: document.documentElement.dataset.size }));
   } catch {}
