@@ -9,7 +9,7 @@ import { photoDTO } from './photos.js';
 import { canView, roomBySlug } from './rooms.js';
 import { maskMature } from './safety/mature.js';
 import { checkSocialText } from './safety/social-text.js';
-import { audit, db } from './store.js';
+import { audit, db, tx } from './store.js';
 
 const TextBody = z.object({ body: z.string().max(20_000) });
 
@@ -131,7 +131,7 @@ export function registerFeedRoutes(app: FastifyInstance) {
     const self = publicUser(await meRow(u.id));
     return {
       myStatus: mine[0]
-        ? { id: mine[0].id, author: self, body: view(u, mine[0].body), createdAt: mine[0].created_at.toISOString(), canDelete: true }
+        ? { id: mine[0].id, author: self, body: view(u, mine[0].body), createdAt: mine[0].created_at.toISOString(), canDelete: false }
         : null,
       feed: activity.items,
       olderCursor: activity.olderCursor,
@@ -148,19 +148,26 @@ export function registerFeedRoutes(app: FastifyInstance) {
     const u = requireUser(req);
     const v = await checkSocialText(u, parse(TextBody, req.body).body, 'status');
     if (!v.ok) throw new HttpError(400, v.error, v.message);
-    const { rows } = await db.query<{ id: string }>(
-      'INSERT INTO statuses (user_id, body, hidden_at) VALUES ($1, $2, CASE WHEN $3 THEN now() END) RETURNING id',
-      [u.id, v.body, v.shadow],
-    );
-    return reply.status(201).send({ id: rows[0].id });
+    // One status per member: a new one replaces the old.
+    const id = await tx(async (q) => {
+      await q.query('DELETE FROM statuses WHERE user_id = $1', [u.id]);
+      const { rows } = await q.query<{ id: string }>(
+        'INSERT INTO statuses (user_id, body, hidden_at) VALUES ($1, $2, CASE WHEN $3 THEN now() END) RETURNING id',
+        [u.id, v.body, v.shadow],
+      );
+      return rows[0].id;
+    });
+    return reply.status(201).send({ id });
   });
 
   app.delete<{ Params: { id: string } }>('/api/statuses/:id', async (req) => {
     const u = requireUser(req);
+    // Moderators only: members replace their status by posting a new one.
     const staff = u.trust >= Trust.RoomModerator;
-    const { rowCount } = await db.query('DELETE FROM statuses WHERE id = $1 AND (user_id = $2 OR $3)', [req.params.id, u.id, staff]);
+    if (!staff) throw new HttpError(403, 'staff_only', 'Post a new status to replace this one.');
+    const { rowCount } = await db.query('DELETE FROM statuses WHERE id = $1', [req.params.id]);
     if (!rowCount) throw new HttpError(404, 'no_status', 'Status not found.');
-    if (staff) await audit(db, u.id, 'status_delete', 'status', req.params.id);
+    await audit(db, u.id, 'status_delete', 'status', req.params.id);
     return { ok: true };
   });
 

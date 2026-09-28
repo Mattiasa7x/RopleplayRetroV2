@@ -2,7 +2,7 @@ import { CHARACTER_AGE, CHARACTER_CITY, PROFILE, Trust } from '../../../shared/c
 import type { CommentDTO, FriendsDTO, PhotoDTO, ProfileDTO, PublicUser, StatusDTO } from '../../../shared/types.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
-import { composer, reportContent, statusItem } from './home.js';
+import { composer, reportContent } from './home.js';
 import { lightbox, uploadPhotos } from './photos.js';
 
 export async function viewProfile(handle: string) {
@@ -154,7 +154,11 @@ export async function viewProfile(handle: string) {
 
   // ----- statuses -----
   const statuses = await api<StatusDTO[]>(`/api/profiles/${encodeURIComponent(p.handle)}/statuses`);
-  const statusCard = statuses.length ? card('Recent statuses', h('ul', { class: 'posts' }, ...statuses.map((s) => statusItem(s, () => {})))) : null;
+  const current = statuses[0];
+  const statusCard = current
+    ? card('Status', h('p', { class: 'my-status' }, current.body),
+        self ? null : h('div', { class: 'post-meta' }, h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('status', current.id)) as EventListener }, 'Report')))
+    : null;
 
   // ----- comments -----
   const comments = await api<CommentDTO[]>(`/api/profiles/${encodeURIComponent(p.handle)}/comments`);

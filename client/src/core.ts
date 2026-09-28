@@ -71,6 +71,13 @@ try {
 
 // ---------------- page frame ----------------
 
+// While a phone keyboard is open, hide the bottom buttons so the message box sits right above the keyboard.
+if (window.matchMedia('(pointer: coarse)').matches) {
+  const typingField = (t: EventTarget | null) => t instanceof HTMLElement && t.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea, select');
+  document.addEventListener('focusin', (e) => { if (typingField(e.target)) document.documentElement.classList.add('kb'); });
+  document.addEventListener('focusout', (e) => { if (typingField(e.target)) document.documentElement.classList.remove('kb'); });
+}
+
 const NAV: { label: string; path: () => string; match: RegExp; icon: string }[] = [
   { label: 'Home', path: () => '/home', match: /^\/home/, icon: '⌂' },
   { label: 'Rooms', path: () => '/rooms', match: /^\/(rooms|room\/|new-room)/, icon: '#' },
@@ -89,19 +96,21 @@ export function page(title: string, ...content: (Node | string | null | undefine
         h('img', { src: '/logo-mark.svg', alt: '', class: 'brand-mark light-only', width: 34, height: 31 }),
         h('img', { src: '/logo-mark-dark.svg', alt: '', class: 'brand-mark dark-only', width: 34, height: 31 }),
         h('span', { class: 'brand-word', 'aria-hidden': 'true' }, 'ROLEPLAY', h('span', {}, 'RETRO'))),
-      h('span', { class: 'page-title' }, title)),
-    state.me
-      ? h('nav', { class: 'site-nav', 'aria-label': 'Main' }, ...NAV.map((n) => {
-          const active = n.label === 'Profile' ? here.toLowerCase() === n.path().toLowerCase() : n.match.test(here);
-          return h('a', { href: n.path(), class: active ? 'active' : '', 'aria-current': active ? 'page' : undefined },
-            h('span', { class: 'nav-icon', 'aria-hidden': 'true' }, n.icon),
-            h('span', { class: 'nav-label' }, n.label),
-            n.label === 'Friends' && state.friendRequests ? h('span', { class: 'badge', 'aria-label': `${state.friendRequests} requests` }, String(state.friendRequests)) : null,
-            n.label === 'Messages' ? h('span', { class: 'badge', 'data-badge': 'messages', hidden: !state.unreadMessages, 'aria-label': `${state.unreadMessages} unread` }, String(state.unreadMessages)) : null);
-        }))
-      : null);
+      h('span', { class: 'page-title' }, title)));
+  // Main buttons sit along the bottom of the screen, within reach of a thumb.
+  const nav = state.me
+    ? h('nav', { class: 'site-nav', 'aria-label': 'Main' }, ...NAV.map((n) => {
+        const active = n.label === 'Profile' ? here.toLowerCase() === n.path().toLowerCase() : n.match.test(here);
+        return h('a', { href: n.path(), class: active ? 'active' : '', 'aria-current': active ? 'page' : undefined },
+          h('span', { class: 'nav-icon', 'aria-hidden': 'true' }, n.icon),
+          h('span', { class: 'nav-label' }, n.label),
+          n.label === 'Friends' && state.friendRequests ? h('span', { class: 'badge', 'aria-label': `${state.friendRequests} requests` }, String(state.friendRequests)) : null,
+          n.label === 'Messages' ? h('span', { class: 'badge', 'data-badge': 'messages', hidden: !state.unreadMessages, 'aria-label': `${state.unreadMessages} unread` }, String(state.unreadMessages)) : null);
+      }))
+    : null;
   const main = h('main', { class: 'content', id: 'main' }, takeFlash(), ...(content.filter(Boolean) as (Node | string)[]));
-  root().replaceChildren(header, main);
+  document.documentElement.classList.toggle('has-nav', !!nav);
+  root().replaceChildren(...[header, main, nav].filter((x): x is HTMLElement => !!x));
   document.title = `${title} · ${SITE_NAME}`;
 }
 

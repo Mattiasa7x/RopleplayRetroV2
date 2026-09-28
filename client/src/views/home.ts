@@ -6,24 +6,6 @@ import { api, h } from '../dom.js';
 import { lightbox } from './photos.js';
 import { roomTile } from './rooms.js';
 
-/** One status update, used on Home and on profiles. */
-export function statusItem(s: StatusDTO, onRemoved: () => void): HTMLElement {
-  const li = h('li', { class: 'post' },
-    h('a', { href: `/profile/${s.author.handle}`, class: 'post-head' }, avatar(s.author.avatar, s.author.handle), h('strong', {}, s.author.handle)),
-    h('p', { class: 'post-body' }, s.body),
-    h('div', { class: 'post-meta' },
-      h('span', { class: 'muted' }, timeAgo(s.createdAt)),
-      s.canDelete
-        ? h('button', { type: 'button', class: 'link', onclick: (async () => {
-            if (!confirm('Delete this status?')) return;
-            try { await api(`/api/statuses/${s.id}`, { method: 'DELETE' }); li.remove(); onRemoved(); } catch (e) { toast((e as Error).message, true); }
-          }) as EventListener }, 'Delete')
-        : s.author.id !== state.me?.id
-          ? h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('status', s.id)) as EventListener }, 'Report')
-          : null));
-  return li;
-}
-
 export async function reportContent(kind: 'status' | 'comment' | 'photo' | 'profile' | 'dm', id?: string, handle?: string) {
   const reason = prompt('What is wrong with it? (sent privately to the moderators)');
   if (!reason?.trim()) return;
@@ -101,14 +83,15 @@ export async function viewHome() {
   state.friendRequests = data.pendingRequests;
   const me = state.me!;
 
-  // 1. Your latest status, with the box to post a new one right under it.
-  const latest = h('div', { class: 'my-status' });
-  const paintLatest = (s: StatusDTO | null) => latest.replaceChildren(s
-    ? h('ul', { class: 'posts' }, statusItem(s, () => paintLatest(null)))
-    : h('p', { class: 'muted small' }, "You haven't posted a status yet."));
+  // 1. Your status: just the words. Posting a new one replaces it.
+  const latest = h('p', { class: 'my-status' });
+  const paintLatest = (st: StatusDTO | null) => {
+    latest.textContent = st ? st.body : "You haven't posted a status yet.";
+    latest.classList.toggle('muted', !st);
+  };
   paintLatest(data.myStatus);
   const post = me.trust >= Trust.Verified
-    ? composer("What's your status?", PROFILE.statusMax, 'Post', async (body) => {
+    ? composer('Post a new status…', PROFILE.statusMax, 'Update', async (body) => {
         await api('/api/statuses', { body: { body } });
         paintLatest((await api<HomeDTO>('/api/home')).myStatus);
       })

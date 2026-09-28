@@ -299,5 +299,6 @@ export async function viewRoom(slug: string) {
   updateCounter();
   // Open at the newest lines with the message box in view, like any chat.
   requestAnimationFrame(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  input.focus({ preventScroll: true });
+  // On phones, wait for a tap: focusing would pop the keyboard up and tuck the bottom buttons away.
+  if (!window.matchMedia('(pointer: coarse)').matches) input.focus({ preventScroll: true });
 }

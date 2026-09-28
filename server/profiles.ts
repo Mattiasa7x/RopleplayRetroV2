@@ -164,12 +164,12 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     const a = await profileAccess(u, req.params.handle);
     if (!a.visible || a.iIgnore) return [];
     const { rows } = await db.query<{ id: string; body: string; created_at: Date }>(
-      `SELECT id, body, created_at FROM statuses WHERE user_id = $1 AND (hidden_at IS NULL OR user_id = $2) ORDER BY id DESC LIMIT 10`,
+      `SELECT id, body, created_at FROM statuses WHERE user_id = $1 AND (hidden_at IS NULL OR user_id = $2) ORDER BY id DESC LIMIT 1`,
       [a.target.id, u.id],
     );
     return rows.map((r) => ({
       id: r.id, author: publicUser(a.target), body: view(u, r.body), createdAt: r.created_at.toISOString(),
-      canDelete: a.target.id === u.id || u.trust >= Trust.RoomModerator,
+      canDelete: a.target.id !== u.id && u.trust >= Trust.RoomModerator,
     }));
   });
 }

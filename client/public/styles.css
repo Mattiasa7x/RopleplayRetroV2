@@ -72,21 +72,34 @@ a { color: var(--red); }
 [data-theme="light"] .dark-only, [data-theme="dark"] .light-only { display: none; }
 @media (max-width: 22rem) { .brand-word { display: none; } }
 .page-title { color: var(--fg); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.site-nav { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid var(--red); }
+:root { --nav-h: 3.6rem; --nav-total: 0px; }
+html.has-nav { --nav-total: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
+html.has-nav.kb { --nav-total: 0px; }
+.site-nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 6;
+  width: min(100%, 40rem); height: var(--nav-total); padding-bottom: env(safe-area-inset-bottom);
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  background: var(--bg); border: 3px solid var(--red); border-bottom: 0; border-radius: 14px 14px 0 0;
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.12);
+}
+html.kb .site-nav { display: none; }
+@media (max-width: 40rem) { .site-nav { border-inline-width: 2px; } }
 .site-nav a {
   position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-height: 3.1rem; padding: 0.3rem 0.1rem;
+  min-height: 0; padding: 0.3rem 0.1rem;
   color: var(--fg); text-decoration: none; font-size: 0.72rem; font-weight: 600;
   border-right: 1px solid var(--red);
 }
 .site-nav a:last-child { border-right: 0; }
 .site-nav a.active { background: var(--red); color: var(--red-ink); }
+.site-nav a:first-child { border-top-left-radius: 10px; }
+.site-nav a:last-child { border-top-right-radius: 10px; }
 .nav-icon { font-size: 1.15rem; line-height: 1.1; }
 .site-nav .badge { position: absolute; top: 0.2rem; right: 18%; }
 
 /* ---------- page content ---------- */
-.content { padding: 0.8rem 0.8rem 5rem; display: grid; gap: 0.8rem; align-content: start; }
+.content { padding: 0.8rem 0.8rem calc(var(--nav-total) + 1.5rem); display: grid; gap: 0.8rem; align-content: start; }
 .card { border: 2px solid var(--red); border-radius: 12px; padding: 0.8rem 0.9rem; background: var(--bg); min-width: 0; }
 .card > h2 { margin: 0 0 0.6rem; font-size: 1.05rem; }
 .card h3 { margin: 1rem 0 0.4rem; font-size: 0.95rem; }
@@ -190,9 +203,10 @@ details.setting-details[open] summary { margin-bottom: 0.5rem; }
 .actions button, .actions .button { min-height: 2.4rem; padding: 0.2rem 0.7rem; }
 /* The message box stays at the bottom of the screen, above the phone keyboard. */
 .chat-composer {
-  position: sticky; bottom: 0; z-index: 4;
+  position: sticky; z-index: 4;
   display: grid; grid-template-columns: 1fr auto auto; gap: 0.4rem; align-items: center;
-  margin: 0 -0.8rem -5rem; padding: 0.6rem 0.8rem calc(0.6rem + env(safe-area-inset-bottom));
+  bottom: var(--nav-total);
+  margin: 0 -0.8rem -1.5rem; padding: 0.6rem 0.8rem;
   background: var(--bg); border-top: 3px solid var(--red);
 }
 .counter { font-size: 0.8rem; color: var(--muted); min-width: 2.2rem; text-align: right; font-variant-numeric: tabular-nums; }
@@ -237,7 +251,7 @@ details.setting-details[open] summary { margin-bottom: 0.5rem; }
 
 /* ---------- toasts ---------- */
 .toast {
-  position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: calc(var(--nav-total) + 1rem + env(safe-area-inset-bottom)); transform: translateX(-50%);
   width: max-content; max-width: min(92vw, 36rem); z-index: 20;
   background: var(--fg); color: var(--bg); border: 2px solid var(--red);
   padding: 0.6rem 1rem; border-radius: 10px; font-weight: 600;
@@ -257,7 +271,7 @@ table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
 th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 0.4rem; vertical-align: top; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
-.card { scroll-margin-top: 7.5rem; }
+.card { scroll-margin-top: 4.5rem; }
 
 /* ---------- tabs, messages ---------- */
 .tabs-row { display: flex; gap: 0.4rem; margin-bottom: 0.7rem; overflow-x: auto; }
@@ -336,7 +350,7 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .friend-tag { margin-left: 0.4rem; font-weight: 700; }
 
 /* ---------- home ---------- */
-.my-status .post { padding-top: 0; }
+.my-status { margin: 0 0 0.2rem; font-size: 1.1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .my-status + .composer-box { margin-top: 0.5rem; border-top: 1px solid color-mix(in srgb, var(--red) 30%, transparent); padding-top: 0.6rem; }
 .post-kind { margin: 0.15rem 0 0; }
 .post-body.quote { border-left: 3px solid var(--red); padding-left: 0.6rem; }

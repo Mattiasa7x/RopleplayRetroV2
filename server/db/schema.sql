@@ -477,3 +477,6 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_updated_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS profile_comments_author ON profile_comments (author_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS profile_photos_user_created ON profile_photos (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS statuses_user_created ON statuses (user_id, created_at DESC);
+
+-- One status per member (a new one replaces the old): drop any older ones left from before.
+DELETE FROM statuses s WHERE EXISTS (SELECT 1 FROM statuses n WHERE n.user_id = s.user_id AND n.id > s.id);
