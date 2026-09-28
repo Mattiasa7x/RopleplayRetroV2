@@ -46,18 +46,23 @@ export async function viewRooms() {
   const member = rooms.filter((r) => r.kind === 'member').sort((x, y) => x.name.localeCompare(y.name, undefined, { sensitivity: 'base' }));
   const favs = rooms.filter((r) => r.favorite);
 
-  const tabs: [string, string, HTMLElement][] = [];
-  if (favs.length) tabs.push(['favorites', '★ Favorites', tiles(favs)]);
-  for (const c of cats) tabs.push([tabId(c), TAB_LABEL[c] ?? c, tiles(byCat.get(c)!)]);
+  const tabs: [string, string, HTMLElement, RoomSummary[]][] = [];
+  if (favs.length) tabs.push(['favorites', '★ Favorites', tiles(favs), favs]);
+  for (const c of cats) tabs.push([tabId(c), TAB_LABEL[c] ?? c, tiles(byCat.get(c)!), byCat.get(c)!]);
   tabs.push(['member-rooms', 'Member Rooms', verified
     ? h('div', { class: 'stack' },
         member.length ? tiles(member) : h('p', { class: 'muted' }, 'No member rooms yet. Start one!'),
         h('a', { href: '/new-room', class: 'button primary wide' }, '+ Create a room'))
-    : h('p', { class: 'muted' }, 'Member rooms are made and run by verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.')]);
+    : h('p', { class: 'muted' }, 'Member rooms are made and run by verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.'), member]);
 
   const wanted = new URLSearchParams(location.search).get('tab');
-  const buttons = tabs.map(([id, label]) => {
-    const b = h('button', { type: 'button', role: 'tab', id: `rt-${id}`, class: 'tab', 'aria-controls': `rp-${id}` }, label);
+  // Every theme is visible at once as a list of buttons: nothing hidden off to the side.
+  const buttons = tabs.map(([id, label, , list]) => {
+    const people = list.reduce((n, r) => n + r.online, 0);
+    const b = h('button', { type: 'button', role: 'tab', id: `rt-${id}`, class: 'theme-btn', 'aria-controls': `rp-${id}` },
+      h('span', { class: 'theme-btn-name' }, label),
+      h('span', { class: 'theme-btn-meta' }, `${list.length} room${list.length === 1 ? '' : 's'} · `,
+        h('span', { class: people ? 'live-text' : '' }, `${people} here`)));
     b.addEventListener('click', () => show(id, true));
     return b;
   });
@@ -68,11 +73,11 @@ export async function viewRooms() {
       buttons[i].classList.toggle('active', on);
       buttons[i].setAttribute('aria-selected', String(on));
       panes[i].hidden = !on;
-      if (on && scroll) buttons[i].scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+      if (on && scroll) panes[i].scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
     history.replaceState({}, '', `/rooms?tab=${id}`);
   }
-  const bar = h('div', { class: 'tabs-row room-tabs', role: 'tablist', 'aria-label': 'Room themes' }, ...buttons);
+  const bar = h('div', { class: 'theme-list', role: 'tablist', 'aria-label': 'Room themes' }, ...buttons);
 
   page('Rooms',
     !verified ? h('p', { class: 'notice' }, 'Until you confirm your email you can read every site room and chat in Newcomers and Help Desk. ', h('a', { href: '/verify' }, 'Enter code')) : null,
@@ -81,7 +86,6 @@ export async function viewRooms() {
     h('p', { class: 'muted small center' }, 'Site rooms are strictly auto-moderated: no links, and repeated rule-breaking earns an automatic mute.'));
   const start = tabs.some(([id]) => id === wanted) ? wanted! : tabs[0][0];
   show(start);
-  buttons[tabs.findIndex(([id]) => id === start)].scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
 /** Pick a picture for a member room from the shared pool. Value is the chosen id, or '' for none. */

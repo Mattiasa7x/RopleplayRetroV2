@@ -545,3 +545,17 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .room-tabs::-webkit-scrollbar { display: none; }
 .room-tabs .tab { font-size: 0.85rem; }
 [data-theme="dark"] .room-tile, [data-theme="dark"] .room-tile:hover { color: #ffffff; }
+
+/* Room themes as a list: every choice visible, no sideways scrolling. */
+.theme-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.theme-btn { flex-direction: column; align-items: flex-start; justify-content: center; gap: 0.05rem; min-height: 3.3rem; padding: 0.35rem 0.75rem; border-radius: 12px; text-align: left; }
+.theme-btn-name { font-weight: 800; font-size: 0.95rem; line-height: 1.15; }
+.theme-btn-meta { font-weight: 400; font-size: 0.75rem; color: var(--muted); }
+.theme-btn .live-text { color: #1d8f45; font-weight: 700; }
+.theme-btn[aria-selected="true"] { background: var(--red); color: var(--red-ink); }
+.theme-btn[aria-selected="true"] .theme-btn-meta, .theme-btn[aria-selected="true"] .live-text { color: var(--red-ink); opacity: 0.9; }
+[data-theme="dark"] .theme-btn { border-color: var(--line); background: var(--surface); }
+[data-theme="dark"] .theme-btn .live-text { color: var(--mint); }
+[data-theme="dark"] .theme-btn[aria-selected="true"] { background: var(--pink); border-color: var(--pink); color: var(--bg); box-shadow: 0 0 12px rgba(255, 79, 163, 0.55); }
+[data-theme="dark"] .theme-btn[aria-selected="true"] .theme-btn-meta, [data-theme="dark"] .theme-btn[aria-selected="true"] .live-text { color: var(--bg); }
+[role="tabpanel"] { scroll-margin-top: 4.5rem; }
