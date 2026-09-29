@@ -720,3 +720,8 @@ CREATE TABLE IF NOT EXISTS room_voices (
   granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (room_id, user_id)
 );
+
+-- ================= Terms of Service =================
+-- Which version of the Terms each member agreed to at signup, and when (NULL: joined before the Terms).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;

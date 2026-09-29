@@ -119,6 +119,9 @@ export const AGE = {
  */
 export const NSFW_CHARACTER_MIN_AGE = 18;
 
+/** Date of the Terms of Service now in force (client/public/terms.html). Stored with each signup. */
+export const TERMS_VERSION = '2026-09-29';
+
 /** Character age: public, roleplay-only free text on the profile ("0", "3,000 years"). Never affects safety rules. */
 export const CHARACTER_AGE = { maxLength: 24 } as const;
 /** Where the character lives, free text (a real city, "Gotham", "The Moon"). */

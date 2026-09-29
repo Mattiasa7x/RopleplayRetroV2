@@ -2,6 +2,7 @@ User-agent: *
 Allow: /$
 Allow: /signup
 Allow: /login
+Allow: /terms
 Allow: /landing/
 Allow: /og-image.png
 Allow: /logo-mark.svg

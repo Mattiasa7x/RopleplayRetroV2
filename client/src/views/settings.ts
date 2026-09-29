@@ -199,7 +199,8 @@ export async function viewSettings() {
         state.me = null;
         disconnect();
         navigate('/login', true);
-      }) as EventListener }, 'Log out'))),
+      }) as EventListener }, 'Log out'),
+      h('p', { class: 'muted small center' }, h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service')))),
 
     withId('security', card('Security',
       details('Change password', form([

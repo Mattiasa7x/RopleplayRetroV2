@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { AGE, HANDLE_PATTERN, PASSWORD_MIN, SAFETY, SITE_NAME, Trust } from '../shared/config.js';
+import { AGE, HANDLE_PATTERN, PASSWORD_MIN, SAFETY, SITE_NAME, TERMS_VERSION, Trust } from '../shared/config.js';
 import { isReservedHandle } from '../shared/handles.js';
 import type { LoginResult, MeDTO } from '../shared/types.js';
 import { ageOn, effectivePrefs, isUnderage } from './account.js';
@@ -124,6 +124,8 @@ const SignupBody = z.object({
   birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a date like 2001-06-30'),
   /** Optional: someone's invite code (dash and case don't matter). */
   inviteCode: z.string().max(20).optional(),
+  /** Creating an account means agreeing to the Terms of Service (the note under the button). */
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'Please agree to the Terms of Service to create an account.' }) }),
 });
 const LoginBody = z.object({ handle: z.string().min(1).max(16), password: z.string().min(1).max(200) });
 const TwoFactorBody = z.object({ ticket: z.string().min(20).max(64), code: z.string().trim().min(6).max(12) });
@@ -198,9 +200,9 @@ export function registerAuthRoutes(app: FastifyInstance) {
       let userId: string;
       try {
         const { rows } = await q.query<{ id: string }>(
-          `INSERT INTO users (handle, email, password_hash, needs_review, birthdate, password_changed_at, invited_by)
-           VALUES ($1, $2, $3, $4, $5, now(), $6) RETURNING id`,
-          [body.handle, body.email, password, !!matched, body.birthdate, invitedBy],
+          `INSERT INTO users (handle, email, password_hash, needs_review, birthdate, password_changed_at, invited_by, terms_version, terms_accepted_at)
+           VALUES ($1, $2, $3, $4, $5, now(), $6, $7, now()) RETURNING id`,
+          [body.handle, body.email, password, !!matched, body.birthdate, invitedBy, TERMS_VERSION],
         );
         userId = rows[0].id;
       } catch (e) {
