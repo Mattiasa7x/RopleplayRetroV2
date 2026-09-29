@@ -10,7 +10,10 @@ const num = (n: number) => Math.floor(n).toLocaleString();
 function timeLeft(hours: number): string {
   if (hours < 1) { const m = Math.max(1, Math.ceil(hours * 60)); return `in ${m} minute${m === 1 ? '' : 's'}`; }
   if (hours < 48) { const x = Math.ceil(hours); return `in ${x} hour${x === 1 ? '' : 's'}`; }
-  return `in ${Math.ceil(hours / 24)} days`;
+  const days = Math.ceil(hours / 24);
+  if (days < 60) return `in ${days} days`;
+  if (days < 730) return `in about ${Math.round(days / 30.4)} months`;
+  return `in about ${Math.round(days / 365)} years`;
 }
 
 function bar(value: number, goal: number, label: string): HTMLElement {
@@ -26,6 +29,7 @@ function bar(value: number, goal: number, label: string): HTMLElement {
 function progressFor(t: TrophyDef, p: NonNullable<TrophyPageDTO['progress']>): HTMLElement | null {
   if (t.group === 'time') return bar(p.accountHours, t.goal!, `Earned ${timeLeft(t.goal! - p.accountHours)}`);
   if (t.group === 'chat') return bar(p.messages, t.goal!, `${num(Math.min(p.messages, t.goal!))} / ${num(t.goal!)} messages`);
+  if (t.group === 'social') return bar(p.friends, t.goal!, `${num(Math.min(p.friends, t.goal!))} / ${num(t.goal!)} friends`);
   const s = p.security;
   const step = (done: boolean, text: string, href: string) =>
     h('li', { class: done ? 'done' : '' }, h('span', { 'aria-hidden': 'true' }, done ? '✓' : '○'), ' ',

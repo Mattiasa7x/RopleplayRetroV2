@@ -11,12 +11,14 @@ import { db } from './store.js';
  * statement can check one member or everybody at once. Earned trophies are kept for good,
  * even if, say, two-factor is later turned off.
  */
+const FRIENDS = `(SELECT count(*) FROM friendships f WHERE (f.user_a = u.id OR f.user_b = u.id) AND f.status = 'accepted')`;
 const RULE: Record<string, string> = {
   warded: 'u.email_verified_at IS NOT NULL AND u.phone IS NOT NULL AND u.totp_enabled',
 };
 for (const t of TROPHIES) {
   if (t.group === 'time') RULE[t.id] = `u.created_at <= now() - interval '${Number(t.goal)} hours'`;
   if (t.group === 'chat') RULE[t.id] = `u.message_count >= ${Number(t.goal)}`;
+  if (t.group === 'social') RULE[t.id] = `${FRIENDS} >= ${Number(t.goal)}`;
 }
 const AWARD_SQL = `
   INSERT INTO user_trophies (user_id, trophy_id)
@@ -42,6 +44,7 @@ export async function sendUnseen(userId: string): Promise<void> {
 }
 
 const TIME_IDS = TROPHIES.filter((t) => t.group === 'time').map((t) => t.id);
+const SOCIAL_IDS = TROPHIES.filter((t) => t.group === 'social').map((t) => t.id);
 
 /** Award whatever these members (or everyone, with null) have newly earned, and tell them. */
 export async function awardTrophies(userIds: string[] | null, only: string[] | null = null): Promise<void> {
@@ -59,10 +62,28 @@ export function afterSecurityChange(userId: string): void {
   void awardTrophies([userId]).catch((e) => console.error(e));
 }
 
+/** After a friendship is accepted (both people may reach a goal). */
+export function afterFriendsChange(userIds: string[]): void {
+  void awardTrophies(userIds, SOCIAL_IDS).catch((e) => console.error(e));
+}
+
+/**
+ * Account-age goals were lengthened after launch: take back age trophies that no longer
+ * qualify. (Other trophies are kept for good once earned.)
+ */
+async function revokeStaleAgeTrophies(): Promise<void> {
+  await db.query(
+    `DELETE FROM user_trophies x USING users u
+      WHERE u.id = x.user_id AND x.trophy_id = ANY($1::text[])
+        AND NOT CASE x.trophy_id ${TROPHIES.filter((t) => t.group === 'time').map((t) => `WHEN '${t.id}' THEN (${RULE[t.id]})`).join(' ')} ELSE true END`,
+    [TIME_IDS]);
+}
+
 /** Start the minute-by-minute check (account-age trophies depend only on the clock). */
 export function startTrophies(n: Notify, log: (e: unknown) => void): NodeJS.Timeout {
   notify = n;
-  void awardTrophies(null).catch(log); // first start: catches up every member on every trophy
+  // first start: catches up every member on every trophy
+  void revokeStaleAgeTrophies().then(() => awardTrophies(null)).catch(log);
   // After that only account age needs the clock; everything else is checked when it changes.
   const timer = setInterval(() => void awardTrophies(null, TIME_IDS).catch(log), 60_000);
   timer.unref();
@@ -85,12 +106,13 @@ export function registerTrophyRoutes(app: FastifyInstance) {
       earned: rows.map((r) => ({ id: r.trophy_id, earnedAt: r.earned_at.toISOString() })),
     };
     if (self) {
-      const { rows: p } = await db.query<{ hours: number; messages: number; email: boolean; phone: boolean; two_factor: boolean }>(
+      const { rows: p } = await db.query<{ hours: number; messages: number; friends: number; email: boolean; phone: boolean; two_factor: boolean }>(
         `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages,
+                ${FRIENDS.replace(/u\.id/g, 'users.id')} AS friends,
                 email_verified_at IS NOT NULL AS email, phone IS NOT NULL AS phone, totp_enabled AS two_factor
            FROM users WHERE id = $1`, [u.id]);
       out.progress = {
-        accountHours: Number(p[0].hours), messages: Number(p[0].messages),
+        accountHours: Number(p[0].hours), messages: Number(p[0].messages), friends: Number(p[0].friends),
         security: { email: p[0].email, phone: p[0].phone, twoFactor: p[0].two_factor },
       };
     }

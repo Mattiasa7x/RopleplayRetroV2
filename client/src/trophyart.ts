@@ -3,7 +3,7 @@ import { h } from './dom.js';
 
 /**
  * Badge artwork, drawn in SVG so it stays sharp at any size. Each group has its own frame
- * (time: rosette medal, security: shield, chat: hexagon) and each trophy its own colour and
+ * (time: rosette medal, security: shield, chat: hexagon, friends: diamond) and each trophy its own colour and
  * emblem. Emblems are white; `D` marks details drawn in the badge's dark shade.
  */
 
@@ -11,7 +11,18 @@ const COLOR: Record<string, string> = {
   noob: '#7cc95a', wanderer: '#22a99a', regular: '#e08a2a', veteran: '#4a78d6', old_guard: '#8656d4',
   warded: '#d0344a',
   chatterbox: '#f0569a', wordsmith: '#c07a3a', storyteller: '#8fa5bd', loremaster: '#e8b32e',
+  good_company: '#3ea6e0', circle: '#27b07a', butterfly: '#c95ad8', heart: '#ef4f6c',
 };
+
+/** Six little heads in a ring. */
+function ring(d: string): string {
+  let out = `<circle cx="32" cy="32" r="9.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.6"/>`;
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+    out += `<circle cx="${(32 + 9.5 * Math.cos(a)).toFixed(2)}" cy="${(32 + 9.5 * Math.sin(a)).toFixed(2)}" r="3.4" fill="#fff" stroke="${d}" stroke-width="1"/>`;
+  }
+  return out + `<path d="M32 28.2l1.1 2.4 2.6.3-1.9 1.8.5 2.6-2.3-1.3-2.3 1.3.5-2.6-1.9-1.8 2.6-.3z" fill="#fff"/>`;
+}
 
 const W = 'fill="#fff" stroke="none"';
 const S = 'fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"';
@@ -52,6 +63,22 @@ const EMBLEM: Record<string, (dark: string) => string> = {
   loremaster: (d) => `<path d="M19.5 41l-2-15.5 8 6.5 6.5-10.5 6.5 10.5 8-6.5-2 15.5z" ${W}/>
     <rect x="19.5" y="42.5" width="25" height="4" rx="1.5" ${W}/>
     <circle cx="32" cy="35" r="2.3" fill="${d}"/><circle cx="25" cy="37" r="1.5" fill="${d}"/><circle cx="39" cy="37" r="1.5" fill="${d}"/>`,
+  // two friends side by side
+  good_company: (d) => `<circle cx="37" cy="27" r="4" fill="#fff" fill-opacity=".65"/>
+    <path d="M30.5 41c.4-5.5 3-8.3 6.5-8.3 3.8 0 6.6 3 6.6 8.3z" fill="#fff" fill-opacity=".65"/>
+    <circle cx="28" cy="28.5" r="4.6" ${W} stroke="${d}" stroke-width="1.2"/>
+    <path d="M20 43c0-6 3.3-9.6 8-9.6s8 3.6 8 9.6z" ${W} stroke="${d}" stroke-width="1.2"/>`,
+  // a ring of friends
+  circle: (d) => ring(d),
+  // a butterfly
+  butterfly: (d) => `<path d="M31 31c-2.5-6.5-8.5-10.5-11.8-8.2-2.6 1.9-.4 8.5 5.6 9.7-4.8 1-6.4 5.8-3.8 7.7 2.8 2 7.4-1.8 10-7.2z" ${W}/>
+    <path d="M33 31c2.5-6.5 8.5-10.5 11.8-8.2 2.6 1.9.4 8.5-5.6 9.7 4.8 1 6.4 5.8 3.8 7.7-2.8 2-7.4-1.8-10-7.2z" ${W}/>
+    <path d="M32 26.5v12M32 26.5l-2.4-3.8M32 26.5l2.4-3.8" ${D(d)} stroke-width="2.2"/>
+    <circle cx="24" cy="27.5" r="1.5" fill="${d}" fill-opacity=".6"/><circle cx="40" cy="27.5" r="1.5" fill="${d}" fill-opacity=".6"/>`,
+  // a crowned heart
+  heart: (d) => `<path d="M32 45.5s-12.5-7.2-12.5-15.4a6.6 6.6 0 0 1 12.5-3 6.6 6.6 0 0 1 12.5 3c0 8.2-12.5 15.4-12.5 15.4z" ${W}/>
+    <path d="M27 22.5l-1-5 3.3 2.4L32 16l2.7 3.9 3.3-2.4-1 5z" ${W}/>
+    <path d="M26.5 31.5c.3-1.8 1.6-3 3.3-3.2" ${D(d)} stroke-opacity=".7"/>`,
 };
 
 function shade(hex: string, amt: number): string {
@@ -75,6 +102,10 @@ function frame(group: TrophyGroup, fill: string, edge: string, dark: string): st
   if (group === 'security') {
     return `<path d="M32 3.5l24 8.5v17.5c0 15.5-10.5 26-24 31-13.5-5-24-15.5-24-31V12z" fill="${dark}"/>
       <path d="M32 7.5l20 7v15c0 13-8.8 22-20 26.5-11.2-4.5-20-13.5-20-26.5v-15z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/>`;
+  }
+  if (group === 'social') {
+    return `<path d="M32 2.5l29.5 29.5L32 61.5 2.5 32z" fill="${dark}" stroke="${dark}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M32 7.5L56.5 32 32 56.5 7.5 32z" fill="${fill}" stroke="${edge}" stroke-width="1.2" stroke-linejoin="round"/>`;
   }
   if (group === 'chat') {
     return `<path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="${dark}"/>

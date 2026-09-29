@@ -7,6 +7,7 @@ import { isOnline, rooms, type IO } from './realtime.js';
 import { pushTo } from './push.js';
 import { slidingWindow } from './safety/limits.js';
 import { audit, db, redis, type Tx } from './store.js';
+import { afterFriendsChange } from './trophies.js';
 
 export interface UserRow {
   id: string;
@@ -137,6 +138,7 @@ export function registerFriendRoutes(app: FastifyInstance, io: IO) {
           WHERE user_a = LEAST($1::bigint, $2::bigint) AND user_b = GREATEST($1::bigint, $2::bigint)`,
         [u.id, t.id],
       );
+      afterFriendsChange([u.id, t.id]);
       io.to(rooms.user(t.id)).emit('social', { kind: 'friend_accept', from: u.handle });
       pushTo(t.id, 'friend', { title: `${u.handle} accepted your friend request`, url: `/profile/${u.handle}`, tag: `friend-${u.handle}` });
       return { ok: true, state: 'friends' };

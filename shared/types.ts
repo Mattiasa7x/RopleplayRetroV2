@@ -211,6 +211,7 @@ export interface TrophyPageDTO {
   progress?: {
     accountHours: number;
     messages: number;
+    friends: number;
     security: { email: boolean; phone: boolean; twoFactor: boolean };
   };
 }
