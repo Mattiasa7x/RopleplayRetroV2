@@ -102,7 +102,11 @@ export function viewVerify() {
       }),
       h('div', { class: 'row' },
         h('button', { type: 'button', class: 'quiet', onclick: (async () => {
-          try { await api('/api/verify/resend', { body: {} }); toast('New code sent.'); } catch (e) { toast((e as Error).message, true); }
+          try { await api('/api/verify/resend', { body: {} }); toast('New code sent. Check your junk or spam folder too.'); } catch (e) { toast((e as Error).message, true); }
         }) as EventListener }, 'Send a new code'),
-        h('a', { href: '/home', class: 'button quiet' }, 'Later'))));
+        h('a', { href: '/home', class: 'button quiet' }, 'Later')),
+      h('p', { class: 'junk-hint' },
+        h('strong', {}, "Can't find the email? "),
+        'Check your junk or spam folder. It comes from ', h('strong', {}, 'no-reply@mail.roleplayretro.com'),
+        '. If it landed there, marking it "Not spam" helps future emails arrive in your inbox.')));
 }

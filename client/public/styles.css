@@ -699,3 +699,7 @@ button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 [data-theme="dark"] .gift-choice[aria-pressed="true"] { border-color: var(--pink); box-shadow: 0 0 12px rgba(255, 79, 163, 0.55); }
 [data-theme="dark"] .gift-message { background: var(--soft); }
 [data-theme="dark"] .gift-count { background: var(--pink); color: var(--bg); }
+
+/* confirm-email page: reminder to look in junk/spam */
+.junk-hint { margin: 0.8rem 0 0; padding: 0.6rem 0.75rem; border-radius: 10px; border: 1.5px dashed var(--red); background: var(--soft); font-size: 0.9rem; line-height: 1.4; overflow-wrap: anywhere; }
+[data-theme="dark"] .junk-hint { border-color: var(--pink); }
