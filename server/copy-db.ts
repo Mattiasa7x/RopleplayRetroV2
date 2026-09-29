@@ -48,7 +48,7 @@ async function foreignKeys(q: Q): Promise<Fk[]> {
  * (users.invited_by, users.profile_gift_id → gifts → users) are broken by leaving those
  * columns empty on the first pass and filling them in afterwards.
  */
-function plan(tables: string[], fks: Fk[], nullable: Map<string, Set<string>>) {
+function plan(tables: string[], fks: Fk[], nullable: Map<string, Set<string>>, checked: Map<string, string>) {
   const deferred = new Map<string, Set<string>>(); // table → columns filled in later
   const defer = (fk: Fk) => {
     const s = deferred.get(fk.child) ?? new Set<string>();
@@ -69,7 +69,22 @@ function plan(tables: string[], fks: Fk[], nullable: Map<string, Set<string>>) {
       continue;
     }
     // A loop: break it at a link whose columns can be empty for a moment.
-    const cut = edges.find((e) => left.has(e.child) && left.has(e.parent) && e.cols.every((c) => nullable.get(e.child)?.has(c)));
+    // Only a link that's actually part of a loop (its parent leads back to its child), whose
+    // columns may be empty, preferring ones no CHECK rule looks at (rooms.owner_id is).
+    const reaches = (from: string, to: string) => {
+      const seen = new Set<string>([from]);
+      const stack = [from];
+      while (stack.length) {
+        const t = stack.pop()!;
+        if (t === to) return true;
+        for (const e of edges) if (e.child === t && left.has(e.parent) && !seen.has(e.parent)) { seen.add(e.parent); stack.push(e.parent); }
+      }
+      return false;
+    };
+    const candidates = edges.filter((e) => left.has(e.child) && left.has(e.parent)
+      && e.cols.every((c) => nullable.get(e.child)?.has(c)) && reaches(e.parent, e.child));
+    const unchecked = (e: Fk) => !e.cols.some((c) => (checked.get(e.child) ?? '').includes(c));
+    const cut = candidates.find(unchecked) ?? candidates[0];
     if (!cut) throw new Error(`can't order tables: ${[...left].join(', ')}`);
     defer(cut);
     edges = edges.filter((e) => e !== cut);
@@ -107,7 +122,13 @@ export async function copyFromOldDatabase(log: (m: string) => void): Promise<voi
       cols.set(t, mine.map((c) => c.name));
       nullable.set(t, new Set(mine.filter((c) => c.nullable).map((c) => c.name)));
     }
-    const { order, deferred } = plan(tables, await foreignKeys(dst), nullable);
+    const { rows: checks } = await dst.query<{ t: string; def: string }>(
+      `SELECT c.conrelid::regclass::text AS t, string_agg(pg_get_constraintdef(c.oid), ' ') AS def
+         FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace
+        WHERE c.contype = 'c' AND n.nspname = 'public' GROUP BY 1`);
+    const checked = new Map(checks.map((r) => [r.t.replace(/"/g, ''), r.def]));
+    const { order, deferred } = plan(tables, await foreignKeys(dst), nullable, checked);
+    log(`database copy: ${order.length} tables; filled in afterwards: ${[...deferred].map(([t, c]) => `${t}.${[...c].join('/')}`).join(', ') || 'none'}`);
 
     await dst.query('BEGIN');
     // Our own triggers (handle rules, age rules, the admin rule, the audit lock) re-check things
