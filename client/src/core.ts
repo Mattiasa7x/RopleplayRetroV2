@@ -78,12 +78,26 @@ if (window.matchMedia('(pointer: coarse)').matches) {
   document.addEventListener('focusout', (e) => { if (typingField(e.target)) document.documentElement.classList.remove('kb'); });
 }
 
-const NAV: { label: string; path: () => string; match: RegExp; icon: string; adminOnly?: boolean }[] = [
+/** Simple line drawings for the bottom bar, drawn in the text colour so they follow the theme. */
+const SVG = (inner: string) =>
+  `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false">${inner}</svg>`;
+/** A door standing partly open, with light showing through the gap. */
+const DOOR = SVG('<path d="M12.5 4.6 19 3v18l-6.5-1.6z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M3 21h18M5 21V3h14v18"/><path d="M5 3l7.5 1.6v14.8L5 21z"/><circle cx="10.6" cy="12.3" r=".9" fill="currentColor" stroke="none"/>');
+/** Head and shoulders. */
+const PERSON = SVG('<circle cx="12" cy="8" r="4.2" fill="currentColor" stroke="none"/><path d="M3.8 21.5c0-4.6 3.7-7.6 8.2-7.6s8.2 3 8.2 7.6z" fill="currentColor" stroke="none"/>');
+
+function navIcon(n: { icon: string; svg?: string }): HTMLElement {
+  const el = h('span', { class: 'nav-icon', 'aria-hidden': 'true' }, n.svg ? '' : n.icon);
+  if (n.svg) el.innerHTML = n.svg; // fixed markup from this file, never user text
+  return el;
+}
+
+const NAV: { label: string; path: () => string; match: RegExp; icon: string; svg?: string; adminOnly?: boolean }[] = [
   { label: 'Home', path: () => '/home', match: /^\/home/, icon: '⌂' },
-  { label: 'Rooms', path: () => '/rooms', match: /^\/(rooms|room\/|new-room)/, icon: '#' },
+  { label: 'Rooms', path: () => '/rooms', match: /^\/(rooms|room\/|new-room)/, icon: '#', svg: DOOR },
   { label: 'Messages', path: () => '/messages', match: /^\/messages/, icon: '✉' },
   { label: 'Friends', path: () => '/friends', match: /^\/friends/, icon: '☺' },
-  { label: 'Profile', path: () => `/profile/${state.me?.handle ?? ''}`, match: new RegExp(`^/profile/${state.me?.handle ?? '__none__'}$`, 'i'), icon: '◉' },
+  { label: 'Profile', path: () => `/profile/${state.me?.handle ?? ''}`, match: new RegExp(`^/profile/${state.me?.handle ?? '__none__'}$`, 'i'), icon: '◉', svg: PERSON },
   { label: 'Settings', path: () => '/settings', match: /^\/settings/, icon: '⚙' },
   { label: 'Admin', path: () => '/admin', match: /^\/admin/, icon: '⚑', adminOnly: true },
 ];
@@ -104,7 +118,7 @@ export function page(title: string, ...content: (Node | string | null | undefine
         const mine = n.path().toLowerCase(), at = here.toLowerCase();
         const active = n.label === 'Profile' ? at === mine || at.startsWith(mine + '/') || at === '/edit-profile' : n.match.test(here);
         return h('a', { href: n.path(), class: active ? 'active' : '', 'aria-current': active ? 'page' : undefined },
-          h('span', { class: 'nav-icon', 'aria-hidden': 'true' }, n.icon),
+          navIcon(n),
           h('span', { class: 'nav-label' }, n.label),
           n.label === 'Friends' && state.friendRequests ? h('span', { class: 'badge', 'aria-label': `${state.friendRequests} requests` }, String(state.friendRequests)) : null,
           n.label === 'Messages' ? h('span', { class: 'badge', 'data-badge': 'messages', hidden: !state.unreadMessages, 'aria-label': `${state.unreadMessages} unread` }, String(state.unreadMessages)) : null);
