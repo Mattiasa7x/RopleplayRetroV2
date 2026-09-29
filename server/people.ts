@@ -60,14 +60,12 @@ export function registerPeopleRoutes(app: FastifyInstance) {
 const ONLINE_PAGE = 20;
 
 /**
- * Online Users: adults (18+) who are online and haven't hidden their online status.
- * Members under 18 are never listed, and can't browse the list either. Anyone who blocked
- * you, or whom you ignore or block, is left out.
+ * Online Users: members who are online and haven't hidden their online status. Anyone who
+ * blocked you, or whom you ignore or block, is left out.
  */
 export function registerOnlineRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { sample?: string; q?: string; page?: string } }>('/api/online', async (req): Promise<OnlineUsersDTO> => {
     const u = requireUser(req);
-    if (u.isMinor) throw new HttpError(403, 'adults_only', 'Online Users is for members 18 and over.');
     const ids = ((await redis.hkeys('online')) as string[]).filter((id) => /^\d{1,19}$/.test(id) && id !== u.id);
     if (!ids.length) return { users: [], total: 0, page: 1, pages: 1 };
     const q = (req.query.q ?? '').trim().slice(0, 16);

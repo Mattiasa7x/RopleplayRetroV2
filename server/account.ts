@@ -1,4 +1,4 @@
-import { AGE, DEFAULT_PREFS, MINOR_LOCKS, type Prefs } from '../shared/config.js';
+import { AGE, DEFAULT_PREFS, type Prefs } from '../shared/config.js';
 
 /** Whole years between a YYYY-MM-DD birthdate and `now` (UTC). */
 export function ageOn(birthdate: string | Date, now = new Date()): number {
@@ -10,19 +10,15 @@ export function ageOn(birthdate: string | Date, now = new Date()): number {
   return age;
 }
 
-/** Unknown birthdate counts as under 18: the safe default for the locks. */
-export function isMinor(birthdate: string | Date | null): boolean {
-  return birthdate == null || ageOn(birthdate) < AGE.adult;
+/**
+ * The site is 18+ only. An account under 18 (or with no birthdate on file) can't sign in or keep
+ * a session: a backstop, since signup already refuses anyone younger.
+ */
+export function isUnderage(birthdate: string | Date | null): boolean {
+  return birthdate == null || ageOn(birthdate) < AGE.minimum;
 }
 
-/** Stored prefs merged over defaults, with the under-18 locks applied last. */
-export function effectivePrefs(stored: Partial<Prefs> | null | undefined, minor: boolean): Prefs {
-  const merged = { ...DEFAULT_PREFS, ...(stored ?? {}) } as Prefs;
-  return minor ? { ...merged, ...MINOR_LOCKS } : merged;
-}
-
-/** Keys a minor tried to change away from their locked value. */
-export function lockedChanges(patch: Partial<Prefs>, minor: boolean): string[] {
-  if (!minor) return [];
-  return (Object.keys(MINOR_LOCKS) as (keyof Prefs)[]).filter((k) => k in patch && patch[k] !== MINOR_LOCKS[k]);
+/** Stored prefs merged over defaults. */
+export function effectivePrefs(stored: Partial<Prefs> | null | undefined): Prefs {
+  return { ...DEFAULT_PREFS, ...(stored ?? {}) } as Prefs;
 }

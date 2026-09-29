@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import webpush from 'web-push';
 import { z } from 'zod';
 import { DEFAULT_PREFS, type Prefs } from '../shared/config.js';
-import { effectivePrefs, isMinor } from './account.js';
+import { effectivePrefs } from './account.js';
 import { parse, requireUser } from './http.js';
 import { db } from './store.js';
 
@@ -42,7 +42,7 @@ export function pushTo(userId: string, kind: PushKind, msg: { title: string; bod
   void (async () => {
     const { rows: u } = await db.query<{ prefs: Partial<Prefs>; birthdate: string | null }>('SELECT prefs, birthdate FROM users WHERE id = $1', [userId]);
     if (!u[0]) return;
-    const p = effectivePrefs({ ...DEFAULT_PREFS, ...u[0].prefs }, isMinor(u[0].birthdate));
+    const p = effectivePrefs({ ...DEFAULT_PREFS, ...u[0].prefs });
     if (!p.pushAlerts) return;
     if (kind === 'mention' && !p.mentionAlerts) return;
     if ((kind === 'friend' || kind === 'comment') && !p.friendAlerts) return;

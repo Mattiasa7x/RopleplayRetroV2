@@ -26,7 +26,7 @@ export function pageDecision(path: string, query: string, signedIn: boolean): Pa
 }
 
 const INVITE_TITLE = "You're invited to RoleplayRetro";
-const INVITE_TEXT = 'A friend invited you to RoleplayRetro: roleplay and chat rooms built for your phone. Tap to join free.';
+const INVITE_TEXT = 'A friend invited you to RoleplayRetro: roleplay and chat rooms built for your phone. Tap to join free (18+).';
 
 /** The page for an invite link: same page, with an invitation in its link preview. */
 export function inviteShell(html: string, url: string): string {

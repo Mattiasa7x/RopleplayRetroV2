@@ -34,8 +34,10 @@ white text and red borders. "Match my device" follows the phone's own setting.
 
 ## Accounts and safety
 
-- **Birthdate at signup** (never shown). Minimum age 13. Under 18: the chat filter is locked on, and
-  profile visibility and profile comments are locked to friends only.
+- **Adults only (18+).** The real birthdate is asked at signup (never shown, never changeable) and
+  anyone under 18 is refused; an account under 18 can't sign in or keep a session either.
+- **Character ages are free** (newborns to ancient beings), but an NSFW profile must show a character
+  aged 18 or older, and sexual content involving characters under 18 isn't allowed anywhere.
 - **Chat filter:** slurs are always blocked for everyone; milder mature words (`mature-words.txt`) are
   masked (`h***`) for anyone with the filter on, in chat, comments and statuses.
 - **Two-factor sign-in** with any authenticator app, plus ten one-time backup codes.
@@ -115,9 +117,9 @@ server/
   paging.ts       cursor paging (pure, tested)
   safety/         pipeline.ts (the ordered checks), strikes.ts (site-room auto-mutes), filter.ts,
                   limits.ts, signals.ts, blocklist.txt
-  settings.ts     preferences with under-18 locks, password, email, devices, 2FA, delete account
+  settings.ts     preferences, password, email, devices, 2FA, delete account
   totp.ts         two-factor codes (RFC 6238), backup codes
-  account.ts      age and effective settings
+  account.ts      real age (18+ check) and effective settings
   profiles.ts     profiles, photos (re-encode + copy detection), profile comments
   friends.ts      friend requests, friends list, block/friend relationships
   feed.ts         status updates, home feed, favorite rooms

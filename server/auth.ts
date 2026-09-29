@@ -4,10 +4,10 @@ import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { AGE, HANDLE_PATTERN, MINOR_LOCKS, PASSWORD_MIN, SAFETY, SITE_NAME, Trust } from '../shared/config.js';
+import { AGE, HANDLE_PATTERN, PASSWORD_MIN, SAFETY, SITE_NAME, Trust } from '../shared/config.js';
 import { isReservedHandle } from '../shared/handles.js';
 import type { LoginResult, MeDTO } from '../shared/types.js';
-import { ageOn, effectivePrefs, isMinor } from './account.js';
+import { ageOn, effectivePrefs, isUnderage } from './account.js';
 import { env } from './env.js';
 import { HttpError, clientSignals, parse, requireUser, type SessionUser } from './http.js';
 import { MailError, messenger } from './mail.js';
@@ -69,11 +69,10 @@ export async function userFromToken(token: string | undefined): Promise<SessionU
     [sha256(token)],
   );
   const r = rows[0];
-  if (!r) return null;
-  const minor = isMinor(r.birthdate);
+  if (!r || isUnderage(r.birthdate)) return null; // adults only
   return {
     id: r.id, handle: r.handle, trust: r.trust_level, email: r.email,
-    emailVerified: !!r.email_verified_at, prefs: effectivePrefs(r.prefs, minor), isMinor: minor,
+    emailVerified: !!r.email_verified_at, prefs: effectivePrefs(r.prefs),
     twoFactor: r.totp_enabled, sessionId: r.sid,
   };
 }
@@ -134,7 +133,7 @@ export async function meDTO(u: SessionUser): Promise<MeDTO> {
   const { rows } = await db.query<{ room_id: number }>('SELECT room_id FROM room_moderators WHERE user_id = $1', [u.id]);
   return {
     id: u.id, handle: u.handle, trust: u.trust, email: u.email, emailVerified: u.emailVerified, prefs: u.prefs,
-    isMinor: u.isMinor, lockedPrefs: u.isMinor ? Object.keys(MINOR_LOCKS) : [], twoFactor: u.twoFactor,
+    twoFactor: u.twoFactor,
     moderates: rows.map((r) => r.room_id),
   };
 }
@@ -175,7 +174,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     const born = new Date(`${body.birthdate}T00:00:00Z`);
     if (Number.isNaN(born.getTime()) || born > new Date() || ageOn(born) > 120) throw new HttpError(400, 'birthdate', 'Enter a real birthdate.');
-    if (ageOn(born) < AGE.minimum) throw new HttpError(403, 'too_young', `You must be at least ${AGE.minimum} to join ${SITE_NAME}.`);
+    if (ageOn(born) < AGE.minimum) throw new HttpError(403, 'too_young', `${SITE_NAME} is for adults only. You must be ${AGE.minimum} or older to join.`);
     if (isReservedHandle(body.handle)) throw new HttpError(409, 'handle_reserved', 'That name is reserved. Please pick another.');
 
     if (!(await underDailyCap(redis, `signup:${net}`, SAFETY.signupsPerNetworkPerDay))) {
@@ -240,12 +239,13 @@ export function registerAuthRoutes(app: FastifyInstance) {
     if (!(await slidingWindow(redis, key, SAFETY.loginAttemptsPer15Min, 15 * 60_000))) {
       throw new HttpError(429, 'login_rate', 'Too many attempts. Wait 15 minutes and try again.');
     }
-    const { rows } = await db.query('SELECT id, password_hash, trust_level, totp_enabled FROM users WHERE lower(handle) = lower($1)', [body.handle]);
+    const { rows } = await db.query('SELECT id, password_hash, trust_level, totp_enabled, birthdate FROM users WHERE lower(handle) = lower($1)', [body.handle]);
     const u = rows[0];
     // Same message whether the handle or the password was wrong.
     if (!u || !(await verifyPassword(body.password, u.password_hash))) {
       throw new HttpError(401, 'bad_login', 'Name or password is wrong.');
     }
+    if (isUnderage(u.birthdate)) throw new HttpError(403, 'adults_only', `${SITE_NAME} is for adults only (${AGE.minimum}+).`);
     if (u.totp_enabled) {
       // Password was right; hold a short-lived ticket until the second factor arrives.
       const ticket = randomBytes(24).toString('base64url');

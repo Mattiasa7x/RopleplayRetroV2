@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { handleSkeleton, isReservedHandle } from '../shared/handles.js';
-import { ageOn, effectivePrefs, isMinor, lockedChanges } from '../server/account.js';
+import { ageOn, effectivePrefs, isUnderage } from '../server/account.js';
 import { base32Decode, base32Encode, hotp, totp, verifyTotp } from '../server/totp.js';
 import { parseBlocklist } from '../server/safety/filter.js';
 import { maskWith } from '../server/safety/mature.js';
@@ -29,19 +29,17 @@ test('database skeleton function matches the app exactly', { skip: !process.env.
   assert.equal(out, names.map(handleSkeleton).join(','));
 });
 
-test('age and the under-18 locks', () => {
+test('adults only: age and settings', () => {
   const now = new Date('2026-09-27T12:00:00Z');
   assert.equal(ageOn('2008-09-27', now), 18);
   assert.equal(ageOn('2008-09-28', now), 17);
-  assert.equal(isMinor(null), true);
-  const p = effectivePrefs({ chatFilter: false, profileVisibility: 'everyone', theme: 'dark' }, true);
-  assert.equal(p.chatFilter, true);
-  assert.equal(p.profileVisibility, 'friends');
+  assert.equal(isUnderage(null), true);
+  assert.equal(isUnderage('1990-01-01'), false);
+  const p = effectivePrefs({ chatFilter: false, profileVisibility: 'everyone', theme: 'dark' });
+  assert.equal(p.chatFilter, false);
+  assert.equal(p.profileVisibility, 'everyone');
   assert.equal(p.theme, 'dark');
-  assert.equal(effectivePrefs({ chatFilter: false }, false).chatFilter, false);
-  assert.deepEqual(lockedChanges({ chatFilter: false }, true), ['chatFilter']);
-  assert.deepEqual(lockedChanges({ chatFilter: true, theme: 'light' }, true), []);
-  assert.deepEqual(lockedChanges({ chatFilter: false }, false), []);
+  assert.equal(effectivePrefs(null).chatFilter, true);
 });
 
 test('TOTP matches the RFC 6238 test vectors', () => {

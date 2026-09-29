@@ -24,9 +24,7 @@ export async function photoSection(p: ProfileDTO, opts: { manage: boolean; reloa
     manage
       ? h('div', { class: 'photo-tools' },
           !inAlbum ? (i > 0 ? btn('Main', 'link', call(() => api(`/api/me/photos/${ph.id}/primary`, { body: {} }), 'Profile picture updated.')) : h('span', { class: 'muted small' }, 'Main')) : null,
-          inAlbum || !me.isMinor
-            ? btn(inAlbum ? 'Public' : '🔒 Hide', 'link', call(() => api(`/api/me/photos/${ph.id}/visibility`, { body: { private: !inAlbum } }), inAlbum ? 'Moved to your public photos.' : 'Moved to your private album.'))
-            : null,
+          btn(inAlbum ? 'Public' : '🔒 Hide', 'link', call(() => api(`/api/me/photos/${ph.id}/visibility`, { body: { private: !inAlbum } }), inAlbum ? 'Moved to your public photos.' : 'Moved to your private album.')),
           btn('Delete', 'link', call(async () => { if (confirm('Delete this photo for good?')) await api(`/api/me/photos/${ph.id}`, { method: 'DELETE' }); })))
       : self ? null : btn('Report', 'link photo-report', () => void reportContent('photo', ph.id)))));
 
@@ -42,14 +40,12 @@ export async function photoSection(p: ProfileDTO, opts: { manage: boolean; reloa
     const fillAlbum = async () => {
       const photos = await api<PhotoDTO[]>(`/api/profiles/${encodeURIComponent(p.handle)}/album`);
       const parts: (Node | null)[] = [
-        h('p', { class: self && me.isMinor ? 'notice' : 'muted small' }, self
-          ? me.isMinor
-            ? 'Private albums are for members 18 and over. Only you can see these photos: make them public or delete them.'
-            : 'Only you, friends you give access to below, and people you share a photo with in Messages can see these.'
+        h('p', { class: 'muted small' }, self
+          ? 'Only you, friends you give access to below, and people you share a photo with in Messages can see these.'
           : `${p.handle} gave you access to their private album. Please keep it private.`),
         photos.length ? photoGrid(photos, true) : h('p', { class: 'muted' }, 'No private photos yet.'),
       ];
-      if (manage && !me.isMinor) {
+      if (manage) {
         parts.push(h('button', { type: 'button', class: 'primary wide', onclick: (async () => { if ((await uploadPhotos(true)).length) reload(); }) as EventListener }, '+ Add to private album'));
         const [access, friends] = await Promise.all([api<PublicUser[]>('/api/me/album-access'), api<FriendsDTO>('/api/friends')]);
         const has = new Set(access.map((a) => a.handle));

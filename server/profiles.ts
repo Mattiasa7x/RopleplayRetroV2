@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { TROPHIES, TROPHY_BY_ID } from '../shared/trophies.js';
 import sharp from 'sharp';
-import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, PROFILE, RP_STYLES, TRUST_LABEL, Trust, type CharacterSheet, type RpStyle } from '../shared/config.js';
+import { CHARACTER_CITY, characterAgeFrom, NSFW_CHARACTER_MIN_AGE, CHARACTER_GENDER, CHARACTER_SHEET, PROFILE, RP_STYLES, TRUST_LABEL, Trust, type CharacterSheet, type RpStyle } from '../shared/config.js';
 import type { CommentDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO } from '../shared/types.js';
 import { characterAgeText, publicUser, prefsOf, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
@@ -165,8 +165,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       ...(self ? { own: { characterBirthday: t.character_birthday, legacyAge: t.character_birthday ? null : t.character_age, profileTrophy: t.profile_trophy } } : {}),
       trustLabel: TRUST_LABEL[t.trust_level as Trust],
       photos: photos.map(photoDTO),
-      // Under 18 there's no private album; the tab only appears if old private photos need moving.
-      canViewAlbum: albumOk && !(u.id === t.id && u.isMinor && Number(ac[0].n) === 0),
+      canViewAlbum: albumOk,
       albumCount: albumOk ? Number(ac[0].n) : 0,
       friendCount: Number(fc[0].n),
       friendState: a.friendState,
@@ -260,8 +259,13 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     if (next.birthday && next.birthday > new Date().toISOString().slice(0, 10)) {
       throw new HttpError(400, 'future', "A character's birthday can't be in the future.");
     }
-    if (next.style && ADULT_RP_STYLES.includes(next.style) && u.isMinor) {
-      throw new HttpError(403, 'adults_only', 'That roleplay style is for members 18 and over.');
+    // Character ages are free, but an NSFW profile can't show a character under 18.
+    if (next.style === 'NSFW') {
+      const legacy = /^\s*\d{1,4}\s*$/.test(cur.character_age ?? '') ? Number(cur.character_age) : null;
+      const age = next.birthday ? characterAgeFrom(next.birthday) : legacy;
+      if (age !== null && age < NSFW_CHARACTER_MIN_AGE) {
+        throw new HttpError(400, 'nsfw_character_age', `An NSFW profile needs a character aged ${NSFW_CHARACTER_MIN_AGE} or older. Change the character's birthday or pick another roleplay style.`);
+      }
     }
     const words = [next.bio, next.city, next.gender, ...Object.values(next.sheet)].filter(Boolean).join('\n');
     if (textBlocked(words)) throw new HttpError(400, 'blocked_word', "Something you wrote contains a word that isn't allowed.");

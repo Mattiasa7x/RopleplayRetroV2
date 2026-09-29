@@ -21,28 +21,22 @@ async function savePref(patch: Partial<Prefs>) {
   }
 }
 
-function lockNote(key: keyof Prefs): HTMLElement | null {
-  return state.me!.lockedPrefs.includes(key) ? h('span', { class: 'lock-note' }, '🔒 Locked for members under 18') : null;
-}
-
 /** An on/off switch row that saves as soon as it's flipped. */
 function toggle<K extends keyof Prefs>(key: K, label: string, help?: string): HTMLElement {
   const me = state.me!;
-  const locked = me.lockedPrefs.includes(key);
-  const input = h('input', { type: 'checkbox', role: 'switch', checked: me.prefs[key] as boolean, disabled: locked });
+  const input = h('input', { type: 'checkbox', role: 'switch', checked: me.prefs[key] as boolean });
   input.addEventListener('change', () => void savePref({ [key]: input.checked } as Partial<Prefs>));
   return h('label', { class: 'setting switch-row' },
-    h('span', {}, h('span', { class: 'setting-label' }, label), help ? h('span', { class: 'muted small block' }, help) : null, lockNote(key)),
+    h('span', {}, h('span', { class: 'setting-label' }, label), help ? h('span', { class: 'muted small block' }, help) : null),
     input, h('span', { class: 'switch', 'aria-hidden': 'true' }));
 }
 
 /** A dropdown row that saves on change. */
 function choice<K extends keyof Prefs>(key: K, label: string, values: readonly string[]): HTMLElement {
   const me = state.me!;
-  const locked = me.lockedPrefs.includes(key);
-  const select = h('select', { disabled: locked, 'aria-label': label }, ...values.map((v) => h('option', { value: v, selected: me.prefs[key] === v }, LABELS[v] ?? v)));
+  const select = h('select', { 'aria-label': label }, ...values.map((v) => h('option', { value: v, selected: me.prefs[key] === v }, LABELS[v] ?? v)));
   select.addEventListener('change', () => void savePref({ [key]: select.value } as Partial<Prefs>));
-  return h('label', { class: 'setting' }, h('span', {}, h('span', { class: 'setting-label' }, label), lockNote(key)), select);
+  return h('label', { class: 'setting' }, h('span', {}, h('span', { class: 'setting-label' }, label)), select);
 }
 
 function details(summary: string, ...content: (Node | null)[]): HTMLElement {

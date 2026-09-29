@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { COMMENT_PERMISSION, FRIEND_REQUESTS, FRIENDS_LIST_VISIBILITY, PASSWORD_MIN, PHONE_PATTERN, SITE_NAME, TEXT_SIZES, THEMES, VISIBILITY, type Prefs } from '../shared/config.js';
 import type { AccountDTO, SessionInfo } from '../shared/types.js';
-import { lockedChanges } from './account.js';
 import { checkSecondFactor, hashPassword, issueCode, meDTO, sha256, verifyPassword } from './auth.js';
 import { HttpError, parse, requireUser } from './http.js';
 import { disconnectUser, setFilterGroup, type IO } from './realtime.js';
@@ -52,12 +51,8 @@ export function registerSettingsRoutes(app: FastifyInstance, io: IO) {
   app.patch('/api/me/prefs', async (req) => {
     const u = requireUser(req);
     const patch = parse(PrefsBody, req.body) as Partial<Prefs>;
-    const locked = lockedChanges(patch, u.isMinor);
-    if (locked.length) {
-      throw new HttpError(403, 'locked', 'This setting is locked on for members under 18.');
-    }
     await db.query('UPDATE users SET prefs = prefs || $2::jsonb WHERE id = $1', [u.id, JSON.stringify(patch)]);
-    if (patch.chatFilter !== undefined) setFilterGroup(io, u.id, patch.chatFilter || u.isMinor);
+    if (patch.chatFilter !== undefined) setFilterGroup(io, u.id, patch.chatFilter);
     return meDTO({ ...u, prefs: { ...u.prefs, ...patch } });
   });
 

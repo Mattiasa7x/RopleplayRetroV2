@@ -65,7 +65,7 @@ export function viewSignup() {
   max.setFullYear(max.getFullYear() - AGE.minimum);
   page('Sign up',
     h('div', { class: 'card hero' }, h('h1', {}, `Welcome to ${SITE_NAME}`),
-      h('p', { class: 'muted' }, 'Roleplay and chat rooms, built for your phone. Members only: create a free account to come in.')),
+      h('p', { class: 'muted' }, `Roleplay and chat rooms, built for your phone. Adults only (${AGE.minimum}+): create a free account to come in.`)),
     h('section', { class: 'card' },
       form(
         [
@@ -76,7 +76,8 @@ export function viewSignup() {
           field('Your real birthdate', 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
           field('Invite code (optional)', 'inviteCode', 'text', { required: false, maxlength: 12, autocapitalize: 'characters', autocomplete: 'off', spellcheck: false, placeholder: 'ABCD-EFGH', value: invite }),
           h('p', { class: 'hint' }, 'Did a friend invite you? Their code gives them credit toward invite trophies.'),
-          h('p', { class: 'hint' }, `You must be ${AGE.minimum} or older. Your birthdate is private, never shown, and can't be changed later: it keeps younger members safe. Your character's age is separate: set any age you like on your profile.`),
+          h('p', { class: 'hint' }, `${SITE_NAME} is for adults only: you must be ${AGE.minimum} or older. Your birthdate is private, never shown, and can't be changed later. Your character's age is separate: set any age you like on your profile.`),
+          h('label', { class: 'adult-confirm' }, h('input', { type: 'checkbox', name: 'adult', required: true }), ` I confirm I am ${AGE.minimum} or older.`),
         ],
         'Create account',
         async (d) => {

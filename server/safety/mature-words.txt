@@ -1,5 +1,5 @@
 # Swear words. Allowed in rooms whose chat filter is off, but masked (f***) for anyone
-# whose personal chat filter is on; members under 18 always have it on. Rooms whose
+# whose personal chat filter is on. Rooms whose
 # owner turns the chat filter on refuse messages containing these outright.
 # Same format as blocklist.txt. Repeated letters are collapsed before matching, so
 # entries like "ass" (which becomes "as") are deliberately left out.

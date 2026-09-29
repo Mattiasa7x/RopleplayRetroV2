@@ -1,4 +1,4 @@
-import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, characterAgeFrom, PROFILE, RP_STYLES, Trust, type RpStyle } from '../../../shared/config.js';
+import { CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, characterAgeFrom, NSFW_CHARACTER_MIN_AGE, PROFILE, RP_STYLES, Trust, type RpStyle } from '../../../shared/config.js';
 import type { AccountDTO, ProfileDTO, RoomImageDTO, TrophyPageDTO } from '../../../shared/types.js';
 import { formatInviteCode, TROPHIES, TROPHY_BY_ID } from '../../../shared/trophies.js';
 import { trophyBadge } from '../trophyart.js';
@@ -161,8 +161,7 @@ export async function viewEditProfile() {
   const styleBtns: HTMLButtonElement[] = [];
   const paintStyle = () => styleBtns.forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.style || null) === style)));
   for (const s of [...RP_STYLES, null] as (RpStyle | null)[]) {
-    const adultOnly = s != null && ADULT_RP_STYLES.includes(s);
-    const b = h('button', { type: 'button', class: `style-chip${s ? '' : ' none'}`, 'data-style': s ?? '', disabled: adultOnly && me.isMinor }, s ?? 'None');
+    const b = h('button', { type: 'button', class: `style-chip${s ? '' : ' none'}`, 'data-style': s ?? '' }, s ?? 'None');
     b.addEventListener('click', () => { style = s; paintStyle(); });
     styleBtns.push(b);
   }
@@ -173,6 +172,9 @@ export async function viewEditProfile() {
   const saveProfile = h('button', { type: 'button', class: 'primary wide' }, 'Save profile');
   saveProfile.addEventListener('click', async () => {
     if (bday.value && bday.value > today()) return toast("A birthday can't be in the future.", true);
+    if (style === 'NSFW' && bday.value && characterAgeFrom(bday.value) < NSFW_CHARACTER_MIN_AGE) {
+      return toast(`An NSFW profile needs a character aged ${NSFW_CHARACTER_MIN_AGE} or older.`, true);
+    }
     saveProfile.disabled = true;
     try {
       await save({ characterBirthday: bday.value || null, characterGender: gender.value.trim() || null, rpStyle: style, bio: about.ta.value }, 'Profile saved.');
@@ -187,7 +189,7 @@ export async function viewEditProfile() {
     h('div', { class: 'field', role: 'group', 'aria-label': 'Roleplay style' },
       h('span', {}, 'Roleplay style'),
       h('div', { class: 'style-picker' }, ...styleBtns),
-      h('span', { class: 'muted small' }, me.isMinor ? 'Shown on the gold nameplate under your picture. NSFW is for members 18 and over.' : 'Shown on the gold nameplate under your picture. One at a time.')),
+      h('span', { class: 'muted small' }, `Shown on the gold nameplate under your picture. One at a time. NSFW needs a character aged ${NSFW_CHARACTER_MIN_AGE} or older.`)),
     h('label', { class: 'field' }, h('span', {}, 'About'), about.ta, h('span', { class: 'row about-foot' }, h('span', { class: 'muted small' }, 'Tell your story.'), about.left)),
     saveProfile);
 

@@ -131,7 +131,7 @@ export async function viewNewRoom() {
         field('Description (optional)', 'description', 'text', { maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
         checkbox('Invite-only: only people on my list can see and enter', 'whitelistOnly'),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'chatFilter', checked: true }),
-      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on, and everyone under 18, still sees them masked)."))),
+      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on still sees them masked)."))),
         picker.el,
       ], 'Create room', async (d) => {
         const room = await api<RoomDetail>('/api/rooms', {
@@ -165,7 +165,7 @@ export async function viewManage(slug: string) {
     field('Description', 'description', 'text', { value: room.description ?? '', maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
     site ? null : checkbox('Invite-only (people not on the list are removed right away)', 'whitelistOnly', room.whitelistOnly),
     site ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'chatFilter', checked: room.chatFilter }),
-      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on, and everyone under 18, still sees them masked)."))),
+      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on still sees them masked)."))),
     site ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'readOnly', checked: room.readOnly }),
       h('span', {}, h('strong', {}, 'Read-only'), h('span', { class: 'muted small block' }, 'Only you and the people you allow can chat; everyone else can read. Anyone who comes in starts read-only. Pick who can speak from the People list in the room. Turning this on or off clears everyone\'s voice.'))),
     h('label', { class: 'field' }, h('span', {}, 'Slow mode'),

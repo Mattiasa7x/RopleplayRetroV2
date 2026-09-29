@@ -180,7 +180,6 @@ export function registerPhotoRoutes(app: FastifyInstance) {
       throw new HttpError(409, 'clone', "This photo matches another member's photo, so it can't be used. Please upload your own.");
     }
     const isPrivate = req.query.private === '1';
-    if (isPrivate && u.isMinor) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -226,7 +225,6 @@ export function registerPhotoRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>('/api/me/photos/:id/visibility', async (req) => {
     const u = requireUser(req);
     const b = parse(VisibilityBody, req.body);
-    if (b.private && u.isMinor) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
     let rowCount: number | null;
     try {
       ({ rowCount } = await db.query('UPDATE profile_photos SET is_private = $3 WHERE id = $1 AND user_id = $2', [req.params.id, u.id, b.private]));
@@ -250,12 +248,12 @@ export function registerPhotoRoutes(app: FastifyInstance) {
     return rows.map(photoDTO);
   });
 
-  /** All my photos (public, plus private for adults), e.g. to pick one to share in a message. */
+  /** All my photos (public and private), e.g. to pick one to share in a message. */
   app.get('/api/me/photos', async (req) => {
     const u = requireUser(req);
     const { rows } = await db.query<{ id: string; is_private: boolean }>(
-      'SELECT id, is_private FROM profile_photos WHERE user_id = $1 AND (NOT is_private OR NOT $2) ORDER BY is_private, position, id',
-      [u.id, u.isMinor],
+      'SELECT id, is_private FROM profile_photos WHERE user_id = $1 ORDER BY is_private, position, id',
+      [u.id],
     );
     return rows.map(photoDTO);
   });
@@ -272,10 +270,8 @@ export function registerPhotoRoutes(app: FastifyInstance) {
 
   app.put<{ Params: { handle: string } }>('/api/me/album-access/:handle', async (req) => {
     const u = requireUser(req);
-    if (u.isMinor) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
     const t = await userByHandle(req.params.handle);
     if (!(await isFriend(u.id, t.id))) throw new HttpError(400, 'not_friend', 'You can only give album access to friends.');
-    // Deliberately vague, so the message never reveals another member's age.
     if (!(await bothAdults(u.id, t.id))) throw new HttpError(403, 'not_allowed', "Album access can't be given to this member.");
     await db.query('INSERT INTO album_access (owner_id, viewer_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [u.id, t.id]);
     return { ok: true };

@@ -18,9 +18,8 @@ export interface SessionUser {
   trust: number;
   email: string;
   emailVerified: boolean;
-  /** Effective settings (defaults merged, under-18 locks applied). */
+  /** Effective settings (defaults merged). */
   prefs: Prefs;
-  isMinor: boolean;
   twoFactor: boolean;
   sessionId: string;
 }

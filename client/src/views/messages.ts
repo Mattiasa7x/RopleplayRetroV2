@@ -63,15 +63,15 @@ async function pickPhoto(): Promise<PhotoDTO | null> {
     const priv = mine.filter((p) => p.private);
     const parts: (Node | null)[] = [
       h('h2', {}, 'Share a photo'),
-      !state.me!.isMinor ? h('p', { class: 'muted small' }, 'Private-album photos are shared with this friend only, one photo at a time.') : null,
+      h('p', { class: 'muted small' }, 'Private-album photos are shared with this friend only, one photo at a time.'),
       pub.length ? h('h3', {}, 'My photos') : null, pub.length ? grid(pub) : null,
       priv.length ? h('h3', {}, '🔒 Private album') : null, priv.length ? grid(priv) : null,
       !mine.length ? h('p', { class: 'muted' }, 'You have no photos yet.') : null,
       h('div', { class: 'row wrap' },
         h('button', { type: 'button', class: 'quiet', onclick: (async () => {
-          const up = await uploadPhotos(!state.me!.isMinor, false);
+          const up = await uploadPhotos(true, false);
           if (up[0]) done(up[0]);
-        }) as EventListener }, state.me!.isMinor ? '+ Upload a photo' : '+ Upload to private album'),
+        }) as EventListener }, '+ Upload to private album'),
         h('button', { type: 'button', class: 'quiet', onclick: (() => done(null)) as EventListener }, 'Cancel')),
     ];
     d.append(...(parts.filter(Boolean) as Node[]));

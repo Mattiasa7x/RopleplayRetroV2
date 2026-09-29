@@ -4,7 +4,7 @@ import { MESSAGES, Trust } from '../shared/config.js';
 import type { ConversationDTO, DirectMessageDTO, ThreadDTO } from '../shared/types.js';
 import { publicUser, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
-import { ADULTS_ONLY, bothAdults, canViewPhoto, photoDTO, photoRow } from './photos.js';
+import { bothAdults, canViewPhoto, photoDTO, photoRow } from './photos.js';
 import { rooms, type IO } from './realtime.js';
 import { maskMature } from './safety/mature.js';
 import { pushTo } from './push.js';
@@ -36,13 +36,6 @@ async function cannotMessage(me: SessionUser, otherId: string): Promise<string |
   const rel = await relation(me.id, otherId);
   if (rel.theyBlocked || rel.iBlocked) return "You can't message this member.";
   if (rel.friendState !== 'friends') return 'You can message friends only. Send a friend request first.';
-  const { rows } = await db.query<{ same: boolean }>('SELECT is_adult_user($1) = is_adult_user($2) AS same', [me.id, otherId]);
-  if (!rows[0]?.same) {
-    // Adults see a vague message so the site never reveals a member's age.
-    return me.isMinor
-      ? 'Private messages with this member unlock on your 18th birthday. You can still chat in rooms and comment on profiles.'
-      : "You can't send private messages to this member. You can still chat in rooms and comment on profiles.";
-  }
   return null;
 }
 
@@ -159,8 +152,6 @@ export function registerMessageRoutes(app: FastifyInstance, io: IO) {
       photo = await photoRow(b.photoId);
       if (!photo || photo.user_id !== me.id) throw new HttpError(400, 'photo', 'You can only share your own photos.');
       if (photo.is_private) {
-        if (me.isMinor) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
-        // Deliberately vague, so the message never reveals the other member's age.
         if (!(await bothAdults(me.id, other.id))) throw new HttpError(403, 'not_allowed', "Private photos can't be shared with this member. Try one of your public photos.");
       }
     }
@@ -173,7 +164,7 @@ export function registerMessageRoutes(app: FastifyInstance, io: IO) {
         [me.id, other.id, body, photo?.id ?? null, shadow],
       ));
     } catch (e) {
-      // The database's own age-group guard (backstop for the check above).
+      // The database's own adults-only guard (a backstop: under-18 accounts can't sign in).
       if ((e as { constraint?: string }).constraint === 'dm_same_age_group') throw new HttpError(403, 'cannot_message', "You can't send private messages to this member.");
       throw e;
     }

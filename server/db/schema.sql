@@ -355,7 +355,8 @@ DO $$ BEGIN
 END $$;
 
 -- ================= Private album: members 18 and over only =================
--- 18 here matches AGE.adult in shared/config.ts. No birthdate on file counts as under 18.
+-- 18 here matches AGE.minimum in shared/config.ts (the site is 18+ only; these adult-only rules
+-- remain as backstops). No birthdate on file counts as under 18.
 CREATE OR REPLACE FUNCTION is_adult_user(uid BIGINT) RETURNS BOOLEAN STABLE LANGUAGE sql AS $fn$
   SELECT COALESCE((SELECT birthdate <= current_date - interval '18 years' FROM users WHERE id = uid), false)
 $fn$;

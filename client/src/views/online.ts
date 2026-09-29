@@ -13,9 +13,8 @@ export function onlineUserRow(u: OnlineUserDTO): HTMLElement {
         h('span', { class: 'muted small block' }, u.characterLine ?? ''))));
 }
 
-/** Home page card: up to 5 online members picked at random. Under-18 accounts don't get this. */
+/** Home page card: up to 5 online members picked at random. */
 export async function onlineCard(): Promise<HTMLElement | null> {
-  if (state.me!.isMinor) return null;
   let d: OnlineUsersDTO;
   try { d = await api<OnlineUsersDTO>('/api/online?sample=1'); } catch { return null; }
   return card(null,
@@ -26,12 +25,8 @@ export async function onlineCard(): Promise<HTMLElement | null> {
     h('a', { href: '/people', class: 'button quiet wide' }, 'Find friends and writing partners'));
 }
 
-/** Search every online adult member, A to Z. */
+/** Search every online member, A to Z. */
 export async function viewPeople() {
-  if (state.me!.isMinor) {
-    page('Online Users', h('p', { class: 'notice' }, 'Online Users is for members 18 and over.'));
-    return;
-  }
   const search = h('input', { type: 'search', placeholder: 'Search by name', 'aria-label': 'Search online members by name', maxlength: 16, autocomplete: 'off', autocapitalize: 'off' });
   const count = h('p', { class: 'muted small', 'aria-live': 'polite' });
   const list = h('ul', { class: 'people online-list' });
@@ -55,7 +50,7 @@ export async function viewPeople() {
   page('Online Users',
     h('a', { href: '/home', class: 'back' }, '‹ Home'),
     card('Find friends and writing partners',
-      h('p', { class: 'muted small' }, 'Everyone online right now, A to Z. Members under 18 are never listed here.'),
+      h('p', { class: 'muted small' }, 'Everyone online right now, A to Z.'),
       search, count, list, pager));
   await load(1);
 }

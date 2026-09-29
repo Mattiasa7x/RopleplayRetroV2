@@ -5,7 +5,6 @@ import { containsBlocked, normalizeForFilter, parseBlocklist, type BlockEntry } 
 /**
  * The personal chat filter. Unlike the blocklist (slurs and worse, refused for everyone),
  * mature words are allowed to be sent but are masked for anyone whose filter is on.
- * Members under 18 always have it on.
  */
 
 const PATH = resolve(process.env.MATURE_WORDS_PATH ?? 'server/safety/mature-words.txt');

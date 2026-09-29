@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { characterAgeFrom, HANDLE_PATTERN, Trust, type Prefs } from '../shared/config.js';
 import type { FriendState, FriendsDTO, PublicUser } from '../shared/types.js';
-import { effectivePrefs, isMinor } from './account.js';
+import { effectivePrefs } from './account.js';
 import { HttpError, requireUser } from './http.js';
 import { isOnline, rooms, type IO } from './realtime.js';
 import { pushTo } from './push.js';
@@ -41,7 +41,7 @@ export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.
   (SELECT p.id FROM profile_photos p WHERE p.user_id = u.id AND NOT p.is_private ORDER BY p.position, p.id LIMIT 1) AS avatar_id`;
 
 export function prefsOf(u: UserRow): Prefs {
-  return effectivePrefs(u.prefs, isMinor(u.birthdate));
+  return effectivePrefs(u.prefs);
 }
 
 export async function userByHandle(handle: string): Promise<UserRow> {

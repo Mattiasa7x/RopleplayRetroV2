@@ -29,9 +29,6 @@ export async function giftBlockReason(me: SessionUser, target: UserRow): Promise
   if (me.trust < Trust.Verified) return 'Confirm your email to send gifts.';
   const rel = await relation(me.id, target.id);
   if (rel.theyBlocked || rel.iBlocked) return "You can't send gifts to this member.";
-  // Gifts carry private messages, so they follow the private-message rule about the 18 line.
-  const { rows } = await db.query<{ same: boolean }>('SELECT is_adult_user($1) = is_adult_user($2) AS same', [me.id, target.id]);
-  if (!rows[0]?.same) return "You can't send gifts to this member.";
   return null;
 }
 

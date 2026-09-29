@@ -105,15 +105,19 @@ export const MEMBER_ROOMS = {
 } as const;
 
 export const AGE = {
-  /** Youngest real age allowed to sign up. */
-  minimum: 15,
   /**
-   * Under this real age: chat filter locked on, profile and comments friends-only, no private
-   * album, and no private messages with adults. Based on the real birthdate given at signup,
-   * which is never shown and can't be changed.
+   * The site is for adults only: the youngest real age allowed to sign up or sign in. Checked
+   * against the real birthdate given at signup, which is never shown and can't be changed.
+   * (18 here matches is_adult_user() in schema.sql.)
    */
-  adult: 18,
+  minimum: 18,
 } as const;
+
+/**
+ * Character ages are free (newborns to ancient beings), but a profile marked NSFW must show a
+ * character at least this old. Sexual content involving characters under 18 isn't allowed anywhere.
+ */
+export const NSFW_CHARACTER_MIN_AGE = 18;
 
 /** Character age: public, roleplay-only free text on the profile ("0", "3,000 years"). Never affects safety rules. */
 export const CHARACTER_AGE = { maxLength: 24 } as const;
@@ -125,8 +129,6 @@ export const CHARACTER_GENDER = { maxLength: 16 } as const;
 /** Roleplay styles a member can show on the gold nameplate under their picture (one at a time). */
 export const RP_STYLES = ['Literary', 'Casual', 'Worldbuilding', 'Slice of Life', 'NSFW', 'Chatter'] as const;
 export type RpStyle = (typeof RP_STYLES)[number];
-/** Styles members under 18 can't choose. */
-export const ADULT_RP_STYLES: readonly RpStyle[] = ['NSFW'];
 
 /** The character sheet: a classic roleplay sheet, every field optional. */
 export const CHARACTER_SHEET = [
@@ -211,7 +213,7 @@ export type FriendRequestPermission = (typeof FRIEND_REQUESTS)[number];
 export interface Prefs {
   theme: Theme;
   textSize: TextSize;
-  /** Mask mature language in chat, comments and statuses. Locked on under 18. */
+  /** Mask mature language in chat, comments and statuses. */
   chatFilter: boolean;
   profileVisibility: Visibility;
   whoCanComment: CommentPermission;
@@ -246,8 +248,6 @@ export const DEFAULT_PREFS: Prefs = {
   showTimestamps: true,
 };
 
-/** Settings a member under 18 cannot loosen. */
-export const MINOR_LOCKS: Partial<Prefs> = { chatFilter: true, profileVisibility: 'friends', whoCanComment: 'friends' };
 
 export const MOD = {
   kickMinutes: 15,

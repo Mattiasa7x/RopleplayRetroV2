@@ -67,7 +67,7 @@ export interface RoomPersonDTO {
   voice: boolean;
 }
 
-/** A member in the Online Users list (adults only). Details are null when their profile is friends-only. */
+/** A member in the Online Users list. Details are null when their profile is friends-only. */
 export interface OnlineUserDTO {
   id: string;
   handle: string;
@@ -130,9 +130,6 @@ export interface MeDTO {
   email: string;
   emailVerified: boolean;
   prefs: Prefs;
-  /** Under 18 (or birthdate unknown): chat filter and privacy locks apply. */
-  isMinor: boolean;
-  lockedPrefs: string[];
   twoFactor: boolean;
   moderates: number[]; // room ids
 }
