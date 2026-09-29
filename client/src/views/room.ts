@@ -160,6 +160,9 @@ export async function viewRoom(slug: string) {
       h('button', { type: 'button', class: 'quiet', onclick: (() => ignore('ignore')) as EventListener }, 'Ignore'),
       h('button', { type: 'button', class: 'quiet', onclick: (() => ignore('block')) as EventListener }, 'Block'),
       me.trust >= Trust.Verified ? h('button', { type: 'button', class: 'quiet', onclick: (() => { reportForm.hidden = false; reason.focus(); }) as EventListener }, 'Report') : null,
+      ...(me.trust >= Trust.Admin ? [
+        modBtn('Delete line', () => api('/api/admin/delete', { body: { kind: 'message', id: m.id } }), 'Line deleted.'),
+      ] : []),
       ...(hist.room.canModerate ? [
         modBtn('Hide line', () => api(`/api/mod/messages/${m.id}/hide`, { body: { reason: 'Hidden by a room moderator' } }), 'Line hidden.'),
         modBtn('Kick', () => api('/api/mod/sanctions', { body: { handle: m.handle, kind: 'kick', room: slug, reason: 'Kicked by a room moderator' } }), `${m.handle} kicked for 15 minutes.`),

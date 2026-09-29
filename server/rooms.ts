@@ -155,7 +155,7 @@ async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
     imageId: room.image_id,
     imageCredit: room.has_image && img[0]?.credit ? { name: img[0].credit, url: img[0].credit_url ?? '' } : null,
     online,
-    chatFilter: room.kind === 'member' && room.chat_filter,
+    chatFilter: room.kind === 'site' || room.chat_filter, // always on in site rooms
   };
 }
 

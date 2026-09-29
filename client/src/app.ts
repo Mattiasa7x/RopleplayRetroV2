@@ -4,6 +4,7 @@ import { viewLogin, viewSignup, viewVerify } from './views/auth.js';
 import { viewEditProfile } from './views/editprofile.js';
 import { viewFriends } from './views/friends.js';
 import { viewPeople } from './views/online.js';
+import { viewAdmin } from './views/admin.js';
 import { viewHome } from './views/home.js';
 import { viewInbox, viewThread } from './views/messages.js';
 import { viewGallery, viewPhoto, viewProfile, viewProfileComments } from './views/profile.js';
@@ -48,6 +49,7 @@ async function route() {
       case 'photo': return await viewPhoto(parts[1] ?? '');
       case 'edit-profile': return await viewEditProfile();
       case 'people': return await viewPeople();
+      case 'admin': return await viewAdmin();
       case 'settings': return await viewSettings();
       default: return page('Not found', h('p', { class: 'notice' }, 'That page does not exist. '), h('a', { href: '/home' }, 'Go home'));
     }

@@ -592,3 +592,14 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 [data-theme="dark"] .settings-tab { border-color: var(--line); background: var(--surface); }
 [data-theme="dark"] .settings-tab[aria-selected="true"] { background: var(--pink); border-color: var(--pink); color: var(--bg); box-shadow: 0 0 12px rgba(255, 79, 163, 0.55); }
 .settings-panes .switch-row { flex-wrap: nowrap; }
+
+/* ---------- admin ---------- */
+.site-nav.with-admin { grid-template-columns: repeat(7, 1fr); }
+.site-nav.with-admin a { font-size: 0.64rem; }
+.admin-tabs .button { flex: 1; }
+.flag-head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.flag-context { list-style: none; margin: 0.5rem 0 0; padding: 0 0 0 0.6rem; border-left: 2px solid color-mix(in srgb, var(--red) 30%, transparent); display: grid; gap: 0.15rem; }
+.flag-body { margin: 0.5rem 0 0.2rem; padding: 0.5rem 0.6rem; background: var(--soft); border-radius: 8px; overflow-wrap: anywhere; }
+.flag .row .button, .flag .row button { min-height: 2.4rem; padding: 0.2rem 0.8rem; }
+button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
+.ban-form { margin-top: 0.6rem; }

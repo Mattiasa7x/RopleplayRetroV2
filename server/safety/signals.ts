@@ -34,9 +34,15 @@ export interface ClientSignals {
   clientStorageId?: string;
 }
 
-export function hashedSignals(s: ClientSignals): { hash: string; kind: 'device' | 'ip_prefix' }[] {
-  const out: { hash: string; kind: 'device' | 'ip_prefix' }[] = [
+export type SignalKind = 'device' | 'ip_prefix' | 'ip';
+
+/** Hash of one exact address, for admin bans (kept separate from the network-prefix hash). */
+export const exactIpHash = (ip: string) => signalHash('ipx', ip.startsWith('::ffff:') ? ip.slice(7) : ip);
+
+export function hashedSignals(s: ClientSignals): { hash: string; kind: SignalKind }[] {
+  const out: { hash: string; kind: SignalKind }[] = [
     { hash: signalHash('ip', ipPrefix(s.ip)), kind: 'ip_prefix' },
+    { hash: exactIpHash(s.ip), kind: 'ip' },
   ];
   for (const id of [s.deviceCookie, s.clientStorageId]) {
     if (id && /^[A-Za-z0-9_-]{16,64}$/.test(id)) out.push({ hash: signalHash('device', id), kind: 'device' });
@@ -62,7 +68,7 @@ export async function recordSignals(q: Tx | typeof db, userId: string, s: Client
  */
 export async function matchesSanctionedAccount(s: ClientSignals, excludeUserId?: string): Promise<string | null> {
   const signals = hashedSignals(s);
-  const device = signals.filter((x) => x.kind === 'device').map((x) => x.hash);
+  const device = signals.filter((x) => x.kind === 'device').map((x) => x.hash); // exact IPs aren't used here: prefixes cover networks
   const net = signals.filter((x) => x.kind === 'ip_prefix').map((x) => x.hash);
   const { rows } = await db.query<{ user_id: string }>(
     `SELECT ds.user_id

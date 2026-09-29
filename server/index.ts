@@ -20,6 +20,7 @@ import { registerSettingsRoutes } from './settings.js';
 import { registerRoomRoutes } from './rooms.js';
 import { registerOnlineRoutes, registerPeopleRoutes } from './people.js';
 import { registerPushRoutes, setupPush } from './push.js';
+import { blockAndRecord, registerAdminRoutes } from './admin.js';
 import { registerCommentRoutes } from './comments.js';
 import { downloadMissingRoomImages, registerRoomImageRoutes, syncRoomImages } from './room-images.js';
 import { setupRealtime, type IO } from './realtime.js';
@@ -44,6 +45,7 @@ app.addHook('onRequest', async (req, reply) => {
     });
   }
   req.user = await userFromToken(req.cookies.sid);
+  return blockAndRecord(req, reply);
 });
 
 // Basic hardening headers. No third-party scripts, so the policy can be strict.
@@ -59,7 +61,7 @@ await app.register(fastifyStatic, { root: resolve('client/public'), index: false
 
 // Every page is a real address (/home, /rooms, /room/tavern, /profile/John, /settings...).
 // Anything that isn't the API or a file gets the site's single HTML page, which draws that page.
-const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|edit-profile|people|friends|messages(\/[A-Za-z0-9_]{3,16})?|profile\/[A-Za-z0-9_]{3,16}(\/(photos|comments))?|photo\/\d{1,19}|settings(\/[a-z-]+)?|login|signup|verify|mod)\/?$/;
+const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|edit-profile|people|admin|friends|messages(\/[A-Za-z0-9_]{3,16})?|profile\/[A-Za-z0-9_]{3,16}(\/(photos|comments))?|photo\/\d{1,19}|settings(\/[a-z-]+)?|login|signup|verify|mod)\/?$/;
 const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
   const path = req.url.split('?')[0];
   if (path === '/mod') return reply.sendFile('mod.html');
@@ -86,6 +88,7 @@ registerRoomImageRoutes(app);
 registerPeopleRoutes(app);
 registerOnlineRoutes(app);
 registerPushRoutes(app);
+await registerAdminRoutes(app, io);
 registerCommentRoutes(app, io);
 registerSocialRoutes(app, io);
 registerModerationRoutes(app, io);

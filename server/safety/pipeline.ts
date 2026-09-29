@@ -141,7 +141,7 @@ async function runChecks(ctx: SendContext): Promise<Verdict> {
 
   // 5. Content
   if (containsBlocked(body, blocklist)) return no('blocked_word', "That message contains a word that isn't allowed here.");
-  if (room.kind === 'member' && room.chat_filter && containsMature(body)) {
+  if ((room.kind === 'site' || room.chat_filter) && containsMature(body)) {
     return no('room_filter', "This room's chat filter is on, so swear words can't be sent here.");
   }
   if (containsLink(body)) {

@@ -8,6 +8,7 @@ import { assertRoomAccess, roomBySlug } from './rooms.js';
 import { slidingWindow } from './safety/limits.js';
 import { maskMature } from './safety/mature.js';
 import { pushTo } from './push.js';
+import { socketBlocked } from './admin.js';
 import { recordStrike } from './safety/strikes.js';
 import { db, redis } from './store.js';
 
@@ -69,6 +70,9 @@ async function leaveCurrent(io: IO, socket: Sock) {
 
 export function setupRealtime(io: IO) {
   io.use(async (socket, next) => {
+    // Admin bans can block a connection outright (the real address is the first forwarded one behind Render's proxy).
+    const fwd = String(socket.handshake.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
+    if (socketBlocked(socket.handshake.headers, fwd || socket.handshake.address)) return next(new Error('blocked'));
     const user = await userFromToken(tokenFromCookieHeader(socket.handshake.headers.cookie)).catch(() => null);
     if (!user) return next(new Error('login'));
     socket.data = { userId: user.id, handle: user.handle, roomId: null, lastTyping: 0, filter: user.prefs.chatFilter };

@@ -590,3 +590,36 @@ CREATE TABLE IF NOT EXISTS app_secrets (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- ---------------------------------------------------------------------------
+-- Exact addresses are kept too (hashed, like everything else here) so an admin ban can
+-- block the banned member's own connection, not just their whole network.
+ALTER TABLE device_signals DROP CONSTRAINT IF EXISTS device_signals_kind_check;
+DO $$ BEGIN
+  ALTER TABLE device_signals ADD CONSTRAINT device_signals_kind_ok CHECK (kind IN ('device', 'ip_prefix', 'ip'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Site-wide blocks from an admin ban: hashed IP addresses and device ids. Any request from a
+-- blocked address or device is refused, logged in or not.
+CREATE TABLE IF NOT EXISTS site_blocks (
+  signal_hash TEXT PRIMARY KEY,
+  kind        TEXT NOT NULL CHECK (kind IN ('device', 'ip')),
+  user_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_by  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS site_blocks_user ON site_blocks (user_id);
+
+-- One admin only: the site owner's account (set from ADMIN_HANDLE on start). The database
+-- refuses to make anyone else an admin, however the request arrives.
+CREATE OR REPLACE FUNCTION users_single_admin() RETURNS trigger AS $$
+BEGIN
+  IF NEW.trust_level >= 4 AND NEW.id::text IS DISTINCT FROM (SELECT value FROM app_secrets WHERE key = 'admin_user_id') THEN
+    RAISE EXCEPTION 'only the site owner can be an admin' USING ERRCODE = '23514', CONSTRAINT = 'single_admin';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS users_single_admin ON users;
+CREATE TRIGGER users_single_admin BEFORE INSERT OR UPDATE OF trust_level ON users
+  FOR EACH ROW EXECUTE FUNCTION users_single_admin();
