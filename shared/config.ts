@@ -182,6 +182,9 @@ export const PROFILE = {
   /** Comments shown on the profile itself, and per page on the full comments page. */
   commentsOnProfile: 5,
   commentsPerPage: 10,
+  /** Profile viewers per page, and how long a view is remembered. */
+  viewsPerPage: 20,
+  viewsKeptDays: 90,
   /** Newest photos shown on the profile above the gallery button. */
   recentPhotos: 5,
   statusMax: 420,
@@ -196,6 +199,9 @@ export const MESSAGES = {
 
 export const VISIBILITY = ['everyone', 'friends'] as const;
 export type Visibility = (typeof VISIBILITY)[number];
+/** Who may open your friends list ('me' = only you). */
+export const FRIENDS_LIST_VISIBILITY = ['everyone', 'friends', 'me'] as const;
+export type FriendsListVisibility = (typeof FRIENDS_LIST_VISIBILITY)[number];
 export const COMMENT_PERMISSION = ['everyone', 'friends', 'nobody'] as const;
 export type CommentPermission = (typeof COMMENT_PERMISSION)[number];
 export const FRIEND_REQUESTS = ['everyone', 'nobody'] as const;
@@ -210,6 +216,8 @@ export interface Prefs {
   profileVisibility: Visibility;
   whoCanComment: CommentPermission;
   whoCanFriend: FriendRequestPermission;
+  /** Who can open your friends list. Private ('me') unless you allow it. */
+  friendsList: FriendsListVisibility;
   showOnline: boolean;
   mentionAlerts: boolean;
   friendAlerts: boolean;
@@ -226,6 +234,7 @@ export const DEFAULT_PREFS: Prefs = {
   profileVisibility: 'everyone',
   whoCanComment: 'friends',
   whoCanFriend: 'everyone',
+  friendsList: 'me',
   showOnline: true,
   mentionAlerts: true,
   friendAlerts: true,

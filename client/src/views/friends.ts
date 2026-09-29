@@ -2,7 +2,7 @@ import type { FriendsDTO, PublicUser } from '../../../shared/types.js';
 import { avatar, card, field, form, page, state, toast } from '../core.js';
 import { api, h } from '../dom.js';
 
-function person(u: PublicUser, ...buttons: (Element | null)[]): HTMLElement {
+export function person(u: PublicUser, ...buttons: (Element | null)[]): HTMLElement {
   return h('li', { class: 'person' },
     h('a', { href: `/profile/${u.handle}`, class: 'person-link' },
       h('span', { class: 'avatar-wrap' }, avatar(u.avatar, u.handle, 'md'), u.online ? h('span', { class: 'dot', 'aria-label': 'online' }) : null),

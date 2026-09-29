@@ -677,3 +677,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_invite_code ON users (invite_code);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status_streak INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status_best_streak INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status_last_day DATE;
+
+-- Who viewed whose profile, and when (latest visit per viewer). Only the profile owner sees it.
+CREATE TABLE IF NOT EXISTS profile_views (
+  profile_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  viewer_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  viewed_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (profile_user_id, viewer_id),
+  CHECK (profile_user_id <> viewer_id)
+);
+CREATE INDEX IF NOT EXISTS profile_views_recent ON profile_views (profile_user_id, viewed_at DESC);
+-- When the owner last opened their Views list (for the "new" count).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS views_seen_at TIMESTAMPTZ;

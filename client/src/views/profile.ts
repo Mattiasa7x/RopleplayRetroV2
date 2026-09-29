@@ -1,5 +1,6 @@
 import { CHARACTER_SHEET, PROFILE, Trust } from '../../../shared/config.js';
-import type { PhotoPageDTO, ProfileDTO, StatusDTO } from '../../../shared/types.js';
+import type { PhotoPageDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO } from '../../../shared/types.js';
+import { person } from './friends.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
 import { commentThread } from './comments.js';
@@ -44,19 +45,30 @@ export async function viewProfile(handle: string) {
 
   // ----- top: banner, picture, name, gold nameplate, "33, M, Hyrule" -----
   const charLine = [p.characterAge, p.characterGender, p.characterCity].filter((x) => x != null && x !== '').join(', ');
+  // "3 friends" opens the friends list when the owner allows it; "Views" is only ever on your own profile.
+  const friendsText = `${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`;
+  const friendsBit = p.canViewFriends ? h('a', { href: `/profile/${p.handle}/friends` }, friendsText) : h('span', {}, friendsText);
+  const viewsLink = self
+    ? h('a', { href: '/profile-views', class: 'views-link' }, 'Views', p.newViews ? h('span', { class: 'badge views-new', 'aria-label': `${p.newViews} new` }, String(p.newViews)) : null)
+    : null;
   const head = h('section', { class: 'profile-top' },
     h('div', { class: `profile-banner${p.banner ? '' : ' art-member'}` }, p.banner ? h('img', { src: p.banner, alt: '' }) : null),
     h('div', { class: 'profile-id' },
       avatar(p.avatar, p.handle, 'lg'),
       h('h1', { class: 'handle' }, p.handle),
-      p.rpStyle ? h('span', { class: `nameplate${p.rpStyle === 'NSFW' ? ' adult' : ''}` }, p.rpStyle) : null,
+      p.rpStyle || self
+        ? h('div', { class: 'nameplate-row' },
+            p.rpStyle ? h('span', { class: `nameplate${p.rpStyle === 'NSFW' ? ' adult' : ''}` }, p.rpStyle) : h('span', {}),
+            self ? h('a', { href: '/edit-profile', class: 'button primary edit-profile' }, 'Edit profile') : null)
+        : null,
       charLine ? h('p', { class: 'char-line' }, charLine) : null,
-      h('p', { class: 'muted small' }, `${p.trustLabel} · ${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`),
+      h('div', { class: 'profile-meta' },
+        h('span', { class: 'muted small' }, `${p.trustLabel} · `, friendsBit),
+        viewsLink),
       profileTrophy(p, self),
       self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,
-        blockBtn, reportBtn)),
-    self ? h('a', { href: '/edit-profile', class: 'button primary edit-profile' }, 'Edit profile') : null);
+        blockBtn, reportBtn)));
 
   if (!p.visible) {
     page('Profile', head, card(null, h('p', { class: 'muted' },
@@ -120,6 +132,48 @@ function profileTrophy(p: ProfileDTO, self: boolean): HTMLElement | null {
     h('span', { class: 'profile-trophy-text' },
       h('strong', {}, name),
       h('span', { class: 'muted small' }, others > 0 ? `+${others} more troph${others === 1 ? 'y' : 'ies'}` : 'Trophy')));
+}
+
+/** A member's friends, if they let you see the list. */
+export async function viewProfileFriends(handle: string) {
+  page('Friends', h('p', { class: 'muted' }, 'Loading…'));
+  const d = await api<ProfileFriendsDTO>(`/api/profiles/${encodeURIComponent(handle)}/friends`);
+  const back = h('a', { href: `/profile/${d.handle}`, class: 'back' }, `‹ ${d.handle}`);
+  if (!d.allowed) {
+    page('Friends', back, card(null, h('p', { class: 'muted' }, `${d.handle} keeps their friends list private.`)));
+    return;
+  }
+  page('Friends', back,
+    card(`${d.handle}'s friends (${d.friends.length})`,
+      d.friends.length ? h('ul', { class: 'people' }, ...d.friends.map((f) => person(f))) : h('p', { class: 'muted' }, 'No friends yet.')));
+}
+
+/** Who viewed your profile and when: only ever your own. */
+export async function viewProfileViews(pageNo = 1) {
+  page('Profile views', h('p', { class: 'muted' }, 'Loading…'));
+  const d = await api<ProfileViewsDTO>(`/api/me/profile-views?page=${pageNo}`);
+  const me = state.me!;
+  const when = (iso: string) => {
+    const t = new Date(iso);
+    const today = new Date().toDateString() === t.toDateString();
+    return today ? `Today ${t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : t.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  };
+  const list = d.views.length
+    ? h('ul', { class: 'people views-list' }, ...d.views.map((v) =>
+        person(v.user, h('span', { class: 'muted small view-time', title: new Date(v.viewedAt).toLocaleString() },
+          Date.now() - Date.parse(v.viewedAt) < 864e5 ? timeAgo(v.viewedAt) : null, h('span', { class: 'block' }, when(v.viewedAt))))))
+    : h('p', { class: 'muted' }, 'Nobody has viewed your profile in the last 90 days.');
+  const pager = d.pages > 1
+    ? h('div', { class: 'pager' },
+        h('button', { type: 'button', class: 'quiet', disabled: d.page <= 1, onclick: (() => void viewProfileViews(d.page - 1)) as EventListener }, '‹ Newer'),
+        h('span', { class: 'muted small' }, `Page ${d.page} of ${d.pages}`),
+        h('button', { type: 'button', class: 'quiet', disabled: d.page >= d.pages, onclick: (() => void viewProfileViews(d.page + 1)) as EventListener }, 'Older ›'))
+    : null;
+  page('Profile views',
+    h('a', { href: `/profile/${me.handle}`, class: 'back' }, `‹ ${me.handle}`),
+    card(`Who viewed your profile (${d.total})`,
+      h('p', { class: 'muted small' }, 'Only you can see this. Each person shows once, with their latest visit, for 90 days.'),
+      list, pager));
 }
 
 /** Every photo on a profile (and the private album, for those allowed), each opening its own page. */

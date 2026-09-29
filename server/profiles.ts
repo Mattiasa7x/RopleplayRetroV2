@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { TROPHIES, TROPHY_BY_ID } from '../shared/trophies.js';
 import sharp from 'sharp';
 import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, PROFILE, RP_STYLES, TRUST_LABEL, Trust, type CharacterSheet, type RpStyle } from '../shared/config.js';
-import type { CommentDTO, ProfileDTO, StatusDTO } from '../shared/types.js';
+import type { CommentDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO } from '../shared/types.js';
 import { characterAgeText, publicUser, prefsOf, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
 import { canViewAlbum, looksLikeImage, photoDTO } from './photos.js';
@@ -22,6 +22,7 @@ interface Access {
   target: UserRow;
   visible: boolean;
   canComment: boolean;
+  canViewFriends: boolean;
   friendState: ProfileDTO['friendState'];
   iBlocked: boolean;
   iIgnore: boolean;
@@ -40,7 +41,9 @@ export async function profileAccess(viewer: SessionUser, handle: string): Promis
   const canComment =
     visible && !rel.iBlocked && viewer.trust >= Trust.Verified &&
     (self || (p.whoCanComment === 'everyone') || (p.whoCanComment === 'friends' && friends));
-  return { target, visible, canComment, friendState: rel.friendState, iBlocked: rel.iBlocked, iIgnore: rel.iIgnore };
+  const fl = p.friendsList;
+  const canViewFriends = visible && (self || viewer.trust >= Trust.Admin || fl === 'everyone' || (fl === 'friends' && friends));
+  return { target, visible, canComment, canViewFriends, friendState: rel.friendState, iBlocked: rel.iBlocked, iIgnore: rel.iIgnore };
 }
 
 const view = (viewer: SessionUser, text: string) => (viewer.prefs.chatFilter ? maskMature(text) : text);
@@ -96,6 +99,20 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       ? await db.query<{ n: string }>('SELECT count(*) AS n FROM profile_photos WHERE user_id = $1 AND is_private', [t.id])
       : { rows: [{ n: '0' }] };
     const self = t.id === u.id;
+    // Remember the visit for the owner's Views list (latest visit per person). The site admin's
+    // visits aren't listed, so checking on a report never tips anyone off.
+    if (!self && a.visible && u.trust < Trust.Admin) {
+      await db.query(
+        `INSERT INTO profile_views (profile_user_id, viewer_id) VALUES ($1, $2)
+         ON CONFLICT (profile_user_id, viewer_id) DO UPDATE SET viewed_at = now()`,
+        [t.id, u.id],
+      );
+    }
+    const { rows: nv } = self
+      ? await db.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM profile_views v, users me
+            WHERE me.id = $1 AND v.profile_user_id = $1 AND (me.views_seen_at IS NULL OR v.viewed_at > me.views_seen_at)`, [t.id])
+      : { rows: [] as { n: number }[] };
     const { rows: ban } = a.visible
       ? await db.query<{ v: string }>('SELECT extract(epoch FROM updated_at)::bigint::text AS v FROM profile_banners WHERE user_id = $1', [t.id])
       : { rows: [] as { v: string }[] };
@@ -142,9 +159,48 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       canComment: a.canComment,
       visible: a.visible,
       blockedByMe: a.iBlocked,
+      canViewFriends: a.canViewFriends,
+      ...(self ? { newViews: Number(nv[0]?.n ?? 0) } : {}),
       trophy: shown,
       trophyCount: earned.length,
     };
+  });
+
+  /** Who viewed your profile, newest first. Only ever your own: there's no name in the address. */
+  app.get<{ Querystring: { page?: string } }>('/api/me/profile-views', async (req, reply): Promise<ProfileViewsDTO> => {
+    const u = requireUser(req);
+    reply.header('Cache-Control', 'no-store, private');
+    const size = PROFILE.viewsPerPage;
+    // Leave out anyone either side has blocked or you ignore.
+    const where = `v.profile_user_id = $1 AND v.viewed_at > now() - make_interval(days => ${PROFILE.viewsKeptDays})
+      AND NOT EXISTS (SELECT 1 FROM ignores i WHERE (i.user_id = $1 AND i.ignored_user_id = v.viewer_id)
+                                               OR (i.user_id = v.viewer_id AND i.ignored_user_id = $1 AND i.mode = 'block'))`;
+    const { rows: c } = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM profile_views v WHERE ${where}`, [u.id]);
+    const total = Number(c[0].n);
+    const pages = Math.max(1, Math.ceil(total / size));
+    const page = Math.min(pages, Math.max(1, Number.parseInt(req.query.page ?? '1', 10) || 1));
+    const { rows } = await db.query<UserRow & { viewed: Date }>(
+      `SELECT ${USER_COLS}, v.viewed_at AS viewed FROM profile_views v JOIN users u ON u.id = v.viewer_id
+        WHERE ${where} ORDER BY v.viewed_at DESC LIMIT ${size} OFFSET $2`,
+      [u.id, (page - 1) * size],
+    );
+    if (page === 1) await db.query('UPDATE users SET views_seen_at = now() WHERE id = $1', [u.id]);
+    return { views: rows.map((r) => ({ user: publicUser(r), viewedAt: r.viewed.toISOString() })), page, pages, total };
+  });
+
+  /** A member's friends list, if they allow this viewer to see it. */
+  app.get<{ Params: { handle: string } }>('/api/profiles/:handle/friends', async (req): Promise<ProfileFriendsDTO> => {
+    const u = requireUser(req);
+    const a = await profileAccess(u, req.params.handle);
+    if (!a.canViewFriends) return { handle: a.target.handle, allowed: false, friends: [] };
+    const { rows } = await db.query<UserRow>(
+      `SELECT ${USER_COLS} FROM friendships f JOIN users u ON u.id = CASE WHEN f.user_a = $1 THEN f.user_b ELSE f.user_a END
+        WHERE (f.user_a = $1 OR f.user_b = $1) AND f.status = 'accepted'
+          AND NOT EXISTS (SELECT 1 FROM ignores i WHERE i.user_id = u.id AND i.ignored_user_id = $2 AND i.mode = 'block')
+        ORDER BY lower(u.handle)`,
+      [a.target.id, u.id],
+    );
+    return { handle: a.target.handle, allowed: true, friends: rows.map((r) => publicUser(r)) };
   });
 
   /**

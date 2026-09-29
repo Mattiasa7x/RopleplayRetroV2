@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { COMMENT_PERMISSION, FRIEND_REQUESTS, PASSWORD_MIN, PHONE_PATTERN, SITE_NAME, TEXT_SIZES, THEMES, VISIBILITY, type Prefs } from '../shared/config.js';
+import { COMMENT_PERMISSION, FRIEND_REQUESTS, FRIENDS_LIST_VISIBILITY, PASSWORD_MIN, PHONE_PATTERN, SITE_NAME, TEXT_SIZES, THEMES, VISIBILITY, type Prefs } from '../shared/config.js';
 import type { AccountDTO, SessionInfo } from '../shared/types.js';
 import { lockedChanges } from './account.js';
 import { checkSecondFactor, hashPassword, issueCode, meDTO, sha256, verifyPassword } from './auth.js';
@@ -19,6 +19,7 @@ const PrefsBody = z
     profileVisibility: z.enum(VISIBILITY),
     whoCanComment: z.enum(COMMENT_PERMISSION),
     whoCanFriend: z.enum(FRIEND_REQUESTS),
+    friendsList: z.enum(FRIENDS_LIST_VISIBILITY),
     showOnline: z.boolean(),
     mentionAlerts: z.boolean(),
     friendAlerts: z.boolean(),

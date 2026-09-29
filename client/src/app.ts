@@ -8,7 +8,7 @@ import { viewPeople } from './views/online.js';
 import { viewAdmin } from './views/admin.js';
 import { viewHome } from './views/home.js';
 import { viewInbox, viewThread } from './views/messages.js';
-import { viewGallery, viewPhoto, viewProfile, viewProfileComments } from './views/profile.js';
+import { viewGallery, viewPhoto, viewProfile, viewProfileComments, viewProfileFriends, viewProfileViews } from './views/profile.js';
 import { viewRoom } from './views/room.js';
 import { viewManage, viewNewRoom, viewRooms } from './views/rooms.js';
 import { viewSettings } from './views/settings.js';
@@ -47,8 +47,10 @@ async function route() {
         if (parts[2] === 'photos') return await viewGallery(who);
         if (parts[2] === 'comments') return await viewProfileComments(who);
         if (parts[2] === 'trophies') return await viewTrophies(who);
+        if (parts[2] === 'friends') return await viewProfileFriends(who);
         return await viewProfile(who);
       }
+      case 'profile-views': return await viewProfileViews();
       case 'photo': return await viewPhoto(parts[1] ?? '');
       case 'edit-profile': return await viewEditProfile();
       case 'people': return await viewPeople();

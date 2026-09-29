@@ -28,6 +28,7 @@ import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
 import { registerTrophyRoutes, startTrophies } from './trophies.js';
 import { pageDecision } from './pages.js';
+import { PROFILE } from '../shared/config.js';
 import { db, redis } from './store.js';
 
 const app = Fastify({
@@ -110,6 +111,7 @@ const housekeeping = setInterval(async () => {
     await db.query('DELETE FROM sessions WHERE expires_at < now()');
     await db.query('DELETE FROM verification_codes WHERE expires_at < now()');
     await pruneOldSignals();
+    await db.query(`DELETE FROM profile_views WHERE viewed_at < now() - make_interval(days => ${PROFILE.viewsKeptDays})`);
   } catch (e) {
     app.log.error(e, 'housekeeping failed');
   }

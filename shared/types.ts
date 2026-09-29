@@ -204,10 +204,28 @@ export interface ProfileDTO extends PublicUser {
   /** False when the profile is friends-only and the viewer isn't a friend: only the name and picture show. */
   visible: boolean;
   blockedByMe: boolean;
+  /** Whether this viewer may open the friends list (owner always; others per the owner's privacy setting). */
+  canViewFriends: boolean;
+  /** Own profile only: people who viewed it since you last opened Views. */
+  newViews?: number;
   /** The one trophy shown on the profile (the member's pick, else their newest), or null. */
   trophy: string | null;
   /** How many trophies they've earned (0 when the profile isn't visible). */
   trophyCount: number;
+}
+
+export interface ProfileViewsDTO {
+  views: { user: PublicUser; viewedAt: string }[];
+  page: number;
+  pages: number;
+  total: number;
+}
+
+export interface ProfileFriendsDTO {
+  handle: string;
+  /** False when the owner keeps their friends list private from this viewer. */
+  allowed: boolean;
+  friends: PublicUser[];
 }
 
 export interface TrophyPageDTO {

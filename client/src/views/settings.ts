@@ -7,7 +7,7 @@ import { deviceSubscribed, disablePush, enablePush, needsHomeScreen, pushSupport
 const LABELS: Record<string, string> = {
   light: 'Light', dark: 'Dark', system: 'Match my device',
   s: 'Small', m: 'Medium', l: 'Large', xl: 'Extra large',
-  everyone: 'Everyone', friends: 'Friends only', nobody: 'Nobody',
+  everyone: 'Everyone', friends: 'Friends only', nobody: 'Nobody', me: 'Only me',
 };
 
 async function savePref(patch: Partial<Prefs>) {
@@ -223,6 +223,7 @@ export async function viewSettings() {
       choice('profileVisibility', 'Who can see my profile', ['everyone', 'friends']),
       choice('whoCanComment', 'Who can comment on my profile', ['everyone', 'friends', 'nobody']),
       choice('whoCanFriend', 'Who can send me friend requests', ['everyone', 'nobody']),
+      choice('friendsList', 'Who can see my friends list', ['me', 'friends', 'everyone']),
       toggle('showOnline', 'Show friends when I’m online'))),
 
     withId('chat', card('Chat',
