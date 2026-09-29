@@ -705,7 +705,8 @@ button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 [data-theme="dark"] .junk-hint { border-color: var(--pink); }
 
 /* read-only rooms */
-.owner-controls { margin: 0.2rem 0 0.6rem; padding: 0.2rem 0.6rem; border: 2px solid var(--red); border-radius: 12px; background: var(--soft); }
+.owner-controls { margin: 0.2rem 0 0.6rem; padding: 0.1rem 0.7rem; border: 1.5px dashed var(--red); border-radius: 10px; background: var(--soft); }
+.owner-controls p { margin: 0.4rem 0; }
 .room-person { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .room-person .person-link { min-width: 0; flex: 1; }
 .voice-btn { flex: none; min-height: 2.2rem; padding: 0.2rem 0.7rem; font-size: 0.85rem; border-radius: 99px; }

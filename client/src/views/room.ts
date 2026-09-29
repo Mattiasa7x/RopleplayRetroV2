@@ -57,21 +57,15 @@ export async function viewRoom(slug: string) {
     h('p', { class: 'muted small' }, 'Ages shown are character ages from profiles, never anyone\'s real age.'),
     peopleList, peopleNote);
   const isRoomOwner = () => !!hist && hist.room.kind === 'member' && hist.room.canManage;
-  /** Owner: the read-only switch at the top of the People panel. */
+  /** Owner: a short line about read-only at the top of the People panel (the switch lives in Manage). */
   function paintOwnerControls() {
     ownerControls.hidden = !isRoomOwner();
     if (!isRoomOwner()) return;
-    const sw = h('input', { type: 'checkbox', role: 'switch', checked: readOnly });
-    sw.addEventListener('change', async () => {
-      sw.disabled = true;
-      try { await api(`/api/rooms/${encodeURIComponent(slug)}`, { method: 'PATCH', body: { readOnly: sw.checked } }); }
-      catch (e) { sw.checked = !sw.checked; toast((e as Error).message, true); }
-      sw.disabled = false;
-    });
-    ownerControls.replaceChildren(h('label', { class: 'setting switch-row' },
-      h('span', {}, h('span', { class: 'setting-label' }, 'Read-only'),
-        h('span', { class: 'muted small block' }, 'Only you and the people you allow can chat. Anyone who comes in starts read-only.')),
-      sw, h('span', { class: 'switch', 'aria-hidden': 'true' })));
+    ownerControls.replaceChildren(h('p', { class: 'small' }, readOnly
+      ? 'Read-only is on: tap Allow to speak to let someone chat. '
+      : 'Want to pick who can chat? Turn on Read-only in ',
+      readOnly ? h('a', { href: `/room/${slug}/manage` }, 'Room settings') : h('a', { href: `/room/${slug}/manage` }, 'Manage'),
+      readOnly ? '' : '.'));
   }
   let peopleTimer: number | undefined;
   async function loadPeople() {

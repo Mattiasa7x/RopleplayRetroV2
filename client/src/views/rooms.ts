@@ -166,12 +166,14 @@ export async function viewManage(slug: string) {
     site ? null : checkbox('Invite-only (people not on the list are removed right away)', 'whitelistOnly', room.whitelistOnly),
     site ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'chatFilter', checked: room.chatFilter }),
       h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on, and everyone under 18, still sees them masked)."))),
+    site ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'readOnly', checked: room.readOnly }),
+      h('span', {}, h('strong', {}, 'Read-only'), h('span', { class: 'muted small block' }, 'Only you and the people you allow can chat; everyone else can read. Anyone who comes in starts read-only. Pick who can speak from the People list in the room. Turning this on or off clears everyone\'s voice.'))),
     h('label', { class: 'field' }, h('span', {}, 'Slow mode'),
       h('select', { name: 'slow' }, ...[0, 5, 10, 30, 60].map((s) => h('option', { value: s, selected: s === room.slowModeSeconds }, s ? `One message every ${s} seconds` : 'Off')))),
     picker.el,
   ], 'Save', async (d) => {
     await api(path, { method: 'PATCH', body: {
-      ...(site ? { name: d.get('name') } : { whitelistOnly: d.get('whitelistOnly') === 'on', chatFilter: d.get('chatFilter') === 'on' }),
+      ...(site ? { name: d.get('name') } : { whitelistOnly: d.get('whitelistOnly') === 'on', chatFilter: d.get('chatFilter') === 'on', readOnly: d.get('readOnly') === 'on' }),
       description: String(d.get('description') ?? ''), slowModeSeconds: Number(d.get('slow')),
       imageId: picker.value(),
     } });
