@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /$
+Allow: /signup
+Allow: /login
+Allow: /landing/
+Allow: /og-image.png
+Allow: /logo-mark.svg
+Allow: /favicon.svg
+Allow: /icon-192.png
+Disallow: /api/
+Disallow: /
+
+Sitemap: https://roleplayretro.com/sitemap.xml

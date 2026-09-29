@@ -10,12 +10,14 @@ const OPEN_PAGE = /^\/(signup|login)\/?$/;
 export type PageDecision =
   | { kind: 'none' }
   | { kind: 'redirect'; to: string }
-  | { kind: 'file'; file: 'index.html' | 'mod.html'; invite?: boolean };
+  | { kind: 'file'; file: 'index.html' | 'mod.html' | 'landing.html'; invite?: boolean };
 
 export function pageDecision(path: string, query: string, signedIn: boolean): PageDecision {
   if (!PAGE.test(path)) return { kind: 'none' };
+  // The public front page: what the site is, for visitors and search engines.
+  if (!signedIn && path === '/') return { kind: 'file', file: 'landing.html' };
   if (!signedIn && !OPEN_PAGE.test(path)) {
-    const home = path === '/' || path.replace(/\/$/, '') === '/home';
+    const home = path.replace(/\/$/, '') === '/home';
     return { kind: 'redirect', to: home ? '/signup' : `/signup?next=${encodeURIComponent(path + (query ? `?${query}` : ''))}` };
   }
   if (signedIn && OPEN_PAGE.test(path)) return { kind: 'redirect', to: '/home' };
