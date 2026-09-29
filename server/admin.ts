@@ -18,7 +18,7 @@ import { audit, db, redis, tx } from './store.js';
 
 let blocked = new Set<string>();
 
-async function loadBlocks() {
+export async function loadBlocks() {
   const { rows } = await db.query<{ signal_hash: string }>('SELECT signal_hash FROM site_blocks');
   blocked = new Set(rows.map((r) => r.signal_hash));
 }
@@ -87,9 +87,7 @@ const TABLE: Record<(typeof KINDS)[number], { table: string; author: string }> =
   photo: { table: 'profile_photos', author: 'user_id' },
 };
 
-export async function registerAdminRoutes(app: FastifyInstance, io: IO) {
-  await loadBlocks();
-
+export function registerAdminRoutes(app: FastifyInstance, io: IO) {
   /** Everything members have flagged and nobody has dealt with yet, oldest first. */
   app.get('/api/admin/flagged', async (req) => {
     requireUser(req, Trust.Admin);
