@@ -69,14 +69,14 @@ export function viewSignup() {
       h('p', { class: 'hint' }, 'Your name is yours for good: it can’t be changed, and nobody can register a lookalike of it.'),
       field('Email', 'email', 'email', { autocomplete: 'email' }),
       field(`Password (${PASSWORD_MIN}+ characters)`, 'password', 'password', { minlength: PASSWORD_MIN, autocomplete: 'new-password' }),
-      field('Your real birthdate', 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
+      field('Confirm password', 'password2', 'password', { minlength: PASSWORD_MIN, autocomplete: 'new-password' }),
+      field(`Birthday (${AGE.minimum}+)`, 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
       field('Invite code (optional)', 'inviteCode', 'text', { required: false, maxlength: 12, autocapitalize: 'characters', autocomplete: 'off', spellcheck: false, placeholder: 'ABCD-EFGH', value: invite }),
-      h('p', { class: 'hint' }, 'Did a friend invite you? Their code gives them credit toward invite trophies.'),
-      h('p', { class: 'hint' }, `${SITE_NAME} is for adults only: you must be ${AGE.minimum} or older. Your birthdate is private, never shown, and can't be changed later. Your character's age is separate: set any age you like on your profile.`),
       h('label', { class: 'adult-confirm' }, h('input', { type: 'checkbox', name: 'adult', required: true }), ` I confirm I am ${AGE.minimum} or older.`),
     ],
     'Create account',
     async (d) => {
+      if (d.get('password') !== d.get('password2')) throw new Error("The passwords don't match. Type the same password in both boxes.");
       const me = await api<MeDTO>('/api/signup', {
         body: { handle: d.get('handle'), email: d.get('email'), password: d.get('password'), birthdate: d.get('birthdate'), inviteCode: String(d.get('inviteCode') ?? '') || undefined, acceptTerms: true },
       });
@@ -84,7 +84,8 @@ export function viewSignup() {
     },
   );
   signupForm.append(h('p', { class: 'terms-note' }, `By creating an account, you agree to ${SITE_NAME}'s `,
-    h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service'), '.'));
+    h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service'), ' and acknowledge our ',
+    h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'));
   page('Sign up',
     h('div', { class: 'card hero' }, h('h1', {}, `Welcome to ${SITE_NAME}`),
       h('p', { class: 'muted' }, `Roleplay and chat rooms, built for your phone. Adults only (${AGE.minimum}+): create a free account to come in.`)),

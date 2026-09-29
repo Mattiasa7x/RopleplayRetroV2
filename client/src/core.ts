@@ -43,7 +43,7 @@ document.addEventListener('click', (e) => {
   const a = (e.target as HTMLElement).closest('a');
   if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || a.target) return;
   const href = a.getAttribute('href');
-  if (!href || !href.startsWith('/') || href.startsWith('/uploads/') || href === '/mod' || href === '/terms') return;
+  if (!href || !href.startsWith('/') || href.startsWith('/uploads/') || href === '/mod' || href === '/terms' || href === '/privacy') return;
   e.preventDefault();
   navigate(href);
 });

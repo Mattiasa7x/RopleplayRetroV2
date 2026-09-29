@@ -3,6 +3,7 @@ Allow: /$
 Allow: /signup
 Allow: /login
 Allow: /terms
+Allow: /privacy
 Allow: /landing/
 Allow: /og-image.png
 Allow: /logo-mark.svg

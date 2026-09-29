@@ -200,7 +200,8 @@ export async function viewSettings() {
         disconnect();
         navigate('/login', true);
       }) as EventListener }, 'Log out'),
-      h('p', { class: 'muted small center' }, h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service')))),
+      h('p', { class: 'muted small center' }, h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service'), ' · ',
+        h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy')))),
 
     withId('security', card('Security',
       details('Change password', form([

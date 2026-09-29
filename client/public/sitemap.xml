@@ -3,5 +3,6 @@
   <url><loc>https://roleplayretro.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://roleplayretro.com/signup</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://roleplayretro.com/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://roleplayretro.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://roleplayretro.com/login</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
 </urlset>
