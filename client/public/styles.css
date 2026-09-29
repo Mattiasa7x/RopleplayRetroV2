@@ -609,8 +609,18 @@ button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 .trophy-badge { display: inline-block; line-height: 0; flex: none; }
 .trophy-badge svg { display: block; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.3)); }
 .trophy-badge.locked svg { filter: grayscale(1) contrast(0.8); opacity: 0.35; }
-.trophy-shelf { display: flex; flex-wrap: wrap; gap: 0.2rem; align-items: center; text-decoration: none; padding: 0.1rem 0; }
-.trophy-shelf.empty { font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+.profile-trophy { display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--fg); padding: 0.25rem 0.8rem 0.25rem 0.3rem; border-radius: 99px; border: 1.5px solid color-mix(in srgb, var(--red) 40%, transparent); background: color-mix(in srgb, var(--bg) 85%, transparent); }
+.profile-trophy-text { display: grid; line-height: 1.2; }
+.profile-trophy-text strong { font-size: 0.95rem; }
+.profile-trophy.empty { font-size: 0.9rem; font-weight: 600; color: var(--muted); padding: 0.3rem 0.8rem; }
+[data-theme="dark"] .profile-trophy { border-color: color-mix(in srgb, var(--pink) 55%, transparent); box-shadow: 0 0 10px rgba(255, 79, 163, 0.25); }
+.trophy-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; padding: 0.2rem; }
+.trophy-tile { all: unset; box-sizing: border-box; cursor: pointer; display: grid; justify-items: center; align-content: center; gap: 0.25rem; min-height: 6.4rem; padding: 0.45rem 0.3rem; border-radius: 10px; border: 2px solid color-mix(in srgb, var(--red) 30%, transparent); background: var(--soft); text-align: center; }
+.trophy-tile-name { font-size: 0.75rem; font-weight: 700; line-height: 1.15; }
+.trophy-none-mark { font-size: 1.6rem; line-height: 52px; color: var(--muted); }
+.trophy-tile[aria-pressed="true"] { border: 3px solid var(--red); }
+.trophy-tile:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+[data-theme="dark"] .trophy-tile[aria-pressed="true"] { border-color: var(--pink); box-shadow: 0 0 12px rgba(255, 79, 163, 0.6); }
 .trophy-count { margin: 0 0 0.6rem; font-weight: 700; }
 .trophy-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
 .trophy-item { display: flex; gap: 0.75rem; align-items: center; }

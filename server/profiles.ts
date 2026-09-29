@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { TROPHIES } from '../shared/trophies.js';
+import { TROPHIES, TROPHY_BY_ID } from '../shared/trophies.js';
 import sharp from 'sharp';
 import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, PROFILE, RP_STYLES, TRUST_LABEL, Trust, type CharacterSheet, type RpStyle } from '../shared/config.js';
 import type { CommentDTO, ProfileDTO, StatusDTO } from '../shared/types.js';
@@ -55,6 +55,8 @@ const ProfileBody = z.object({
   rpStyle: z.enum(RP_STYLES).nullable().optional(),
   characterSheet: z.record(z.string(), z.string()).optional(),
   profileThemeId: z.number().int().positive().nullable().optional(),
+  /** A trophy you've earned, or 'none'. */
+  profileTrophy: z.string().regex(/^[a-z_]{1,40}$/).optional(),
 }).strict();
 
 /** Keep only the sheet's own fields, trimmed and within their lengths; empty ones are dropped. */
@@ -99,10 +101,17 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     const { rows: th } = a.visible && t.profile_theme_id != null
       ? await db.query<{ id: number; title: string }>('SELECT id, title FROM room_images WHERE id = $1 AND full_data IS NOT NULL', [t.profile_theme_id])
       : { rows: [] as { id: number; title: string }[] };
+    // Earned trophies, newest first; ones earned together go to the later (bigger) trophy in the list.
     const { rows: tr } = a.visible
-      ? await db.query<{ trophy_id: string }>('SELECT trophy_id FROM user_trophies WHERE user_id = $1', [t.id])
-      : { rows: [] as { trophy_id: string }[] };
-    const earned = new Set(tr.map((r) => r.trophy_id));
+      ? await db.query<{ trophy_id: string; ts: string }>('SELECT trophy_id, extract(epoch FROM earned_at)::text AS ts FROM user_trophies WHERE user_id = $1', [t.id])
+      : { rows: [] as { trophy_id: string; ts: string }[] };
+    const order = (id: string) => TROPHIES.findIndex((x) => x.id === id);
+    const earned = tr.filter((r) => TROPHY_BY_ID.has(r.trophy_id))
+      .sort((x, y) => Number(y.ts) - Number(x.ts) || order(y.trophy_id) - order(x.trophy_id))
+      .map((r) => r.trophy_id);
+    const shown = t.profile_trophy === 'none' ? null
+      : t.profile_trophy && earned.includes(t.profile_trophy) ? t.profile_trophy
+      : earned[0] ?? null;
     const sheet: CharacterSheet = {};
     if (a.visible) {
       for (const f of CHARACTER_SHEET) {
@@ -121,7 +130,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       characterSheet: sheet,
       banner: ban[0] ? `/banner/${t.id}?v=${ban[0].v}` : null,
       theme: th[0] ? { id: th[0].id, image: `/room-img/${th[0].id}/full`, title: th[0].title } : null,
-      ...(self ? { own: { characterBirthday: t.character_birthday, legacyAge: t.character_birthday ? null : t.character_age } } : {}),
+      ...(self ? { own: { characterBirthday: t.character_birthday, legacyAge: t.character_birthday ? null : t.character_age, profileTrophy: t.profile_trophy } } : {}),
       trustLabel: TRUST_LABEL[t.trust_level as Trust],
       photos: photos.map(photoDTO),
       // Under 18 there's no private album; the tab only appears if old private photos need moving.
@@ -132,7 +141,8 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       canComment: a.canComment,
       visible: a.visible,
       blockedByMe: a.iBlocked,
-      trophies: TROPHIES.filter((x) => earned.has(x.id)).map((x) => x.id),
+      trophy: shown,
+      trophyCount: earned.length,
     };
   });
 
@@ -143,11 +153,19 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
   app.patch('/api/me/profile', async (req) => {
     const u = requireUser(req);
     const b = parse(ProfileBody, req.body);
+    const quick = ['profileThemeId', 'profileTrophy'];
     if (b.profileThemeId !== undefined) {
       if (b.profileThemeId !== null && !(await isPoolImage(b.profileThemeId))) throw new HttpError(400, 'bad_theme', 'Pick one of the themes shown.');
       await db.query('UPDATE users SET profile_theme_id = $2 WHERE id = $1', [u.id, b.profileThemeId]);
-      if (Object.keys(b).length === 1) return { ok: true };
     }
+    if (b.profileTrophy !== undefined) {
+      if (b.profileTrophy !== 'none') {
+        const { rowCount } = await db.query('SELECT 1 FROM user_trophies WHERE user_id = $1 AND trophy_id = $2', [u.id, b.profileTrophy]);
+        if (!rowCount) throw new HttpError(400, 'bad_trophy', "You haven't earned that trophy yet.");
+      }
+      await db.query('UPDATE users SET profile_trophy = $2 WHERE id = $1', [u.id, b.profileTrophy]);
+    }
+    if (Object.keys(b).every((k) => quick.includes(k)) && Object.keys(b).length) return { ok: true };
     const { rows } = await db.query<UserRow>(`SELECT ${USER_COLS} FROM users u WHERE u.id = $1`, [u.id]);
     const cur = rows[0];
     const next = {

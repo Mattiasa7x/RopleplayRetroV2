@@ -26,6 +26,8 @@ export interface UserRow {
   rp_style: string | null;
   character_sheet: Record<string, string> | null;
   profile_theme_id: number | null;
+  /** Trophy shown on the profile: an id, 'none', or null for the newest earned. */
+  profile_trophy: string | null;
 }
 
 /** The character's age to show: from their character birthday, else what they typed before birthdays existed. */
@@ -35,7 +37,7 @@ export function characterAgeText(u: Pick<UserRow, 'character_birthday' | 'charac
 }
 
 export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.prefs, u.birthdate, u.character_age, u.character_city,
-  to_char(u.character_birthday, 'YYYY-MM-DD') AS character_birthday, u.character_gender, u.rp_style, u.character_sheet, u.profile_theme_id,
+  to_char(u.character_birthday, 'YYYY-MM-DD') AS character_birthday, u.character_gender, u.rp_style, u.character_sheet, u.profile_theme_id, u.profile_trophy,
   (SELECT p.id FROM profile_photos p WHERE p.user_id = u.id AND NOT p.is_private ORDER BY p.position, p.id LIMIT 1) AS avatar_id`;
 
 export function prefsOf(u: UserRow): Prefs {

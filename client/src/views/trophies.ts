@@ -50,7 +50,9 @@ export async function viewTrophies(handle: string) {
     page('Trophies', back, card(null, h('p', { class: 'muted' }, `${d.handle} shares their profile with friends only.`)));
     return;
   }
-  const summary = h('p', { class: 'trophy-count' }, `${earned.size} of ${TROPHIES.length} trophies earned`);
+  const summary = h('p', { class: 'trophy-count' }, d.self
+    ? `${earned.size} of ${TROPHIES.length} trophies earned`
+    : `${d.handle} has earned ${earned.size} of ${TROPHIES.length} trophies`);
 
   const groups = TROPHY_GROUPS.map((g) => {
     const list = TROPHIES.filter((t) => t.group === g.id && (d.self || earned.has(t.id)));

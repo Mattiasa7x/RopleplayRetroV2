@@ -632,3 +632,9 @@ CREATE TABLE IF NOT EXISTS user_trophies (
   seen_at    TIMESTAMPTZ,  -- when the "trophy earned" announcement was shown
   PRIMARY KEY (user_id, trophy_id)
 );
+
+-- The one trophy shown on a profile: a trophy id, 'none' to show none, or NULL for the newest earned.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_trophy TEXT;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_profile_trophy_format CHECK (profile_trophy IS NULL OR profile_trophy ~ '^[a-z_]{1,40}$');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

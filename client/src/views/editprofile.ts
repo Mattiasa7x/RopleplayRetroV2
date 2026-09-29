@@ -1,5 +1,7 @@
 import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, characterAgeFrom, PROFILE, RP_STYLES, Trust, type RpStyle } from '../../../shared/config.js';
-import type { AccountDTO, ProfileDTO, RoomImageDTO } from '../../../shared/types.js';
+import type { AccountDTO, ProfileDTO, RoomImageDTO, TrophyPageDTO } from '../../../shared/types.js';
+import { TROPHIES, TROPHY_BY_ID } from '../../../shared/trophies.js';
+import { trophyBadge } from '../trophyart.js';
 import { card, page, state, toast } from '../core.js';
 import { api, apiUpload, h } from '../dom.js';
 import { pagedGrid } from './pagedgrid.js';
@@ -197,6 +199,53 @@ export async function viewEditProfile() {
     pagedGrid(themeBtns, { className: 'theme-grid', label: 'Background themes', startIndex: Math.max(0, themeBtns.findIndex((b) => Number(b.dataset.id) === (themeId ?? 0))) }),
     themeState);
 
+  // ----- profile trophy: one earned trophy (or none) shown under your name, saved on tap -----
+  let earnedIds: string[] = [];
+  try {
+    const t = await api<TrophyPageDTO>(`/api/trophies/${encodeURIComponent(me.handle)}`);
+    const got = new Set(t.earned.map((e) => e.id));
+    earnedIds = TROPHIES.filter((x) => got.has(x.id)).map((x) => x.id);
+  } catch { /* shown as none earned */ }
+  // What's on the profile right now: the pick, or the newest earned when nothing's been picked.
+  let trophyPick: string = p.own?.profileTrophy === 'none' ? 'none' : p.trophy ?? 'none';
+  const trophyState = h('span', { class: 'muted small', 'aria-live': 'polite' });
+  const trophyBtns: HTMLButtonElement[] = [];
+  const paintTrophies = () => trophyBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === trophyPick)));
+  const pickTrophy = async (id: string) => {
+    const before = trophyPick;
+    trophyPick = id;
+    paintTrophies();
+    trophyState.textContent = 'Saving…';
+    try {
+      await save({ profileTrophy: id });
+      trophyState.textContent = id === 'none' ? 'No trophy on your profile.' : `${TROPHY_BY_ID.get(id)?.name} is on your profile.`;
+    } catch (e) {
+      trophyPick = before;
+      paintTrophies();
+      trophyState.textContent = (e as Error).message;
+    }
+  };
+  if (earnedIds.length) {
+    const none = h('button', { type: 'button', class: 'trophy-tile none', 'data-id': 'none', 'aria-label': 'No trophy' }, h('span', { class: 'trophy-none-mark', 'aria-hidden': 'true' }, '—'), h('span', { class: 'trophy-tile-name' }, 'None'));
+    none.addEventListener('click', () => void pickTrophy('none'));
+    trophyBtns.push(none);
+    for (const id of earnedIds) {
+      const name = TROPHY_BY_ID.get(id)!.name;
+      const b = h('button', { type: 'button', class: 'trophy-tile', 'data-id': id, 'aria-label': name }, trophyBadge(id, { size: 52 }), h('span', { class: 'trophy-tile-name' }, name));
+      b.addEventListener('click', () => void pickTrophy(id));
+      trophyBtns.push(b);
+    }
+    paintTrophies();
+  }
+  const trophyCard = card('Profile trophy',
+    earnedIds.length
+      ? h('p', { class: 'muted small' }, 'Shown under your name. Tap one and it saves right away.')
+      : h('p', { class: 'muted small' }, "You haven't earned a trophy yet. ", h('a', { href: `/profile/${me.handle}/trophies` }, 'See what you can earn')),
+    earnedIds.length
+      ? pagedGrid(trophyBtns, { className: 'trophy-grid', label: 'Earned trophies', startIndex: Math.max(0, trophyBtns.findIndex((b) => b.dataset.id === trophyPick)) })
+      : null,
+    trophyState);
+
   // ----- 3. Character sheet -----
   const sheetInputs = new Map<string, HTMLInputElement | HTMLTextAreaElement>();
   const sheetFields = CHARACTER_SHEET.map((f) => {
@@ -227,7 +276,7 @@ export async function viewEditProfile() {
   const photosPane = h('div', { class: 'stack' }, bannerCard, await photoSection(p, { manage: true, reload }));
   const TABS: [string, string, HTMLElement][] = [
     ['account', 'Account', accountCard],
-    ['profile', 'Profile', h('div', { class: 'stack' }, characterCard, themeCard)],
+    ['profile', 'Profile', h('div', { class: 'stack' }, characterCard, trophyCard, themeCard)],
     ['sheet', 'Character Sheet', sheetCard],
     ['photos', 'Photos', photosPane],
   ];

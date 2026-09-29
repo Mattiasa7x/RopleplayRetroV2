@@ -52,7 +52,7 @@ export async function viewProfile(handle: string) {
       p.rpStyle ? h('span', { class: `nameplate${p.rpStyle === 'NSFW' ? ' adult' : ''}` }, p.rpStyle) : null,
       charLine ? h('p', { class: 'char-line' }, charLine) : null,
       h('p', { class: 'muted small' }, `${p.trustLabel} · ${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`),
-      trophyShelf(p.handle, p.trophies ?? [], self && p.visible),
+      profileTrophy(p, self),
       self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,
         blockBtn, reportBtn)),
@@ -105,16 +105,21 @@ export async function viewProfile(handle: string) {
   if (location.pathname !== `/profile/${p.handle}`) history.replaceState({}, '', `/profile/${p.handle}`);
 }
 
-/** A row of small earned-trophy badges under the name; tapping opens the full trophy case. */
-function trophyShelf(handle: string, ids: string[], self: boolean): HTMLElement | null {
-  if (!ids.length) return self ? h('a', { href: `/profile/${handle}/trophies`, class: 'trophy-shelf empty' }, '🏆 Trophies you can earn') : null;
-  const names = ids.map((id) => TROPHY_BY_ID.get(id)?.name ?? id).join(', ');
-  return h('a', { href: `/profile/${handle}/trophies`, class: 'trophy-shelf', 'aria-label': `${ids.length} troph${ids.length === 1 ? 'y' : 'ies'}: ${names}. See all.` },
-    ...ids.map((id) => {
-      const b = trophyBadge(id, { size: 30 });
-      b.title = TROPHY_BY_ID.get(id)?.name ?? '';
-      return b;
-    }));
+/** The one trophy the member chose to show; tapping it opens everything they've earned. */
+function profileTrophy(p: ProfileDTO, self: boolean): HTMLElement | null {
+  if (!p.visible) return null;
+  const href = `/profile/${p.handle}/trophies`;
+  if (!p.trophy) {
+    if (!self) return null;
+    return h('a', { href, class: 'profile-trophy empty' }, p.trophyCount ? '🏆 My trophies' : '🏆 Trophies you can earn');
+  }
+  const name = TROPHY_BY_ID.get(p.trophy)?.name ?? '';
+  const others = p.trophyCount - 1;
+  return h('a', { href, class: 'profile-trophy', 'aria-label': `${name} trophy. See all ${p.trophyCount} of ${p.handle}'s trophies.` },
+    trophyBadge(p.trophy, { size: 40 }),
+    h('span', { class: 'profile-trophy-text' },
+      h('strong', {}, name),
+      h('span', { class: 'muted small' }, others > 0 ? `+${others} more troph${others === 1 ? 'y' : 'ies'}` : 'Trophy')));
 }
 
 /** Every photo on a profile (and the private album, for those allowed), each opening its own page. */

@@ -185,7 +185,7 @@ export interface ProfileDTO extends PublicUser {
   /** Background theme: one of the room pictures. */
   theme: { id: number; image: string; title: string } | null;
   /** Only sent on your own profile: the editable values. */
-  own?: { characterBirthday: string | null; legacyAge: string | null };
+  own?: { characterBirthday: string | null; legacyAge: string | null; profileTrophy: string | null };
   trustLabel: string;
   /** Public photos; the first is the profile picture. */
   photos: PhotoDTO[];
@@ -198,8 +198,10 @@ export interface ProfileDTO extends PublicUser {
   /** False when the profile is friends-only and the viewer isn't a friend: only the name and picture show. */
   visible: boolean;
   blockedByMe: boolean;
-  /** Earned trophy ids (empty when the profile isn't visible). */
-  trophies: string[];
+  /** The one trophy shown on the profile (the member's pick, else their newest), or null. */
+  trophy: string | null;
+  /** How many trophies they've earned (0 when the profile isn't visible). */
+  trophyCount: number;
 }
 
 export interface TrophyPageDTO {
