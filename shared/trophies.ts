@@ -42,8 +42,9 @@ export const TROPHIES: TrophyDef[] = [
 
   { id: 'good_company', name: 'Good Company', group: 'social', goal: 5, how: 'Have 5 friends.' },
   { id: 'circle', name: 'Circle of Friends', group: 'social', goal: 25, how: 'Have 25 friends.' },
-  { id: 'butterfly', name: 'Social Butterfly', group: 'social', goal: 50, how: 'Have 50 friends.' },
+  { id: 'butterfly', name: 'Social Butterfly', group: 'social', goal: 60, how: 'Have 60 friends.' },
   { id: 'heart', name: 'Heart of the Realm', group: 'social', goal: 100, how: 'Have 100 friends.' },
+  { id: 'luminary', name: 'Luminary', group: 'social', goal: 300, how: 'Have 300 friends.' },
 ];
 
 export const TROPHY_BY_ID = new Map(TROPHIES.map((t) => [t.id, t]));

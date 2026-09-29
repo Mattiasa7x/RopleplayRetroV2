@@ -11,7 +11,7 @@ const COLOR: Record<string, string> = {
   noob: '#7cc95a', wanderer: '#22a99a', regular: '#e08a2a', veteran: '#4a78d6', old_guard: '#8656d4',
   warded: '#d0344a',
   chatterbox: '#f0569a', wordsmith: '#c07a3a', storyteller: '#8fa5bd', loremaster: '#e8b32e',
-  good_company: '#3ea6e0', circle: '#27b07a', butterfly: '#c95ad8', heart: '#ef4f6c',
+  good_company: '#3ea6e0', circle: '#27b07a', butterfly: '#c95ad8', heart: '#ef4f6c', luminary: '#f2a41f',
 };
 
 /** Six little heads in a ring. */
@@ -79,7 +79,22 @@ const EMBLEM: Record<string, (dark: string) => string> = {
   heart: (d) => `<path d="M32 45.5s-12.5-7.2-12.5-15.4a6.6 6.6 0 0 1 12.5-3 6.6 6.6 0 0 1 12.5 3c0 8.2-12.5 15.4-12.5 15.4z" ${W}/>
     <path d="M27 22.5l-1-5 3.3 2.4L32 16l2.7 3.9 3.3-2.4-1 5z" ${W}/>
     <path d="M26.5 31.5c.3-1.8 1.6-3 3.3-3.2" ${D(d)} stroke-opacity=".7"/>`,
+  // a radiant star
+  luminary: (d) => `${rays()}
+    <path d="M32 21.5l3.2 6.6 7.2 1-5.2 5.1 1.2 7.2-6.4-3.4-6.4 3.4 1.2-7.2-5.2-5.1 7.2-1z" ${W} stroke="${d}" stroke-width="1"/>
+    <circle cx="32" cy="32.5" r="2" fill="${d}" fill-opacity=".45"/>`,
 };
+
+/** Twelve light rays, long and short, behind the star. */
+function rays(): string {
+  let out = '';
+  for (let i = 0; i < 12; i++) {
+    const a = (Math.PI * 2 * i) / 12 - Math.PI / 2, r1 = 13.5, r2 = i % 2 ? 17 : 20;
+    const p = (r: number) => `${(32 + r * Math.cos(a)).toFixed(2)} ${(32.5 + r * Math.sin(a)).toFixed(2)}`;
+    out += `M${p(r1)}L${p(r2)}`;
+  }
+  return `<path d="${out}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-opacity=".85"/>`;
+}
 
 function shade(hex: string, amt: number): string {
   const n = parseInt(hex.slice(1), 16);
