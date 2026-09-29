@@ -57,10 +57,10 @@ export const TROPHIES: TrophyDef[] = [
   { id: 'emissary', name: 'Emissary', group: 'mail', goal: 10_000, how: 'Send 10,000 private messages.' },
   { id: 'ravens', name: 'Master of Ravens', group: 'mail', goal: 100_000, how: 'Send 100,000 private messages.' },
 
-  { id: 'shutterbug', name: 'Shutterbug', group: 'photos', goal: 20, how: 'Have 20 photos on your profile and in your album.' },
-  { id: 'scrapbooker', name: 'Scrapbooker', group: 'photos', goal: 50, how: 'Have 50 photos on your profile and in your album.' },
-  { id: 'curator', name: 'Curator', group: 'photos', goal: 100, how: 'Have 100 photos on your profile and in your album.' },
-  { id: 'master_of_light', name: 'Master of Light', group: 'photos', goal: 300, how: 'Have 300 photos on your profile and in your album.' },
+  { id: 'shutterbug', name: 'Shutterbug', group: 'photos', goal: 20, how: 'You uploaded 20 photos to your profile.' },
+  { id: 'scrapbooker', name: 'Scrapbooker', group: 'photos', goal: 50, how: 'You uploaded 50 photos to your profile.' },
+  { id: 'curator', name: 'Curator', group: 'photos', goal: 100, how: 'You uploaded 100 photos to your profile.' },
+  { id: 'master_of_light', name: 'Master of Light', group: 'photos', goal: 300, how: 'You uploaded 300 photos to your profile.' },
 ];
 
 export const TROPHY_BY_ID = new Map(TROPHIES.map((t) => [t.id, t]));
