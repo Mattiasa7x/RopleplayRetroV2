@@ -703,3 +703,17 @@ button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 /* confirm-email page: reminder to look in junk/spam */
 .junk-hint { margin: 0.8rem 0 0; padding: 0.6rem 0.75rem; border-radius: 10px; border: 1.5px dashed var(--red); background: var(--soft); font-size: 0.9rem; line-height: 1.4; overflow-wrap: anywhere; }
 [data-theme="dark"] .junk-hint { border-color: var(--pink); }
+
+/* read-only rooms */
+.owner-controls { margin: 0.2rem 0 0.6rem; padding: 0.2rem 0.6rem; border: 2px solid var(--red); border-radius: 12px; background: var(--soft); }
+.room-person { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.room-person .person-link { min-width: 0; flex: 1; }
+.voice-btn { flex: none; min-height: 2.2rem; padding: 0.2rem 0.7rem; font-size: 0.85rem; border-radius: 99px; }
+.voice-btn.on { background: var(--red); color: var(--red-ink); }
+.owner-tag { margin-left: 0.3rem; }
+.voice-tag { margin-left: 0.3rem; }
+.read-only-tag { background: var(--red); color: var(--red-ink); border-color: var(--red); }
+.room-person .tag { white-space: nowrap; display: inline-block; }
+[data-theme="dark"] .owner-controls { border-color: var(--pink); background: var(--surface); }
+[data-theme="dark"] .voice-btn.on { background: var(--pink); color: var(--bg); border-color: var(--pink); box-shadow: 0 0 10px rgba(255, 79, 163, 0.5); }
+[data-theme="dark"] .read-only-tag { background: var(--pink); color: var(--bg); border-color: var(--pink); }

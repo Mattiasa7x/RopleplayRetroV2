@@ -709,3 +709,13 @@ DO $$ BEGIN
   ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_kind;
   ALTER TABLE reports ADD CONSTRAINT reports_target_kind CHECK (target_kind IN ('message', 'profile', 'comment', 'status', 'photo', 'dm', 'photo_comment', 'gift'));
 END $$;
+
+-- Read-only rooms: while on, only the owner (and the site admin) and members the owner has
+-- given a voice can post. Everyone else can still read. Voices are cleared when it's turned on or off.
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS read_only BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS room_voices (
+  room_id    INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (room_id, user_id)
+);

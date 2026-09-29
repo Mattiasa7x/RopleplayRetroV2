@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { MEMBER_ROOMS, Trust } from '../shared/config.js';
 import type { RoomDetail } from '../shared/types.js';
@@ -24,11 +24,13 @@ export interface RoomRow {
   chat_filter: boolean;
   /** The room's picture has been downloaded and can be shown. */
   has_image: boolean;
+  /** Only the owner and members given a voice may post. */
+  read_only: boolean;
 }
 
 export const ROOM_COLS =
   `r.id, r.slug, r.name, r.category, r.kind, r.owner_id, r.whitelist_only, r.description, r.min_trust_to_post, r.slow_mode_seconds,
-   r.image_id, r.chat_filter, COALESCE((SELECT ri.thumb_data IS NOT NULL FROM room_images ri WHERE ri.id = r.image_id), false) AS has_image`;
+   r.image_id, r.chat_filter, r.read_only, COALESCE((SELECT ri.thumb_data IS NOT NULL FROM room_images ri WHERE ri.id = r.image_id), false) AS has_image`;
 
 export interface Viewer {
   id: string;
@@ -36,6 +38,19 @@ export interface Viewer {
 }
 
 const NOT_FOUND = 'That room does not exist or is invite-only.';
+
+/** May this person post in the room right now? (Read-only rooms: owner, site admin, or given a voice.) */
+export async function canSpeakIn(v: Viewer, room: RoomRow): Promise<boolean> {
+  if (!room.read_only || room.owner_id === v.id || v.trust >= Trust.Admin) return true;
+  const { rowCount } = await db.query('SELECT 1 FROM room_voices WHERE room_id = $1 AND user_id = $2', [room.id, v.id]);
+  return !!rowCount;
+}
+
+/** Tell everyone in the room who may speak now. */
+export async function broadcastVoices(io: IO, room: RoomRow): Promise<void> {
+  const { rows } = await db.query<{ user_id: string }>('SELECT user_id::text AS user_id FROM room_voices WHERE room_id = $1', [room.id]);
+  io.to(sockRooms.chat(room.id)).emit('room:voice', { roomId: room.id, readOnly: room.read_only, voices: rows.map((r) => r.user_id) });
+}
 
 export async function roomBySlug(slug: string): Promise<RoomRow> {
   const { rows } = await db.query<RoomRow>(`SELECT ${ROOM_COLS} FROM rooms r WHERE r.slug = $1`, [slug]);
@@ -129,6 +144,7 @@ const PatchBody = z.object({
   whitelistOnly: z.boolean().optional(),
   slowModeSeconds: z.number().int().min(0).max(600).optional(),
   imageId: z.number().int().positive().nullable().optional(),
+  readOnly: z.boolean().optional(),
 });
 
 async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
@@ -156,6 +172,8 @@ async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
     imageCredit: room.has_image && img[0]?.credit ? { name: img[0].credit, url: img[0].credit_url ?? '' } : null,
     online,
     chatFilter: room.kind === 'site' || room.chat_filter, // always on in site rooms
+    readOnly: room.read_only,
+    canSpeak: await canSpeakIn(v, room),
   };
 }
 
@@ -219,9 +237,10 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
       `UPDATE rooms r SET name = COALESCE($2, name), description = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF($3, '') END,
               whitelist_only = COALESCE($4, whitelist_only), slow_mode_seconds = COALESCE($5, slow_mode_seconds),
               image_id = CASE WHEN $6 THEN $7::int ELSE image_id END,
-              chat_filter = COALESCE($8, chat_filter)
+              chat_filter = COALESCE($8, chat_filter), read_only = COALESCE($9, read_only)
         WHERE id = $1 RETURNING ${ROOM_COLS}`,
-      [room.id, room.kind === 'member' ? null : b.name ?? null, b.description ?? null, b.whitelistOnly ?? null, b.slowModeSeconds ?? null, b.imageId !== undefined, b.imageId ?? null, room.kind === 'member' ? b.chatFilter ?? null : null],
+      [room.id, room.kind === 'member' ? null : b.name ?? null, b.description ?? null, b.whitelistOnly ?? null, b.slowModeSeconds ?? null, b.imageId !== undefined, b.imageId ?? null, room.kind === 'member' ? b.chatFilter ?? null : null,
+        room.kind === 'member' ? b.readOnly ?? null : null],
     );
     await audit(db, u.id, 'room_update', 'room', room.id, b);
     if (b.whitelistOnly && !room.whitelist_only) await evictUnauthorized(io, rows[0], 'This room is now invite-only.');
@@ -230,6 +249,14 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
         message: b.chatFilter ? 'The chat filter is on: messages with swear words are blocked in this room.' : 'The chat filter is off: swear words are allowed in this room.',
       });
     }
+    if (b.readOnly !== undefined && room.kind === 'member' && b.readOnly !== room.read_only) {
+      // A fresh start either way: nobody but the owner has a voice until given one.
+      await db.query('DELETE FROM room_voices WHERE room_id = $1', [room.id]);
+      io.to(sockRooms.chat(room.id)).emit('notice', {
+        message: b.readOnly ? 'This room is now read-only: only people the owner picks can chat.' : 'Read-only is off: everyone can chat again.',
+      });
+      await broadcastVoices(io, rows[0]);
+    }
     if (b.slowModeSeconds !== undefined) {
       io.to(sockRooms.chat(room.id)).emit('notice', {
         message: b.slowModeSeconds ? `Slow mode is on: one message every ${b.slowModeSeconds} seconds.` : 'Slow mode is off.',
@@ -237,6 +264,28 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
     }
     return detail(u, rows[0]);
   });
+
+  /** Read-only rooms: the owner gives (PUT) or takes back (DELETE) someone's voice. */
+  const voice = (give: boolean) => async (req: FastifyRequest) => {
+    const params = req.params as { slug: string; handle: string };
+    const u = requireUser(req, Trust.Verified);
+    const room = await roomBySlug(params.slug);
+    if (!(await canView(u, room))) throw new HttpError(404, 'no_room', NOT_FOUND);
+    assertCanManage(u, room);
+    if (room.kind !== 'member') throw new HttpError(400, 'site_room', 'Only member rooms can be read-only.');
+    const { rows: t } = await db.query<{ id: string; handle: string }>('SELECT id::text AS id, handle FROM users WHERE lower(handle) = lower($1)', [params.handle]);
+    if (!t[0]) throw new HttpError(404, 'no_user', 'No one has that name.');
+    if (t[0].id === room.owner_id) return { ok: true };
+    if (give) await db.query('INSERT INTO room_voices (room_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [room.id, t[0].id]);
+    else await db.query('DELETE FROM room_voices WHERE room_id = $1 AND user_id = $2', [room.id, t[0].id]);
+    if (room.read_only) {
+      io.to(sockRooms.user(t[0].id)).emit('notice', { message: give ? `You can chat in ${room.name} now.` : `${room.name} is read-only for you again.` });
+    }
+    await broadcastVoices(io, room);
+    return { ok: true };
+  };
+  app.put<{ Params: { slug: string; handle: string } }>('/api/rooms/:slug/voice/:handle', voice(true));
+  app.delete<{ Params: { slug: string; handle: string } }>('/api/rooms/:slug/voice/:handle', voice(false));
 
   app.delete<{ Params: { slug: string } }>('/api/rooms/:slug', async (req) => {
     const u = requireUser(req, Trust.Verified);

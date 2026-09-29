@@ -5,7 +5,7 @@ import type { HistoryPage, MessageDTO, RoomDetail, RoomSummary } from '../shared
 import { parse, requireUser, type SessionUser } from './http.js';
 import { paginate } from './paging.js';
 import { roomImageUrl } from './room-images.js';
-import { ROOM_COLS, assertRoomAccess, roomBySlug, roomDetail, type RoomRow } from './rooms.js';
+import { ROOM_COLS, assertRoomAccess, canSpeakIn, roomBySlug, roomDetail, type RoomRow } from './rooms.js';
 import { maskMature, matureEntries } from './safety/mature.js';
 import { checkMessage } from './safety/pipeline.js';
 import { db, redis, tx } from './store.js';
@@ -62,6 +62,9 @@ export async function sendMessage(userId: string, slug: string, raw: string): Pr
   const user = urows[0];
   if (!user) return { ok: false, error: 'login', message: 'Please log in.' };
   await assertRoomAccess({ id: user.id, trust: user.trust_level }, room); // member-room rules + bans/kicks
+  if (!(await canSpeakIn({ id: user.id, trust: user.trust_level }, room))) {
+    return { ok: false, error: 'read_only', message: 'This room is read-only right now. The owner can give you a voice.' };
+  }
 
   const verdict = await checkMessage({ user: { id: user.id, trust: user.trust_level, createdAt: user.created_at }, room, raw });
   if (!verdict.ok) return verdict;

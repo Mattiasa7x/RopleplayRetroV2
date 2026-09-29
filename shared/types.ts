@@ -37,6 +37,10 @@ export interface RoomDetail {
   online: number;
   /** Member room owner's chat filter: messages with swear words can't be sent here. */
   chatFilter: boolean;
+  /** Read-only: only the owner and members they've given a voice can post. */
+  readOnly: boolean;
+  /** Whether this viewer may post right now. */
+  canSpeak: boolean;
 }
 
 export interface RoomImageDTO {
@@ -57,6 +61,10 @@ export interface RoomPersonDTO {
   characterAge: string | null;
   isFriend: boolean;
   self: boolean;
+  /** The room's owner. */
+  isOwner: boolean;
+  /** May post while the room is read-only (owner, or given a voice). */
+  voice: boolean;
 }
 
 /** A member in the Online Users list (adults only). Details are null when their profile is friends-only. */
@@ -79,6 +87,7 @@ export interface OnlineUsersDTO {
 
 export interface RoomPeopleDTO {
   people: RoomPersonDTO[];
+  readOnly: boolean;
   /** People here you've ignored or blocked (not listed). */
   hidden: number;
 }
@@ -390,6 +399,8 @@ export interface ServerToClient {
   notice: (p: { message: string }) => void;
   social: (p: { kind: 'friend_request' | 'friend_accept' | 'comment' | 'gift'; from: string }) => void;
   dm: (p: { from: string; id: string }) => void;
+  /** Read-only changed in a room: whether it's on and who has a voice (user ids). */
+  'room:voice': (p: { roomId: number; readOnly: boolean; voices: string[] }) => void;
   /** Newly earned trophies (ids from shared/trophies.ts). */
   trophy: (p: { ids: string[] }) => void;
 }

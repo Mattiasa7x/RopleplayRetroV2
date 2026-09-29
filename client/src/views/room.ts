@@ -25,6 +25,19 @@ export async function viewRoom(slug: string) {
   const counter = h('span', { class: 'counter', 'aria-live': 'polite' });
   const sendBtn = h('button', { type: 'submit', class: 'primary' }, 'Send');
   const composerBar = h('form', { class: 'chat-composer' }, input, sendBtn, counter);
+  // Read-only rooms: only the owner and people they've given a voice can post.
+  let readOnly = false;
+  let canSpeak = true;
+  const voiceNote = h('p', { class: 'notice filter-hint voice-note', role: 'status', hidden: true },
+    '🔇 Read-only right now: you can read along. The owner can give you a voice.');
+  const readOnlyTag = h('span', { class: 'tag read-only-tag', hidden: true }, 'Read-only');
+  function paintVoice() {
+    readOnlyTag.hidden = !readOnly;
+    voiceNote.hidden = canSpeak;
+    input.disabled = !canSpeak;
+    input.placeholder = canSpeak ? 'Say something…' : 'Read-only';
+    updateCounter();
+  }
   const actions = h('div', { class: 'actions', hidden: true });
   const presence = h('button', { type: 'button', class: 'people-btn', 'aria-haspopup': 'dialog' });
   let online = 0;
@@ -36,23 +49,59 @@ export async function viewRoom(slug: string) {
   // ----- who's here: pictures, names, character city and character age -----
   const peopleList = h('ul', { class: 'people room-people' });
   const peopleNote = h('p', { class: 'muted small' });
+  const ownerControls = h('div', { class: 'owner-controls', hidden: true });
   const sheet = h('dialog', { class: 'sheet', 'aria-label': 'People in this room' },
     h('div', { class: 'thread-head' }, h('h2', {}, 'People here'),
       h('button', { type: 'button', class: 'quiet', onclick: (() => sheet.close()) as EventListener }, 'Close')),
+    ownerControls,
     h('p', { class: 'muted small' }, 'Ages shown are character ages from profiles, never anyone\'s real age.'),
     peopleList, peopleNote);
+  const isRoomOwner = () => !!hist && hist.room.kind === 'member' && hist.room.canManage;
+  /** Owner: the read-only switch at the top of the People panel. */
+  function paintOwnerControls() {
+    ownerControls.hidden = !isRoomOwner();
+    if (!isRoomOwner()) return;
+    const sw = h('input', { type: 'checkbox', role: 'switch', checked: readOnly });
+    sw.addEventListener('change', async () => {
+      sw.disabled = true;
+      try { await api(`/api/rooms/${encodeURIComponent(slug)}`, { method: 'PATCH', body: { readOnly: sw.checked } }); }
+      catch (e) { sw.checked = !sw.checked; toast((e as Error).message, true); }
+      sw.disabled = false;
+    });
+    ownerControls.replaceChildren(h('label', { class: 'setting switch-row' },
+      h('span', {}, h('span', { class: 'setting-label' }, 'Read-only'),
+        h('span', { class: 'muted small block' }, 'Only you and the people you allow can chat. Anyone who comes in starts read-only.')),
+      sw, h('span', { class: 'switch', 'aria-hidden': 'true' })));
+  }
   let peopleTimer: number | undefined;
   async function loadPeople() {
     try {
       const r = await api<RoomPeopleDTO>(`/api/rooms/${encodeURIComponent(slug)}/people`);
+      readOnly = r.readOnly;
+      paintOwnerControls();
       peopleList.replaceChildren(...r.people.map((p) => {
         const details = [p.characterCity, p.characterAge != null ? `Age ${p.characterAge}` : null].filter(Boolean).join(' · ');
-        return h('li', {},
+        // Owner of a read-only room: a switch per person to let them speak.
+        let voiceBtn: HTMLElement | null = null;
+        if (r.readOnly && isRoomOwner() && !p.self && !p.isOwner) {
+          const on = p.voice;
+          voiceBtn = h('button', { type: 'button', class: `voice-btn${on ? ' on' : ''}`, 'aria-pressed': String(on), 'aria-label': on ? `${p.handle} can speak. Tap to make read-only.` : `Allow ${p.handle} to speak` },
+            on ? '🎙 Can speak' : 'Allow to speak');
+          voiceBtn.addEventListener('click', async () => {
+            try { await api(`/api/rooms/${encodeURIComponent(slug)}/voice/${encodeURIComponent(p.handle)}`, { method: on ? 'DELETE' : 'PUT', body: on ? undefined : {} }); }
+            catch (e) { toast((e as Error).message, true); }
+          });
+        }
+        return h('li', { class: 'room-person' },
           h('a', { href: `/profile/${p.handle}`, class: 'person-link', onclick: (() => sheet.close()) as EventListener },
             avatar(p.avatar, p.handle, 'md'),
             h('span', { class: 'person-text' },
-              h('strong', {}, p.handle, p.self ? ' (you)' : '', p.isFriend ? h('span', { class: 'tag friend-tag' }, 'friend') : null),
-              h('span', { class: 'muted small block' }, details || 'No character details'))));
+              h('strong', {}, p.handle, p.self ? ' (you)' : '',
+                p.isOwner ? h('span', { class: 'tag owner-tag' }, 'owner') : null,
+                p.isFriend ? h('span', { class: 'tag friend-tag' }, 'friend') : null,
+                r.readOnly && p.voice && !p.isOwner && !voiceBtn ? h('span', { class: 'tag voice-tag', 'aria-label': 'can speak' }, '🎙') : null),
+              h('span', { class: 'muted small block' }, details || 'No character details'))),
+          voiceBtn);
       }));
       if (!r.people.length) peopleList.append(h('li', { class: 'muted' }, 'Nobody else is here right now.'));
       peopleNote.textContent = r.hidden ? `${r.hidden} ${r.hidden === 1 ? 'person' : 'people'} you've ignored or blocked ${r.hidden === 1 ? 'is' : 'are'} not shown.` : '';
@@ -77,7 +126,7 @@ export async function viewRoom(slug: string) {
     const flagged = roomWords.length > 0 && containsBlocked(input.value, roomWords);
     filterHint.hidden = !flagged;
     input.classList.toggle('flagged', flagged);
-    sendBtn.disabled = left < 0 || left === CHAT.MAX_CHARS || flagged;
+    sendBtn.disabled = left < 0 || left === CHAT.MAX_CHARS || flagged || !canSpeak;
   }
 
   function line(m: MessageDTO): HTMLElement {
@@ -125,6 +174,8 @@ export async function viewRoom(slug: string) {
   async function load(q: { before?: string; after?: string } = {}) {
     const qs = new URLSearchParams(q as Record<string, string>).toString();
     hist = await api<HistoryPage>(`/api/rooms/${encodeURIComponent(slug)}/messages${qs ? '?' + qs : ''}`);
+    readOnly = hist.room.readOnly;
+    canSpeak = hist.room.canSpeak;
     render();
   }
 
@@ -214,6 +265,13 @@ export async function viewRoom(slug: string) {
       peopleTimer = window.setTimeout(() => void loadPeople(), 700);
     }
   };
+  const onVoice = (p: { roomId: number; readOnly: boolean; voices: string[] }) => {
+    if (p.roomId !== state.currentRoomId) return;
+    readOnly = p.readOnly;
+    canSpeak = !readOnly || (hist?.room.canManage ?? false) || p.voices.includes(me.id);
+    paintVoice();
+    if (sheet.open) void loadPeople(); else paintOwnerControls();
+  };
   const onReconnect = () => {
     s.emit('room:join', { slug }, () => {});
     if (hist?.page === 1) void load();
@@ -222,12 +280,14 @@ export async function viewRoom(slug: string) {
   s.on('msg:hidden', onHidden);
   s.on('typing', onTyping);
   s.on('presence', onPresence);
+  s.on('room:voice', onVoice);
   s.io.on('reconnect', onReconnect);
   state.cleanup = () => {
     s.off('msg:new', onNew);
     s.off('msg:hidden', onHidden);
     s.off('typing', onTyping);
     s.off('presence', onPresence);
+    s.off('room:voice', onVoice);
     s.io.off('reconnect', onReconnect);
     s.emit('room:leave');
     state.currentRoomId = null;
@@ -298,6 +358,8 @@ export async function viewRoom(slug: string) {
   }
   online = Math.max(online, room.online);
   paintPresence();
+  readOnly = room.readOnly;
+  canSpeak = room.canSpeak;
   page(room.name,
     h('div', { class: `room-banner ${room.kind === 'member' ? 'art-member' : 'art-genre'}` },
       room.image ? h('img', { src: room.image, alt: '' }) : null,
@@ -309,13 +371,16 @@ export async function viewRoom(slug: string) {
           h('span', { class: 'tag' }, room.kind === 'site' ? 'Site room' : 'Member room'),
           room.whitelistOnly ? h('span', { class: 'tag' }, 'Invite-only') : null,
           room.chatFilter ? h('span', { class: 'tag' }, 'Chat filter on') : null,
+          readOnlyTag,
           presence),
         h('p', { class: 'muted small' }, room.kind === 'site' ? 'Strictly auto-moderated · no links' : room.description ?? '')),
       h('div', { class: 'row' }, star, room.canManage && room.kind === 'member' ? h('a', { href: `/room/${slug}/manage`, class: 'button quiet' }, 'Manage') : null)),
     newBar,
     h('div', { class: 'chat-box' }, list, actions),
     pager, typing, errBox, composerBar, sheet);
-  updateCounter();
+  composerBar.prepend(voiceNote);
+  paintVoice();
+  paintOwnerControls();
   // Newest lines are at the top; the message box stays pinned to the bottom of the screen.
   window.scrollTo(0, 0);
   // On phones, wait for a tap: focusing would pop the keyboard up and tuck the bottom buttons away.

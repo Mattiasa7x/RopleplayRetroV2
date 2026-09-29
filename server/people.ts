@@ -19,7 +19,9 @@ export function registerPeopleRoutes(app: FastifyInstance) {
     const room = await roomBySlug(req.params.slug);
     await assertRoomAccess(u, room);
     const ids = ((await redis.hkeys(`presence:${room.id}`)) as string[]).filter((id) => /^\d{1,19}$/.test(id));
-    if (!ids.length) return { people: [], hidden: 0 };
+    if (!ids.length) return { people: [], hidden: 0, readOnly: room.read_only };
+    const { rows: vr } = await db.query<{ user_id: string }>('SELECT user_id::text AS user_id FROM room_voices WHERE room_id = $1', [room.id]);
+    const voiced = new Set(vr.map((r) => r.user_id));
     const { rows } = await db.query<UserRow & { is_friend: boolean; hide: boolean }>(
       `SELECT ${USER_COLS},
               EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
@@ -43,11 +45,15 @@ export function registerPeopleRoutes(app: FastifyInstance) {
         characterAge: visible ? show(characterAgeText(r)) : null,
         isFriend: r.is_friend,
         self,
+        isOwner: r.id === room.owner_id,
+        voice: !room.read_only || r.id === room.owner_id || voiced.has(r.id),
       };
     });
     // You first, then friends, then everyone else by name.
     people.sort((a, b) => Number(b.self) - Number(a.self) || Number(b.isFriend) - Number(a.isFriend));
-    return { people, hidden: rows.length - people.length };
+    // The owner always first, then you, then friends, then everyone else by name.
+    people.sort((a, b) => Number(b.isOwner) - Number(a.isOwner));
+    return { people, hidden: rows.length - people.length, readOnly: room.read_only };
   });
 }
 
