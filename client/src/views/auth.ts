@@ -58,21 +58,37 @@ export function viewLogin() {
     h('p', { class: 'center' }, 'New here? ', h('a', { href: withNext('/signup') }, 'Create an account')));
 }
 
+/** Invite codes are ABCD-EFGH: uppercase as you type, and put the dash in for you. */
+function autoDashInvite(input: HTMLInputElement) {
+  input.addEventListener('input', () => {
+    const caret = input.selectionStart ?? input.value.length;
+    const before = normalizeInviteCode(input.value.slice(0, caret)).length; // code characters before the caret
+    const code = normalizeInviteCode(input.value).slice(0, 8);
+    const shown = code.length > 4 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
+    if (shown === input.value) return;
+    input.value = shown;
+    const pos = Math.min(shown.length, before > 4 ? before + 1 : before);
+    input.setSelectionRange(pos, pos);
+  });
+}
+
 export function viewSignup() {
   // An invite link (/signup?invite=ABCD-EFGH) fills in the code.
   const invite = formatInviteCode(normalizeInviteCode(new URLSearchParams(location.search).get('invite') ?? '').slice(0, 8));
   const max = new Date();
   max.setFullYear(max.getFullYear() - AGE.minimum);
+  const inviteField = field('Invite code (optional)', 'inviteCode', 'text', { required: false, maxlength: 9, autocapitalize: 'characters', autocomplete: 'off', inputmode: 'text', spellcheck: false, placeholder: 'ABCD-EFGH', value: invite });
+  autoDashInvite(inviteField.querySelector('input')!);
   const signupForm = form(
     [
       field('Name (3–16 letters, numbers or _)', 'handle', 'text', { pattern: '[A-Za-z0-9_]{3,16}', maxlength: 16, autocomplete: 'username', autocapitalize: 'off' }),
       h('p', { class: 'hint' }, 'Your name is yours for good: it can’t be changed, and nobody can register a lookalike of it.'),
       field('Email', 'email', 'email', { autocomplete: 'email' }),
+      field(`Birthday (${AGE.minimum}+)`, 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
+      inviteField,
+      h('label', { class: 'adult-confirm' }, h('input', { type: 'checkbox', name: 'adult', required: true }), ` I confirm I am ${AGE.minimum} or older.`),
       field(`Password (${PASSWORD_MIN}+ characters)`, 'password', 'password', { minlength: PASSWORD_MIN, autocomplete: 'new-password' }),
       field('Confirm password', 'password2', 'password', { minlength: PASSWORD_MIN, autocomplete: 'new-password' }),
-      field(`Birthday (${AGE.minimum}+)`, 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
-      field('Invite code (optional)', 'inviteCode', 'text', { required: false, maxlength: 12, autocapitalize: 'characters', autocomplete: 'off', spellcheck: false, placeholder: 'ABCD-EFGH', value: invite }),
-      h('label', { class: 'adult-confirm' }, h('input', { type: 'checkbox', name: 'adult', required: true }), ` I confirm I am ${AGE.minimum} or older.`),
     ],
     'Create account',
     async (d) => {
