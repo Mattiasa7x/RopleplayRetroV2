@@ -223,6 +223,10 @@ export interface TrophyPageDTO {
     friends: number;
     /** People who joined with your code and confirmed their email. */
     invites: number;
+    /** Photos you have now (profile and album). */
+    photos: number;
+    /** Which profile parts are filled in (for Fully Realized). */
+    profile: { birthday: boolean; gender: boolean; city: boolean; style: boolean; about: boolean; sheetFilled: number; sheetTotal: number };
     security: { email: boolean; phone: boolean; twoFactor: boolean };
   };
 }

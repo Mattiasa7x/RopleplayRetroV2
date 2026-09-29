@@ -7,6 +7,7 @@ import { endFriendship, prefsOf, publicUser, relation, userByHandle, USER_COLS, 
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
 import { slidingWindow } from './safety/limits.js';
 import { audit, db, redis } from './store.js';
+import { afterPhotoUpload } from './trophies.js';
 
 // Keep memory low on small servers: one image at a time, no libvips cache.
 sharp.concurrency(1);
@@ -191,6 +192,7 @@ export function registerPhotoRoutes(app: FastifyInstance) {
       const id = rows[0].id;
       await client.query("INSERT INTO photo_blobs (photo_id, variant, mime, data) VALUES ($1, 'full', 'image/webp', $2), ($1, 'thumb', 'image/webp', $3)", [id, img.full, img.thumb]);
       await client.query('COMMIT');
+      afterPhotoUpload(u.id);
       return reply.status(201).send(photoDTO({ id, is_private: isPrivate }));
     } catch (e) {
       await client.query('ROLLBACK');

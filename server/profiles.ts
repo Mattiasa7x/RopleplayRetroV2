@@ -14,6 +14,7 @@ import { maskMature } from './safety/mature.js';
 import { textBlocked } from './safety/pipeline.js';
 import { checkSocialText } from './safety/social-text.js';
 import { audit, db, redis } from './store.js';
+import { afterProfileEdit } from './trophies.js';
 
 // ---------------- profile visibility ----------------
 
@@ -200,6 +201,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       if (c?.startsWith('users_')) throw new HttpError(400, 'too_long', 'One of those fields is too long.');
       throw e;
     });
+    afterProfileEdit(u.id);
     return { ok: true };
   });
 

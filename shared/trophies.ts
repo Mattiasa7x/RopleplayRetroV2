@@ -4,7 +4,7 @@
  * badge lives in the browser (client/src/trophyart.ts).
  */
 
-export type TrophyGroup = 'time' | 'account' | 'chat' | 'social' | 'mail';
+export type TrophyGroup = 'time' | 'account' | 'chat' | 'social' | 'mail' | 'photos';
 
 export interface TrophyDef {
   id: string;
@@ -12,7 +12,7 @@ export interface TrophyDef {
   group: TrophyGroup;
   /** How it's earned, shown under the badge. */
   how: string;
-  /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail) or people invited (account). */
+  /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail), people invited (account) or photos kept (photos). */
   goal?: number;
 }
 
@@ -22,6 +22,7 @@ export const TROPHY_GROUPS: { id: TrophyGroup; title: string }[] = [
   { id: 'chat', title: 'Room chat' },
   { id: 'social', title: 'Friends' },
   { id: 'mail', title: 'Private messages' },
+  { id: 'photos', title: 'Photos' },
 ];
 
 const DAY = 24;
@@ -35,6 +36,7 @@ export const TROPHIES: TrophyDef[] = [
   { id: 'old_guard', name: 'Old Guard', group: 'time', goal: 5 * YEAR + 2 * DAY, how: 'Your account is 5 years old.' },
 
   { id: 'warded', name: 'Warded', group: 'account', how: 'Confirm your email, add a phone number and turn on two-factor sign-in.' },
+  { id: 'fully_realized', name: 'Fully Realized', group: 'account', how: 'Fill in every part of your profile: birthday, gender, city, roleplay style, About and the whole character sheet.' },
   { id: 'party_leader', name: 'Party Leader', group: 'account', goal: 10, how: 'Invite 10 people who join and confirm their email.' },
   { id: 'guild_master', name: 'Guild Master', group: 'account', goal: 50, how: 'Invite 50 people who join and confirm their email.' },
   { id: 'sovereign', name: 'Sovereign', group: 'account', goal: 100, how: 'Invite 100 people who join and confirm their email.' },
@@ -54,6 +56,11 @@ export const TROPHIES: TrophyDef[] = [
   { id: 'herald', name: 'Herald', group: 'mail', goal: 1_000, how: 'Send 1,000 private messages.' },
   { id: 'emissary', name: 'Emissary', group: 'mail', goal: 10_000, how: 'Send 10,000 private messages.' },
   { id: 'ravens', name: 'Master of Ravens', group: 'mail', goal: 100_000, how: 'Send 100,000 private messages.' },
+
+  { id: 'shutterbug', name: 'Shutterbug', group: 'photos', goal: 20, how: 'Have 20 photos on your profile and in your album.' },
+  { id: 'scrapbooker', name: 'Scrapbooker', group: 'photos', goal: 50, how: 'Have 50 photos on your profile and in your album.' },
+  { id: 'curator', name: 'Curator', group: 'photos', goal: 100, how: 'Have 100 photos on your profile and in your album.' },
+  { id: 'master_of_light', name: 'Master of Light', group: 'photos', goal: 300, how: 'Have 300 photos on your profile and in your album.' },
 ];
 
 export const TROPHY_BY_ID = new Map(TROPHIES.map((t) => [t.id, t]));

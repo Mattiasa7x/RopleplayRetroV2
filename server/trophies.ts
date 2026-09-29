@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { TROPHIES } from '../shared/trophies.js';
+import { CHARACTER_SHEET, type CharacterSheet } from '../shared/config.js';
 import type { TrophyPageDTO } from '../shared/types.js';
 import { parse, requireUser } from './http.js';
 import { profileAccess } from './profiles.js';
@@ -14,7 +15,16 @@ import { db } from './store.js';
 const FRIENDS = `(SELECT count(*) FROM friendships f WHERE (f.user_a = u.id OR f.user_b = u.id) AND f.status = 'accepted')`;
 /** Invitees who joined with this member's code and confirmed their email. */
 const INVITES = `(SELECT count(*) FROM users i WHERE i.invited_by = u.id AND i.email_verified_at IS NOT NULL)`;
+/** Every profile field and every character-sheet section filled in. */
+const SHEET_KEYS = CHARACTER_SHEET.map((f) => f.key);
+const PROFILE_COMPLETE = `(u.character_birthday IS NOT NULL AND btrim(coalesce(u.character_gender, '')) <> ''
+  AND btrim(coalesce(u.character_city, '')) <> '' AND u.rp_style IS NOT NULL AND btrim(coalesce(u.bio, '')) <> ''
+  AND NOT EXISTS (SELECT 1 FROM unnest(ARRAY[${SHEET_KEYS.map((k) => `'${k}'`).join(', ')}]) AS k(key)
+                   WHERE btrim(coalesce(u.character_sheet ->> k.key, '')) = ''))`;
+/** Photos they have now, public and private album. */
+const PHOTOS = `(SELECT count(*) FROM profile_photos p WHERE p.user_id = u.id)`;
 const RULE: Record<string, string> = {
+  fully_realized: PROFILE_COMPLETE,
   warded: 'u.email_verified_at IS NOT NULL AND u.phone IS NOT NULL AND u.totp_enabled',
 };
 for (const t of TROPHIES) {
@@ -22,6 +32,7 @@ for (const t of TROPHIES) {
   if (t.group === 'chat') RULE[t.id] = `u.message_count >= ${Number(t.goal)}`;
   if (t.group === 'social') RULE[t.id] = `${FRIENDS} >= ${Number(t.goal)}`;
   if (t.group === 'account' && t.goal) RULE[t.id] = `${INVITES} >= ${Number(t.goal)}`;
+  if (t.group === 'photos') RULE[t.id] = `${PHOTOS} >= ${Number(t.goal)}`;
   if (t.group === 'mail') RULE[t.id] = `u.dm_count >= ${Number(t.goal)}`;
 }
 const AWARD_SQL = `
@@ -79,6 +90,17 @@ export async function afterInviteeConfirmed(userId: string): Promise<void> {
   if (rows[0]?.invited_by) await awardTrophies([rows[0].invited_by]);
 }
 
+/** After the profile is edited. */
+export function afterProfileEdit(userId: string): void {
+  void awardTrophies([userId], ['fully_realized']).catch((e) => console.error(e));
+}
+
+const PHOTO_IDS = TROPHIES.filter((t) => t.group === 'photos').map((t) => t.id);
+/** After a photo is uploaded. */
+export function afterPhotoUpload(userId: string): void {
+  void awardTrophies([userId], PHOTO_IDS).catch((e) => console.error(e));
+}
+
 /** After a friendship is accepted (both people may reach a goal). */
 export function afterFriendsChange(userIds: string[]): void {
   void awardTrophies(userIds, SOCIAL_IDS).catch((e) => console.error(e));
@@ -123,14 +145,23 @@ export function registerTrophyRoutes(app: FastifyInstance) {
       earned: rows.map((r) => ({ id: r.trophy_id, earnedAt: r.earned_at.toISOString() })),
     };
     if (self) {
-      const { rows: p } = await db.query<{ hours: number; messages: number; dms: number; friends: number; invites: number; email: boolean; phone: boolean; two_factor: boolean }>(
+      const { rows: p } = await db.query<{ hours: number; messages: number; dms: number; friends: number; invites: number; photos: number;
+        birthday: boolean; gender: boolean; city: boolean; style: boolean; about: boolean; sheet: CharacterSheet | null; email: boolean; phone: boolean; two_factor: boolean }>(
         `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages, dm_count AS dms,
                 ${INVITES.replace(/u\.id/g, 'users.id')} AS invites,
+                ${PHOTOS.replace(/u\.id/g, 'users.id')} AS photos,
+                character_birthday IS NOT NULL AS birthday, btrim(coalesce(character_gender, '')) <> '' AS gender,
+                btrim(coalesce(character_city, '')) <> '' AS city, rp_style IS NOT NULL AS style,
+                btrim(coalesce(bio, '')) <> '' AS about, character_sheet AS sheet,
                 ${FRIENDS.replace(/u\.id/g, 'users.id')} AS friends,
                 email_verified_at IS NOT NULL AS email, phone IS NOT NULL AS phone, totp_enabled AS two_factor
            FROM users WHERE id = $1`, [u.id]);
       out.progress = {
-        accountHours: Number(p[0].hours), messages: Number(p[0].messages), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites),
+        accountHours: Number(p[0].hours), messages: Number(p[0].messages), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites), photos: Number(p[0].photos),
+        profile: {
+          birthday: p[0].birthday, gender: p[0].gender, city: p[0].city, style: p[0].style, about: p[0].about,
+          sheetFilled: SHEET_KEYS.filter((k) => (p[0].sheet?.[k] ?? '').trim() !== '').length, sheetTotal: SHEET_KEYS.length,
+        },
         security: { email: p[0].email, phone: p[0].phone, twoFactor: p[0].two_factor },
       };
     }

@@ -29,6 +29,18 @@ function bar(value: number, goal: number, label: string): HTMLElement {
 function progressFor(t: TrophyDef, p: NonNullable<TrophyPageDTO['progress']>): HTMLElement | null {
   if (t.group === 'time') return bar(p.accountHours, t.goal!, `Earned ${timeLeft(t.goal! - p.accountHours)}`);
   if (t.group === 'chat') return bar(p.messages, t.goal!, `${num(Math.min(p.messages, t.goal!))} / ${num(t.goal!)} messages`);
+  if (t.group === 'photos') return bar(p.photos, t.goal!, `${num(Math.min(p.photos, t.goal!))} / ${num(t.goal!)} photos`);
+  if (t.id === 'fully_realized') {
+    const f = p.profile;
+    const item = (done: boolean, text: string, href: string) =>
+      h('li', { class: done ? 'done' : '' }, h('span', { 'aria-hidden': 'true' }, done ? '✓' : '○'), ' ',
+        done ? text : h('a', { href }, text), h('span', { class: 'visually-hidden' }, done ? ' (done)' : ' (to do)'));
+    const prof = '/edit-profile?tab=profile';
+    return h('ul', { class: 'trophy-steps' },
+      item(f.birthday, 'Birthday', prof), item(f.gender, 'Gender', prof), item(f.city, 'City', prof),
+      item(f.style, 'Roleplay style', prof), item(f.about, 'About', prof),
+      item(f.sheetFilled >= f.sheetTotal, `Character sheet (${f.sheetFilled} of ${f.sheetTotal} sections)`, '/edit-profile?tab=sheet'));
+  }
   if (t.group === 'account' && t.goal) return bar(p.invites, t.goal, `${num(Math.min(p.invites, t.goal))} / ${num(t.goal)} people invited`);
   if (t.group === 'mail') return bar(p.privateMessages, t.goal!, `${num(Math.min(p.privateMessages, t.goal!))} / ${num(t.goal!)} private messages`);
   if (t.group === 'social') return bar(p.friends, t.goal!, `${num(Math.min(p.friends, t.goal!))} / ${num(t.goal!)} friends`);

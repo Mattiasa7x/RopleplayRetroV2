@@ -3,7 +3,7 @@ import { h } from './dom.js';
 
 /**
  * Badge artwork, drawn in SVG so it stays sharp at any size. Each group has its own frame
- * (time: rosette medal, account: shield, chat: hexagon, friends: diamond, private messages: postage stamp) and each trophy its own colour and
+ * (time: rosette medal, account: shield, chat: hexagon, friends: diamond, private messages: postage stamp, photos: instant photo) and each trophy its own colour and
  * emblem. Emblems are white; `D` marks details drawn in the badge's dark shade.
  */
 
@@ -12,7 +12,8 @@ const COLOR: Record<string, string> = {
   warded: '#d0344a',
   chatterbox: '#f0569a', wordsmith: '#c07a3a', storyteller: '#8fa5bd', loremaster: '#e8b32e',
   good_company: '#3ea6e0', circle: '#27b07a', butterfly: '#c95ad8', heart: '#ef4f6c', luminary: '#f2a41f',
-  party_leader: '#e2873a', guild_master: '#2f7fbf', sovereign: '#7a3fb5',
+  fully_realized: '#1f9d8b', party_leader: '#e2873a',
+  shutterbug: '#e0574a', scrapbooker: '#e3a624', curator: '#3c8f68', master_of_light: '#3a5bd6', guild_master: '#2f7fbf', sovereign: '#7a3fb5',
   courier: '#4e9fe0', herald: '#c9412f', emissary: '#7a5fd0', ravens: '#a9b6c8',
 };
 
@@ -52,6 +53,41 @@ const EMBLEM: Record<string, (dark: string) => string> = {
   warded: (d) => `<path d="M26 30v-4.5a6 6 0 0 1 12 0V30" ${S} stroke-width="3"/>
     <rect x="22.5" y="29.5" width="19" height="15" rx="2.6" ${W}/>
     <circle cx="32" cy="35.5" r="2.2" fill="${d}"/><path d="M32 37v3.6" ${D(d)} stroke-width="2.4"/>`,
+  // a completed character sheet
+  fully_realized: (d) => `<rect x="22" y="19.5" width="20" height="26" rx="2.2" ${W}/>
+    <rect x="27.5" y="17" width="9" height="5" rx="1.5" fill="${d}"/>
+    <circle cx="29.5" cy="27.5" r="3" fill="${d}" fill-opacity=".55"/>
+    <path d="M34.5 26.5h4.5M34.5 29.5h3M25.5 34.5h13M25.5 38h9" ${D(d)} stroke-width="1.5" stroke-opacity=".7"/>
+    <circle cx="41.5" cy="42.5" r="5.8" fill="${d}" stroke="#fff" stroke-width="1.6"/>
+    <path d="M38.8 42.6l1.9 1.9 3.6-3.8" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+  // a camera
+  shutterbug: (d) => `<path d="M26.5 25l2.2-3.5h6.6l2.2 3.5z" ${W}/>
+    <rect x="18.5" y="24.5" width="27" height="18" rx="3" ${W}/>
+    <circle cx="32" cy="33.5" r="6.2" fill="${d}"/><circle cx="32" cy="33.5" r="3.4" fill="#fff" fill-opacity=".35"/>
+    <circle cx="30.6" cy="32.1" r="1.1" fill="#fff"/><rect x="39.5" y="27" width="3.5" height="2.2" rx=".8" fill="${d}"/>`,
+  // a stack of snapshots
+  scrapbooker: (d) => `<rect x="19" y="21" width="21" height="18" rx="1.5" transform="rotate(-10 29.5 30)" fill="#fff" fill-opacity=".55"/>
+    <rect x="24" y="26" width="21" height="18" rx="1.5" transform="rotate(7 34.5 35)" ${W}/>
+    <g transform="rotate(7 34.5 35)"><path d="M26.5 41l5.2-6 3.6 3.8 2.6-2.6 4.6 4.8z" fill="${d}"/><circle cx="40" cy="30.5" r="1.9" fill="${d}"/></g>`,
+  // a framed picture on an easel
+  curator: (d) => `<path d="M25 47l5-9M39 47l-5-9M32 44v4" ${S} stroke-width="2.2"/>
+    <rect x="20" y="18.5" width="24" height="20" rx="1.5" ${W}/>
+    <rect x="23.5" y="22" width="17" height="13" fill="${d}" fill-opacity=".25"/>
+    <path d="M24 34.5l5.5-6.5 4 4.5 2.8-2.8 4.2 4.8z" fill="${d}"/><circle cx="37" cy="25.5" r="1.8" fill="${d}"/>`,
+  // a camera aperture
+  master_of_light: (d) => {
+    let blades = '';
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i, r = 11.5, ri = 4.5;
+      const x1 = 32 + ri * Math.cos(a), y1 = 32.5 + ri * Math.sin(a);
+      const x2 = 32 + r * Math.cos(a + 0.9), y2 = 32.5 + r * Math.sin(a + 0.9);
+      blades += `M${x1.toFixed(2)} ${y1.toFixed(2)}L${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    }
+    return `<circle cx="32" cy="32.5" r="12.5" ${W}/>
+      <path d="${blades}" ${D(d)} stroke-width="1.8"/>
+      <circle cx="32" cy="32.5" r="4.5" fill="${d}"/>
+      <path d="M32 16v-3M44.5 20.5l2-2M48.5 32.5h3M19.5 20.5l-2-2M15.5 32.5h-3" ${S} stroke-width="2"/>`;
+  },
   // a rally flag
   party_leader: (d) => `<path d="M23.5 47V18.5" ${S} stroke-width="2.8"/>
     <path d="M24.5 19.5h17l-4.5 5.8 4.5 5.8h-17z" ${W}/>
@@ -160,6 +196,12 @@ function frame(group: TrophyGroup, fill: string, edge: string, dark: string): st
     return `<path d="M32 3.5l24 8.5v17.5c0 15.5-10.5 26-24 31-13.5-5-24-15.5-24-31V12z" fill="${dark}"/>
       <path d="M32 7.5l20 7v15c0 13-8.8 22-20 26.5-11.2-4.5-20-13.5-20-26.5v-15z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/>`;
   }
+  if (group === 'photos') {
+    // an instant photo: cream card, coloured picture area (the emblem is shrunk to fit it)
+    return `<rect x="8.5" y="4.5" width="47" height="55" rx="3" fill="#f6f2e8" stroke="${dark}" stroke-width="2"/>
+      <rect x="12.5" y="8.5" width="39" height="36" rx="1" fill="${fill}" stroke="${edge}" stroke-width="1"/>
+      <path d="M17 52.5h14" stroke="${dark}" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>`;
+  }
   if (group === 'mail') {
     // a postage stamp with perforated edges
     let bumps = '';
@@ -196,7 +238,7 @@ export function trophyBadge(id: string, opts: { size?: number; locked?: boolean 
       <stop offset="0" stop-color="${shade(base, 0.35)}"/><stop offset=".55" stop-color="${base}"/><stop offset="1" stop-color="${shade(base, -0.25)}"/>
     </linearGradient></defs>
     ${frame(t?.group ?? 'time', `url(#${g})`, shade(base, 0.55), dark)}
-    ${(EMBLEM[id] ?? (() => ''))(dark)}
+    ${t?.group === 'photos' ? `<g transform="translate(32 26.5) scale(.8) translate(-32 -32.5)">${(EMBLEM[id] ?? (() => ''))(dark)}</g>` : (EMBLEM[id] ?? (() => ''))(dark)}
   </svg>`;
   const el = h('span', { class: `trophy-badge${opts.locked ? ' locked' : ''}` });
   el.innerHTML = svg; // built only from the fixed strings above
