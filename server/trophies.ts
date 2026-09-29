@@ -126,13 +126,22 @@ async function revokeStaleAgeTrophies(): Promise<void> {
     [TIME_IDS]);
 }
 
-/** Start the minute-by-minute check (account-age trophies depend only on the clock). */
+/** When someone connects: catch up their account-age trophies, then show anything unseen. */
+export async function checkOnConnect(userId: string): Promise<void> {
+  await db.query(AWARD_SQL, [[userId], TIME_IDS]);
+  await sendUnseen(userId);
+}
+
+/**
+ * Start the hourly check (account-age trophies depend only on the clock). Hourly rather than
+ * every minute so an idle site lets the database sleep; people online also get checked on connect.
+ */
 export function startTrophies(n: Notify, log: (e: unknown) => void): NodeJS.Timeout {
   notify = n;
   // first start: catches up every member on every trophy
   void revokeStaleAgeTrophies().then(() => awardTrophies(null)).catch(log);
   // After that only account age needs the clock; everything else is checked when it changes.
-  const timer = setInterval(() => void awardTrophies(null, TIME_IDS).catch(log), 60_000);
+  const timer = setInterval(() => void awardTrophies(null, TIME_IDS).catch(log), 3_600_000);
   timer.unref();
   return timer;
 }

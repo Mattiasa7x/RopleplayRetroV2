@@ -5,7 +5,18 @@ import { env } from './env.js';
 // Return BIGINT columns as strings (ids can exceed JS number precision).
 pg.types.setTypeParser(20, (v: string) => v);
 
-export const db = new pg.Pool({ connectionString: env.databaseUrl, max: 20 });
+// Neon's copy-paste URL ends with channel_binding=require, which not every pg version reads;
+// TLS (sslmode=require) still protects the connection without it.
+const databaseUrl = env.databaseUrl.replace(/([?&])channel_binding=[^&]*&?/, '$1').replace(/[?&]$/, '');
+
+export const db = new pg.Pool({
+  connectionString: databaseUrl,
+  max: 20,
+  // Let idle connections go quickly so a quiet site lets a serverless database (Neon) sleep,
+  // and allow a few seconds for it to wake up again.
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 15_000,
+});
 export const redis = new Redis(env.redisUrl, { maxRetriesPerRequest: 3 });
 
 export type Tx = pg.PoolClient;

@@ -108,8 +108,10 @@ registerCommentRoutes(app, io);
 registerSocialRoutes(app, io);
 registerModerationRoutes(app, io);
 
+// Deliberately doesn't touch the database: uptime monitors and Render's own checks hit this every
+// few seconds, and on Neon that would keep the database awake around the clock (and use up the
+// free compute hours). Real traffic still wakes it on the first page view.
 app.get('/healthz', async () => {
-  await db.query('SELECT 1');
   await redis.ping();
   return { ok: true };
 });

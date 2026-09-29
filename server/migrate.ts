@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { Trust } from '../shared/config.js';
+import { copyFromOldDatabase } from './copy-db.js';
 import { audit, db } from './store.js';
 
 /**
@@ -9,9 +10,9 @@ import { audit, db } from './store.js';
  */
 export async function migrate(log: (m: string) => void): Promise<void> {
   if (process.env.AUTO_MIGRATE === 'false') return;
-  for (const file of ['server/db/schema.sql', 'server/db/seed.sql']) {
-    await db.query(readFileSync(file, 'utf8'));
-  }
+  await db.query(readFileSync('server/db/schema.sql', 'utf8'));
+  await copyFromOldDatabase(log); // only when moving to a new database host (MIGRATE_FROM_URL)
+  await db.query(readFileSync('server/db/seed.sql', 'utf8'));
   log('database schema is up to date');
 
   // ADMIN_HANDLE: the site owner's name. That account, and only that one, is the admin.
