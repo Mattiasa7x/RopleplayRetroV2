@@ -41,6 +41,11 @@ function progressFor(t: TrophyDef, p: NonNullable<TrophyPageDTO['progress']>): H
       item(f.style, 'Roleplay style', prof), item(f.about, 'About', prof),
       item(f.sheetFilled >= f.sheetTotal, `Character sheet (${f.sheetFilled} of ${f.sheetTotal} sections)`, '/edit-profile?tab=sheet'));
   }
+  if (['diarist', 'chronicler', 'keeper_of_days'].includes(t.id)) {
+    const cur = p.statusStreak, best = p.bestStatusStreak;
+    const days = (n: number) => `${num(n)} day${n === 1 ? '' : 's'}`;
+    return bar(Math.max(cur, best), t.goal!, `Current streak: ${days(cur)} (best ${days(best)})`);
+  }
   if (t.group === 'account' && t.goal) return bar(p.invites, t.goal, `${num(Math.min(p.invites, t.goal))} / ${num(t.goal)} people invited`);
   if (t.group === 'mail') return bar(p.privateMessages, t.goal!, `${num(Math.min(p.privateMessages, t.goal!))} / ${num(t.goal!)} private messages`);
   if (t.group === 'social') return bar(p.friends, t.goal!, `${num(Math.min(p.friends, t.goal!))} / ${num(t.goal!)} friends`);
@@ -68,10 +73,13 @@ export async function viewTrophies(handle: string) {
     ? `${earned.size} of ${TROPHIES.length} trophies earned`
     : `${d.handle} has earned ${earned.size} of ${TROPHIES.length} trophies`);
 
-  const groups = TROPHY_GROUPS.map((g) => {
-    const list = TROPHIES.filter((t) => t.group === g.id && (d.self || earned.has(t.id)));
+  // One tab per category (like the room themes); only categories with something to show.
+  const tabs = TROPHY_GROUPS.map((g) => {
+    const all = TROPHIES.filter((t) => t.group === g.id);
+    const list = all.filter((t) => d.self || earned.has(t.id));
     if (!list.length) return null;
-    return card(g.title, h('ul', { class: 'trophy-list' }, ...list.map((t) => {
+    const got = all.filter((t) => earned.has(t.id)).length;
+    const pane = card(g.title, h('ul', { class: 'trophy-list' }, ...list.map((t) => {
       const when = earned.get(t.id);
       return h('li', { class: `trophy-item${when ? ' earned' : ''}` },
         trophyBadge(t.id, { size: 64, locked: !when }),
@@ -81,7 +89,34 @@ export async function viewTrophies(handle: string) {
           when ? h('span', { class: 'muted small' }, `Earned ${new Date(when).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`)
             : d.progress ? progressFor(t, d.progress) : null));
     })));
+    return { id: g.id, title: g.tab, meta: d.self ? `${got} of ${all.length} earned` : `${got} earned`, first: ([...list].reverse().find((t) => earned.has(t.id)) ?? list[0]).id, pane };
+  }).filter((x) => x != null);
+
+  if (!tabs.length) {
+    page('Trophies', back, summary, card(null, h('p', { class: 'muted' }, `${d.handle} hasn't earned any trophies yet.`)));
+    return;
+  }
+  const buttons = tabs.map((t) => {
+    const b = h('button', { type: 'button', role: 'tab', id: `tt-${t.id}`, class: 'theme-btn trophy-tab', 'aria-controls': `tp-${t.id}` },
+      trophyBadge(t.first, { size: 30, locked: !earned.has(t.first) }),
+      h('span', { class: 'trophy-tab-text' }, h('span', { class: 'theme-btn-name' }, t.title), h('span', { class: 'theme-btn-meta' }, t.meta)));
+    b.addEventListener('click', () => show(t.id, true));
+    return b;
   });
+  const panes = tabs.map((t) => { t.pane.id = `tp-${t.id}`; t.pane.setAttribute('role', 'tabpanel'); t.pane.setAttribute('aria-labelledby', `tt-${t.id}`); return t.pane; });
+  function show(id: string, scroll = false) {
+    tabs.forEach((t, i) => {
+      const on = t.id === id;
+      buttons[i].classList.toggle('active', on);
+      buttons[i].setAttribute('aria-selected', String(on));
+      panes[i].hidden = !on;
+      if (on && scroll) panes[i].scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    history.replaceState({}, '', `${location.pathname}?tab=${id}`);
+  }
   page('Trophies', back, summary,
-    ...(earned.size || d.self ? groups : [card(null, h('p', { class: 'muted' }, `${d.handle} hasn't earned any trophies yet.`))]));
+    h('div', { class: 'theme-list trophy-tabs', role: 'tablist', 'aria-label': 'Trophy categories' }, ...buttons),
+    ...panes);
+  const wanted = new URLSearchParams(location.search).get('tab');
+  show(tabs.some((t) => t.id === wanted) ? wanted! : tabs[0].id);
 }

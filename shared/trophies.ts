@@ -12,17 +12,17 @@ export interface TrophyDef {
   group: TrophyGroup;
   /** How it's earned, shown under the badge. */
   how: string;
-  /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail), people invited (account) or photos kept (photos). */
+  /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail), people invited or days in a row with a status (account) or photos kept (photos). */
   goal?: number;
 }
 
-export const TROPHY_GROUPS: { id: TrophyGroup; title: string }[] = [
-  { id: 'time', title: 'Time on RoleplayRetro' },
-  { id: 'account', title: 'Account' },
-  { id: 'chat', title: 'Room chat' },
-  { id: 'social', title: 'Friends' },
-  { id: 'mail', title: 'Private messages' },
-  { id: 'photos', title: 'Photos' },
+export const TROPHY_GROUPS: { id: TrophyGroup; title: string; tab: string }[] = [
+  { id: 'time', title: 'Time on RoleplayRetro', tab: 'Time' },
+  { id: 'account', title: 'Account', tab: 'Account' },
+  { id: 'chat', title: 'Room chat', tab: 'Room chat' },
+  { id: 'social', title: 'Friends', tab: 'Friends' },
+  { id: 'mail', title: 'Private messages', tab: 'Messages' },
+  { id: 'photos', title: 'Photos', tab: 'Photos' },
 ];
 
 const DAY = 24;
@@ -37,6 +37,9 @@ export const TROPHIES: TrophyDef[] = [
 
   { id: 'warded', name: 'Warded', group: 'account', how: 'Confirm your email, add a phone number and turn on two-factor sign-in.' },
   { id: 'fully_realized', name: 'Fully Realized', group: 'account', how: 'Fill in every part of your profile: birthday, gender, city, roleplay style, About and the whole character sheet.' },
+  { id: 'diarist', name: 'Diarist', group: 'account', goal: 7, how: 'Update your status every day for a week.' },
+  { id: 'chronicler', name: 'Chronicler', group: 'account', goal: 30, how: 'Update your status every day for a month.' },
+  { id: 'keeper_of_days', name: 'Keeper of Days', group: 'account', goal: 365, how: 'Update your status every day for a year.' },
   { id: 'party_leader', name: 'Party Leader', group: 'account', goal: 10, how: 'Invite 10 people who join and confirm their email.' },
   { id: 'guild_master', name: 'Guild Master', group: 'account', goal: 50, how: 'Invite 50 people who join and confirm their email.' },
   { id: 'sovereign', name: 'Sovereign', group: 'account', goal: 100, how: 'Invite 100 people who join and confirm their email.' },

@@ -10,6 +10,7 @@ import { canView, roomBySlug } from './rooms.js';
 import { maskMature } from './safety/mature.js';
 import { checkSocialText } from './safety/social-text.js';
 import { audit, db, tx } from './store.js';
+import { afterStatusPost } from './trophies.js';
 
 const TextBody = z.object({ body: z.string().max(20_000) });
 
@@ -144,10 +145,13 @@ export function registerFeedRoutes(app: FastifyInstance) {
     };
   });
 
+  const StatusDay = z.object({ localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
+
   app.post('/api/statuses', async (req, reply) => {
     const u = requireUser(req);
     const v = await checkSocialText(u, parse(TextBody, req.body).body, 'status');
     if (!v.ok) throw new HttpError(400, v.error, v.message);
+    const localDate = parse(StatusDay, req.body).localDate ?? null;
     // One status per member: a new one replaces the old.
     const id = await tx(async (q) => {
       await q.query('DELETE FROM statuses WHERE user_id = $1', [u.id]);
@@ -155,8 +159,26 @@ export function registerFeedRoutes(app: FastifyInstance) {
         'INSERT INTO statuses (user_id, body, hidden_at) VALUES ($1, $2, CASE WHEN $3 THEN now() END) RETURNING id',
         [u.id, v.body, v.shadow],
       );
+      if (!v.shadow) {
+        // Streak: the member's own date (from their browser), trusted only within a day of real time.
+        await q.query(
+          `WITH d AS (
+             SELECT CASE WHEN $2::date BETWEEN (now() AT TIME ZONE 'UTC')::date - 1 AND (now() AT TIME ZONE 'UTC')::date + 1
+                         THEN $2::date ELSE (now() AT TIME ZONE 'UTC')::date END AS day)
+           UPDATE users SET
+             status_streak = CASE WHEN status_last_day = d.day THEN status_streak
+                                  WHEN status_last_day = d.day - 1 THEN status_streak + 1 ELSE 1 END,
+             status_best_streak = GREATEST(status_best_streak, CASE WHEN status_last_day = d.day THEN status_streak
+                                  WHEN status_last_day = d.day - 1 THEN status_streak + 1 ELSE 1 END),
+             status_last_day = d.day
+           FROM d
+           WHERE users.id = $1 AND (status_last_day IS NULL OR status_last_day <= d.day)`,
+          [u.id, localDate],
+        );
+      }
       return rows[0].id;
     });
+    if (!v.shadow) afterStatusPost(u.id);
     return reply.status(201).send({ id });
   });
 

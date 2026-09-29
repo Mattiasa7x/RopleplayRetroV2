@@ -93,7 +93,9 @@ export async function viewHome() {
   paintLatest(data.myStatus);
   const post = me.trust >= Trust.Verified
     ? composer('Post a new status…', PROFILE.statusMax, 'Update', async (body) => {
-        await api('/api/statuses', { body: { body } });
+        const d = new Date(); // your own calendar day, for the status streak
+        const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        await api('/api/statuses', { body: { body, localDate } });
         paintLatest((await api<HomeDTO>('/api/home')).myStatus);
       })
     : h('p', { class: 'notice' }, 'Confirm your email to post status updates. ', h('a', { href: '/verify' }, 'Enter code'));

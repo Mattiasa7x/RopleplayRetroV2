@@ -23,6 +23,8 @@ const PROFILE_COMPLETE = `(u.character_birthday IS NOT NULL AND btrim(coalesce(u
                    WHERE btrim(coalesce(u.character_sheet ->> k.key, '')) = ''))`;
 /** Photos they have now, public and private album. */
 const PHOTOS = `(SELECT count(*) FROM profile_photos p WHERE p.user_id = u.id)`;
+/** Status-streak trophies (account group, goal in days). */
+const STREAK_IDS = ['diarist', 'chronicler', 'keeper_of_days'];
 const RULE: Record<string, string> = {
   fully_realized: PROFILE_COMPLETE,
   warded: 'u.email_verified_at IS NOT NULL AND u.phone IS NOT NULL AND u.totp_enabled',
@@ -31,7 +33,8 @@ for (const t of TROPHIES) {
   if (t.group === 'time') RULE[t.id] = `u.created_at <= now() - interval '${Number(t.goal)} hours'`;
   if (t.group === 'chat') RULE[t.id] = `u.message_count >= ${Number(t.goal)}`;
   if (t.group === 'social') RULE[t.id] = `${FRIENDS} >= ${Number(t.goal)}`;
-  if (t.group === 'account' && t.goal) RULE[t.id] = `${INVITES} >= ${Number(t.goal)}`;
+  if (STREAK_IDS.includes(t.id)) RULE[t.id] = `u.status_best_streak >= ${Number(t.goal)}`;
+  else if (t.group === 'account' && t.goal) RULE[t.id] = `${INVITES} >= ${Number(t.goal)}`;
   if (t.group === 'photos') RULE[t.id] = `${PHOTOS} >= ${Number(t.goal)}`;
   if (t.group === 'mail') RULE[t.id] = `u.dm_count >= ${Number(t.goal)}`;
 }
@@ -90,6 +93,11 @@ export async function afterInviteeConfirmed(userId: string): Promise<void> {
   if (rows[0]?.invited_by) await awardTrophies([rows[0].invited_by]);
 }
 
+/** After a status update (the streak may have reached a goal). */
+export function afterStatusPost(userId: string): void {
+  void awardTrophies([userId], STREAK_IDS).catch((e) => console.error(e));
+}
+
 /** After the profile is edited. */
 export function afterProfileEdit(userId: string): void {
   void awardTrophies([userId], ['fully_realized']).catch((e) => console.error(e));
@@ -145,11 +153,14 @@ export function registerTrophyRoutes(app: FastifyInstance) {
       earned: rows.map((r) => ({ id: r.trophy_id, earnedAt: r.earned_at.toISOString() })),
     };
     if (self) {
-      const { rows: p } = await db.query<{ hours: number; messages: number; dms: number; friends: number; invites: number; photos: number;
+      const { rows: p } = await db.query<{ hours: number; messages: number; dms: number; friends: number; invites: number; photos: number; streak: number; best_streak: number;
         birthday: boolean; gender: boolean; city: boolean; style: boolean; about: boolean; sheet: CharacterSheet | null; email: boolean; phone: boolean; two_factor: boolean }>(
         `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages, dm_count AS dms,
                 ${INVITES.replace(/u\.id/g, 'users.id')} AS invites,
                 ${PHOTOS.replace(/u\.id/g, 'users.id')} AS photos,
+                -- a streak is still alive if the last update was yesterday or today in any timezone
+                CASE WHEN status_last_day >= (now() AT TIME ZONE 'UTC')::date - 2 THEN status_streak ELSE 0 END AS streak,
+                status_best_streak AS best_streak,
                 character_birthday IS NOT NULL AS birthday, btrim(coalesce(character_gender, '')) <> '' AS gender,
                 btrim(coalesce(character_city, '')) <> '' AS city, rp_style IS NOT NULL AS style,
                 btrim(coalesce(bio, '')) <> '' AS about, character_sheet AS sheet,
@@ -157,7 +168,7 @@ export function registerTrophyRoutes(app: FastifyInstance) {
                 email_verified_at IS NOT NULL AS email, phone IS NOT NULL AS phone, totp_enabled AS two_factor
            FROM users WHERE id = $1`, [u.id]);
       out.progress = {
-        accountHours: Number(p[0].hours), messages: Number(p[0].messages), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites), photos: Number(p[0].photos),
+        accountHours: Number(p[0].hours), messages: Number(p[0].messages), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites), photos: Number(p[0].photos), statusStreak: Number(p[0].streak), bestStatusStreak: Number(p[0].best_streak),
         profile: {
           birthday: p[0].birthday, gender: p[0].gender, city: p[0].city, style: p[0].style, about: p[0].about,
           sheetFilled: SHEET_KEYS.filter((k) => (p[0].sheet?.[k] ?? '').trim() !== '').length, sheetTotal: SHEET_KEYS.length,

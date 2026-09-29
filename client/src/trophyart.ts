@@ -12,7 +12,7 @@ const COLOR: Record<string, string> = {
   warded: '#d0344a',
   chatterbox: '#f0569a', wordsmith: '#c07a3a', storyteller: '#8fa5bd', loremaster: '#e8b32e',
   good_company: '#3ea6e0', circle: '#27b07a', butterfly: '#c95ad8', heart: '#ef4f6c', luminary: '#f2a41f',
-  fully_realized: '#1f9d8b', party_leader: '#e2873a',
+  fully_realized: '#1f9d8b', diarist: '#c2566f', chronicler: '#b0852a', keeper_of_days: '#2c4f9e', party_leader: '#e2873a',
   shutterbug: '#e0574a', scrapbooker: '#e3a624', curator: '#3c8f68', master_of_light: '#3a5bd6', guild_master: '#2f7fbf', sovereign: '#7a3fb5',
   courier: '#4e9fe0', herald: '#c9412f', emissary: '#7a5fd0', ravens: '#a9b6c8',
 };
@@ -88,6 +88,21 @@ const EMBLEM: Record<string, (dark: string) => string> = {
       <circle cx="32" cy="32.5" r="4.5" fill="${d}"/>
       <path d="M32 16v-3M44.5 20.5l2-2M48.5 32.5h3M19.5 20.5l-2-2M15.5 32.5h-3" ${S} stroke-width="2"/>`;
   },
+  // a journal with a ribbon bookmark
+  diarist: (d) => `<rect x="21.5" y="18.5" width="21" height="27" rx="2.5" ${W}/>
+    <path d="M25.5 18.5v27" ${D(d)} stroke-width="1.6"/>
+    <path d="M36 18.5v9.5l2.2-1.8 2.2 1.8v-9.5" fill="${d}"/>
+    <path d="M29 31h9M29 35h9M29 39h6" ${D(d)} stroke-width="1.5" stroke-opacity=".6"/>`,
+  // an hourglass
+  chronicler: (d) => `<path d="M22 18.5h20M22 46.5h20" ${S} stroke-width="3"/>
+    <path d="M24.5 19.5h15c0 7-7.5 9.5-7.5 13s7.5 6 7.5 13h-15c0-7 7.5-9.5 7.5-13s-7.5-6-7.5-13z" ${W}/>
+    <path d="M27.5 24h9c-1 2.5-4.5 4-4.5 5.5 0-1.5-3.5-3-4.5-5.5zM26.8 44c.8-3.5 5.2-5.3 5.2-7.5 0 2.2 4.4 4 5.2 7.5z" fill="${d}"/>
+    <path d="M32 32.5v3" ${D(d)} stroke-width="1.2"/>`,
+  // the sun and the moon
+  keeper_of_days: (d) => `<circle cx="28" cy="30" r="7.5" ${W}/>
+    <path d="M28 18.5v-2.5M28 44v-2.5M16.5 30H14M19.9 21.9l-1.8-1.8M19.9 38.1l-1.8 1.8M36.1 21.9l1.8-1.8" ${S} stroke-width="2.2"/>
+    <path d="M41.5 29a9.5 9.5 0 1 0 7.2 13.8A8 8 0 0 1 41.5 29z" fill="${d}" stroke="#fff" stroke-width="2"/>
+    <circle cx="44" cy="23" r="1.3" fill="#fff"/><circle cx="48.5" cy="28" r="1" fill="#fff"/>`,
   // a rally flag
   party_leader: (d) => `<path d="M23.5 47V18.5" ${S} stroke-width="2.8"/>
     <path d="M24.5 19.5h17l-4.5 5.8 4.5 5.8h-17z" ${W}/>

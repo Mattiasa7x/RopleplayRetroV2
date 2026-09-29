@@ -646,3 +646,9 @@ button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 .invite-actions button { padding: 0.35rem 0.8rem; font-size: 0.9rem; }
 .invite-count { line-height: 1.35; }
 [data-theme="dark"] .invite-code { border-color: var(--pink); box-shadow: 0 0 12px rgba(255, 79, 163, 0.35); }
+
+/* trophy category tabs (same look as the room theme list, with a badge) */
+.trophy-tabs { margin-bottom: 0.7rem; }
+.trophy-tab { flex-direction: row; align-items: center; justify-content: flex-start; gap: 0.5rem; padding: 0.35rem 0.6rem; }
+.trophy-tab-text { display: grid; gap: 0.05rem; min-width: 0; }
+.trophy-tab .theme-btn-name { overflow-wrap: anywhere; }

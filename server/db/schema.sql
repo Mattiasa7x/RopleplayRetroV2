@@ -672,3 +672,8 @@ UPDATE users SET invite_code = new_invite_code() WHERE invite_code IS NULL;
 ALTER TABLE users ALTER COLUMN invite_code SET DEFAULT new_invite_code();
 ALTER TABLE users ALTER COLUMN invite_code SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_invite_code ON users (invite_code);
+
+-- Status streak: consecutive days (the member's local date) with a status update.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status_streak INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status_best_streak INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status_last_day DATE;
