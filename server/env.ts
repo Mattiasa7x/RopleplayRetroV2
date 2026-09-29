@@ -18,4 +18,8 @@ export const env = {
   trustProxy: process.env.TRUST_PROXY === 'true',
   /** 'console' prints codes to the server log (development). Add real adapters in server/mail.ts. */
   mailAdapter: process.env.MAIL_ADAPTER ?? 'console',
+  /** Resend (resend.com) API key, when MAIL_ADAPTER=resend. Kept only in the host's environment settings. */
+  resendApiKey: process.env.RESEND_API_KEY ?? '',
+  /** Who emails come from; the domain must be verified with the mail provider. */
+  mailFrom: process.env.MAIL_FROM ?? 'RoleplayRetro <no-reply@roleplayretro.com>',
 };

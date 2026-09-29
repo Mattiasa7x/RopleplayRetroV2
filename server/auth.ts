@@ -10,7 +10,7 @@ import type { LoginResult, MeDTO } from '../shared/types.js';
 import { ageOn, effectivePrefs, isMinor } from './account.js';
 import { env } from './env.js';
 import { HttpError, clientSignals, parse, requireUser, type SessionUser } from './http.js';
-import { messenger } from './mail.js';
+import { MailError, messenger } from './mail.js';
 import { bumpDaily, slidingWindow, underDailyCap } from './safety/limits.js';
 import { ipPrefix, matchesSanctionedAccount, recordSignals, signalHash } from './safety/signals.js';
 import { audit, db, redis, tx, type Tx } from './store.js';
@@ -108,7 +108,12 @@ export async function issueCode(userId: string, email: string): Promise<void> {
      ON CONFLICT (user_id, channel) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0`,
     [userId, sha256(`${userId}:${code}`), SAFETY.verificationCodeMinutes],
   );
-  await messenger().sendEmailCode(email, code);
+  try {
+    await messenger().sendEmailCode(email, code);
+  } catch (e) {
+    if (e instanceof MailError) throw new HttpError(503, 'mail_failed', e.message);
+    throw e;
+  }
 }
 
 // ---------- routes ----------
@@ -222,7 +227,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
     });
 
     await bumpDaily(redis, `signup:${net}`);
-    await issueCode(userId, body.email);
+    // The account exists either way; if the email didn't go, "Send a new code" on the next page retries.
+    await issueCode(userId, body.email).catch((e) => console.error('[mail] signup code not sent:', (e as Error).message));
     setSessionCookie(reply, token);
     const me = await userFromToken(token);
     return reply.status(201).send(await meDTO(me!));

@@ -18,7 +18,11 @@ services:
       - key: SIGNAL_SECRET
         generateValue: true # Render makes a long random secret
       - key: MAIL_ADAPTER
-        value: console # verification codes appear in the Logs tab until real email is added
+        value: resend # real email via resend.com; falls back to the Logs tab until RESEND_API_KEY is set
+      - key: RESEND_API_KEY
+        sync: false # from resend.com > API Keys (keep it secret)
+      - key: MAIL_FROM
+        value: RoleplayRetro <no-reply@roleplayretro.com>
       - key: UPLOAD_DIR
         value: uploads
       - key: ADMIN_HANDLE
