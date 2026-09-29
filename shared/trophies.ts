@@ -4,7 +4,7 @@
  * badge lives in the browser (client/src/trophyart.ts).
  */
 
-export type TrophyGroup = 'time' | 'security' | 'chat' | 'social' | 'mail';
+export type TrophyGroup = 'time' | 'account' | 'chat' | 'social' | 'mail';
 
 export interface TrophyDef {
   id: string;
@@ -12,13 +12,13 @@ export interface TrophyDef {
   group: TrophyGroup;
   /** How it's earned, shown under the badge. */
   how: string;
-  /** Account age in hours (time), messages sent in rooms (chat), friends (social) or private messages sent (mail). */
+  /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail) or people invited (account). */
   goal?: number;
 }
 
 export const TROPHY_GROUPS: { id: TrophyGroup; title: string }[] = [
   { id: 'time', title: 'Time on RoleplayRetro' },
-  { id: 'security', title: 'Security' },
+  { id: 'account', title: 'Account' },
   { id: 'chat', title: 'Room chat' },
   { id: 'social', title: 'Friends' },
   { id: 'mail', title: 'Private messages' },
@@ -34,7 +34,10 @@ export const TROPHIES: TrophyDef[] = [
   { id: 'veteran', name: 'Veteran', group: 'time', goal: 2 * YEAR + DAY, how: 'Your account is 2 years old.' },
   { id: 'old_guard', name: 'Old Guard', group: 'time', goal: 5 * YEAR + 2 * DAY, how: 'Your account is 5 years old.' },
 
-  { id: 'warded', name: 'Warded', group: 'security', how: 'Confirm your email, add a phone number and turn on two-factor sign-in.' },
+  { id: 'warded', name: 'Warded', group: 'account', how: 'Confirm your email, add a phone number and turn on two-factor sign-in.' },
+  { id: 'party_leader', name: 'Party Leader', group: 'account', goal: 10, how: 'Invite 10 people who join and confirm their email.' },
+  { id: 'guild_master', name: 'Guild Master', group: 'account', goal: 50, how: 'Invite 50 people who join and confirm their email.' },
+  { id: 'sovereign', name: 'Sovereign', group: 'account', goal: 100, how: 'Invite 100 people who join and confirm their email.' },
 
   { id: 'chatterbox', name: 'Gift of Gab', group: 'chat', goal: 100, how: 'Send 100 messages in rooms.' },
   { id: 'wordsmith', name: 'Wordsmith', group: 'chat', goal: 1_000, how: 'Send 1,000 messages in rooms.' },
@@ -54,3 +57,12 @@ export const TROPHIES: TrophyDef[] = [
 ];
 
 export const TROPHY_BY_ID = new Map(TROPHIES.map((t) => [t.id, t]));
+
+/** Invite codes are 8 characters, shown as ABCD-EFGH. */
+export const INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export function normalizeInviteCode(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+export function formatInviteCode(code: string): string {
+  return code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
+}

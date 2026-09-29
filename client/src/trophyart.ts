@@ -3,7 +3,7 @@ import { h } from './dom.js';
 
 /**
  * Badge artwork, drawn in SVG so it stays sharp at any size. Each group has its own frame
- * (time: rosette medal, security: shield, chat: hexagon, friends: diamond, private messages: postage stamp) and each trophy its own colour and
+ * (time: rosette medal, account: shield, chat: hexagon, friends: diamond, private messages: postage stamp) and each trophy its own colour and
  * emblem. Emblems are white; `D` marks details drawn in the badge's dark shade.
  */
 
@@ -12,6 +12,7 @@ const COLOR: Record<string, string> = {
   warded: '#d0344a',
   chatterbox: '#f0569a', wordsmith: '#c07a3a', storyteller: '#8fa5bd', loremaster: '#e8b32e',
   good_company: '#3ea6e0', circle: '#27b07a', butterfly: '#c95ad8', heart: '#ef4f6c', luminary: '#f2a41f',
+  party_leader: '#e2873a', guild_master: '#2f7fbf', sovereign: '#7a3fb5',
   courier: '#4e9fe0', herald: '#c9412f', emissary: '#7a5fd0', ravens: '#a9b6c8',
 };
 
@@ -51,6 +52,22 @@ const EMBLEM: Record<string, (dark: string) => string> = {
   warded: (d) => `<path d="M26 30v-4.5a6 6 0 0 1 12 0V30" ${S} stroke-width="3"/>
     <rect x="22.5" y="29.5" width="19" height="15" rx="2.6" ${W}/>
     <circle cx="32" cy="35.5" r="2.2" fill="${d}"/><path d="M32 37v3.6" ${D(d)} stroke-width="2.4"/>`,
+  // a rally flag
+  party_leader: (d) => `<path d="M23.5 47V18.5" ${S} stroke-width="2.8"/>
+    <path d="M24.5 19.5h17l-4.5 5.8 4.5 5.8h-17z" ${W}/>
+    <path d="M30.5 22.7l.9 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3z" fill="${d}"/>
+    <circle cx="23.5" cy="17.5" r="2" fill="#fff"/>`,
+  // crossed swords
+  guild_master: (d) => `<path d="M21 19.5l17 17M43 19.5l-17 17" ${S} stroke-width="3.4"/>
+    <path d="M34.5 40l6-6M29.5 40l-6-6" ${S} stroke-width="3"/>
+    <path d="M38.5 38.5l4.5 4.5M25.5 38.5L21 43" ${S} stroke-width="3.4"/>
+    <circle cx="44.2" cy="44.2" r="2.2" fill="#fff"/><circle cx="19.8" cy="44.2" r="2.2" fill="#fff"/>
+    <path d="M22.5 21l14 14M41.5 21l-14 14" ${D(d)} stroke-width="1" stroke-opacity=".5"/>`,
+  // an orb and cross
+  sovereign: (d) => `<circle cx="32" cy="36.5" r="9.5" ${W}/>
+    <path d="M22.8 35.5h18.4M32 27v19" ${D(d)} stroke-width="1.8"/>
+    <path d="M32 26.5v-9M28.3 21h7.4" ${S} stroke-width="3"/>
+    <circle cx="27.5" cy="40.5" r="1.4" fill="${d}"/><circle cx="36.5" cy="40.5" r="1.4" fill="${d}"/>`,
   // a speech bubble
   chatterbox: (d) => `<path d="M21.5 22.5h21a3.5 3.5 0 0 1 3.5 3.5v11a3.5 3.5 0 0 1-3.5 3.5H31l-6.5 5.5v-5.5h-3a3.5 3.5 0 0 1-3.5-3.5V26a3.5 3.5 0 0 1 3.5-3.5z" ${W}/>
     <circle cx="25.5" cy="31.5" r="1.8" fill="${d}"/><circle cx="32" cy="31.5" r="1.8" fill="${d}"/><circle cx="38.5" cy="31.5" r="1.8" fill="${d}"/>`,
@@ -139,7 +156,7 @@ function rosette(): string {
 const ROSETTE = rosette();
 
 function frame(group: TrophyGroup, fill: string, edge: string, dark: string): string {
-  if (group === 'security') {
+  if (group === 'account') {
     return `<path d="M32 3.5l24 8.5v17.5c0 15.5-10.5 26-24 31-13.5-5-24-15.5-24-31V12z" fill="${dark}"/>
       <path d="M32 7.5l20 7v15c0 13-8.8 22-20 26.5-11.2-4.5-20-13.5-20-26.5v-15z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/>`;
   }

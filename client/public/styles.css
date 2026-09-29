@@ -637,3 +637,12 @@ button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 .trophy-toast strong { font-size: 1.05rem; }
 [data-theme="dark"] .trophy-bar span { background: linear-gradient(90deg, var(--pink), var(--mint)); box-shadow: 0 0 8px rgba(255, 79, 163, 0.6); }
 [data-theme="dark"] .trophy-item.earned .trophy-badge svg { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.18)); }
+
+/* ---------- invite code (Edit profile > Account) ---------- */
+.invite-row { align-items: start; flex-wrap: wrap; }
+.invite-box { display: grid; gap: 0.4rem; justify-items: start; min-width: 0; }
+.invite-code { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 1.45rem; font-weight: 800; letter-spacing: 0.14em; padding: 0.3rem 0.7rem; border-radius: 8px; border: 2px dashed var(--red); background: var(--soft); color: var(--fg); user-select: all; }
+.invite-actions { gap: 0.4rem; }
+.invite-actions button { padding: 0.35rem 0.8rem; font-size: 0.9rem; }
+.invite-count { line-height: 1.35; }
+[data-theme="dark"] .invite-code { border-color: var(--pink); box-shadow: 0 0 12px rgba(255, 79, 163, 0.35); }

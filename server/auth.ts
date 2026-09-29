@@ -15,7 +15,8 @@ import { bumpDaily, slidingWindow, underDailyCap } from './safety/limits.js';
 import { ipPrefix, matchesSanctionedAccount, recordSignals, signalHash } from './safety/signals.js';
 import { audit, db, redis, tx, type Tx } from './store.js';
 import { verifyTotp } from './totp.js';
-import { afterSecurityChange } from './trophies.js';
+import { afterInviteeConfirmed, afterSecurityChange } from './trophies.js';
+import { normalizeInviteCode } from '../shared/trophies.js';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number, opts: object) => Promise<Buffer>;
 const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
@@ -117,6 +118,8 @@ const SignupBody = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(PASSWORD_MIN, `at least ${PASSWORD_MIN} characters`).max(200),
   birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a date like 2001-06-30'),
+  /** Optional: someone's invite code (dash and case don't matter). */
+  inviteCode: z.string().max(20).optional(),
 });
 const LoginBody = z.object({ handle: z.string().min(1).max(16), password: z.string().min(1).max(200) });
 const TwoFactorBody = z.object({ ticket: z.string().min(20).max(64), code: z.string().trim().min(6).max(12) });
@@ -176,6 +179,14 @@ export function registerAuthRoutes(app: FastifyInstance) {
     const domain = body.email.split('@')[1];
     if (DISPOSABLE.has(domain)) throw new HttpError(400, 'disposable_email', 'Please use a permanent email address.');
 
+    let invitedBy: string | null = null;
+    const invite = normalizeInviteCode(body.inviteCode ?? '');
+    if (invite) {
+      const { rows } = await db.query<{ id: string }>('SELECT id::text AS id FROM users WHERE invite_code = $1', [invite]);
+      if (!rows[0]) throw new HttpError(400, 'bad_invite', "That invite code doesn't match anyone. Check it, or leave it blank.");
+      invitedBy = rows[0].id;
+    }
+
     const password = await hashPassword(body.password);
     const matched = await matchesSanctionedAccount(signals);
 
@@ -183,9 +194,9 @@ export function registerAuthRoutes(app: FastifyInstance) {
       let userId: string;
       try {
         const { rows } = await q.query<{ id: string }>(
-          `INSERT INTO users (handle, email, password_hash, needs_review, birthdate, password_changed_at)
-           VALUES ($1, $2, $3, $4, $5, now()) RETURNING id`,
-          [body.handle, body.email, password, !!matched, body.birthdate],
+          `INSERT INTO users (handle, email, password_hash, needs_review, birthdate, password_changed_at, invited_by)
+           VALUES ($1, $2, $3, $4, $5, now(), $6) RETURNING id`,
+          [body.handle, body.email, password, !!matched, body.birthdate, invitedBy],
         );
         userId = rows[0].id;
       } catch (e) {
@@ -284,6 +295,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
       await audit(q, u.id, 'email_verified', 'user', u.id);
     });
     afterSecurityChange(u.id);
+    void afterInviteeConfirmed(u.id).catch((e) => console.error(e)); // an invite only counts once confirmed
     return { ok: true };
   });
 

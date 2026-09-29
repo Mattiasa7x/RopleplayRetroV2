@@ -12,6 +12,8 @@ import { db } from './store.js';
  * even if, say, two-factor is later turned off.
  */
 const FRIENDS = `(SELECT count(*) FROM friendships f WHERE (f.user_a = u.id OR f.user_b = u.id) AND f.status = 'accepted')`;
+/** Invitees who joined with this member's code and confirmed their email. */
+const INVITES = `(SELECT count(*) FROM users i WHERE i.invited_by = u.id AND i.email_verified_at IS NOT NULL)`;
 const RULE: Record<string, string> = {
   warded: 'u.email_verified_at IS NOT NULL AND u.phone IS NOT NULL AND u.totp_enabled',
 };
@@ -19,6 +21,7 @@ for (const t of TROPHIES) {
   if (t.group === 'time') RULE[t.id] = `u.created_at <= now() - interval '${Number(t.goal)} hours'`;
   if (t.group === 'chat') RULE[t.id] = `u.message_count >= ${Number(t.goal)}`;
   if (t.group === 'social') RULE[t.id] = `${FRIENDS} >= ${Number(t.goal)}`;
+  if (t.group === 'account' && t.goal) RULE[t.id] = `${INVITES} >= ${Number(t.goal)}`;
   if (t.group === 'mail') RULE[t.id] = `u.dm_count >= ${Number(t.goal)}`;
 }
 const AWARD_SQL = `
@@ -70,6 +73,12 @@ export function afterPrivateMessage(userId: string, count: number): void {
   if (MAIL_GOALS.has(count)) void awardTrophies([userId]).catch((e) => console.error(e));
 }
 
+/** When a new member confirms their email, the person who invited them may reach a goal. */
+export async function afterInviteeConfirmed(userId: string): Promise<void> {
+  const { rows } = await db.query<{ invited_by: string | null }>('SELECT invited_by::text AS invited_by FROM users WHERE id = $1', [userId]);
+  if (rows[0]?.invited_by) await awardTrophies([rows[0].invited_by]);
+}
+
 /** After a friendship is accepted (both people may reach a goal). */
 export function afterFriendsChange(userIds: string[]): void {
   void awardTrophies(userIds, SOCIAL_IDS).catch((e) => console.error(e));
@@ -114,13 +123,14 @@ export function registerTrophyRoutes(app: FastifyInstance) {
       earned: rows.map((r) => ({ id: r.trophy_id, earnedAt: r.earned_at.toISOString() })),
     };
     if (self) {
-      const { rows: p } = await db.query<{ hours: number; messages: number; dms: number; friends: number; email: boolean; phone: boolean; two_factor: boolean }>(
+      const { rows: p } = await db.query<{ hours: number; messages: number; dms: number; friends: number; invites: number; email: boolean; phone: boolean; two_factor: boolean }>(
         `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages, dm_count AS dms,
+                ${INVITES.replace(/u\.id/g, 'users.id')} AS invites,
                 ${FRIENDS.replace(/u\.id/g, 'users.id')} AS friends,
                 email_verified_at IS NOT NULL AS email, phone IS NOT NULL AS phone, totp_enabled AS two_factor
            FROM users WHERE id = $1`, [u.id]);
       out.progress = {
-        accountHours: Number(p[0].hours), messages: Number(p[0].messages), privateMessages: Number(p[0].dms), friends: Number(p[0].friends),
+        accountHours: Number(p[0].hours), messages: Number(p[0].messages), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites),
         security: { email: p[0].email, phone: p[0].phone, twoFactor: p[0].two_factor },
       };
     }

@@ -648,3 +648,27 @@ DO $$ BEGIN
      WHERE c.sender_id = u.id;
   END IF;
 END $$;
+
+-- Invitations: every member has a permanent invite code; a new member can enter one at sign-up.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invited_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS users_invited_by ON users (invited_by) WHERE invited_by IS NOT NULL;
+-- 8 characters without look-alikes (no 0/O, 1/I/L), shown as ABCD-EFGH.
+CREATE OR REPLACE FUNCTION new_invite_code() RETURNS TEXT AS $$
+DECLARE
+  alphabet CONSTANT TEXT := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  c TEXT;
+BEGIN
+  LOOP
+    c := '';
+    FOR i IN 1..8 LOOP
+      c := c || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+    END LOOP;
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM users WHERE invite_code = c);
+  END LOOP;
+  RETURN c;
+END $$ LANGUAGE plpgsql VOLATILE;
+UPDATE users SET invite_code = new_invite_code() WHERE invite_code IS NULL;
+ALTER TABLE users ALTER COLUMN invite_code SET DEFAULT new_invite_code();
+ALTER TABLE users ALTER COLUMN invite_code SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_invite_code ON users (invite_code);

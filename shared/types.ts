@@ -167,6 +167,12 @@ export interface AccountDTO {
   phone: string | null;
   /** Real birthdate, YYYY-MM-DD. */
   birthdate: string | null;
+  /** Your permanent invite code (8 characters, no dash). */
+  inviteCode: string;
+  /** People who joined with your code and confirmed their email. */
+  invites: number;
+  /** Joined with your code but haven't confirmed their email yet. */
+  invitesPending: number;
 }
 
 export interface ProfileDTO extends PublicUser {
@@ -215,6 +221,8 @@ export interface TrophyPageDTO {
     messages: number;
     privateMessages: number;
     friends: number;
+    /** People who joined with your code and confirmed their email. */
+    invites: number;
     security: { email: boolean; phone: boolean; twoFactor: boolean };
   };
 }

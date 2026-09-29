@@ -65,13 +65,18 @@ export function registerSettingsRoutes(app: FastifyInstance, io: IO) {
   app.get('/api/me/account', async (req, reply): Promise<AccountDTO> => {
     const u = requireUser(req);
     reply.header('Cache-Control', 'no-store, private');
-    const { rows } = await db.query<{ handle: string; email: string; email_verified: boolean; phone: string | null; birthdate: string | null }>(
-      `SELECT handle, email, email_verified_at IS NOT NULL AS email_verified, phone, to_char(birthdate, 'YYYY-MM-DD') AS birthdate
+    const { rows } = await db.query<{ handle: string; email: string; email_verified: boolean; phone: string | null; birthdate: string | null; invite_code: string; invites: number; pending: number }>(
+      `SELECT handle, email, email_verified_at IS NOT NULL AS email_verified, phone, to_char(birthdate, 'YYYY-MM-DD') AS birthdate, invite_code,
+              (SELECT count(*) FROM users i WHERE i.invited_by = users.id AND i.email_verified_at IS NOT NULL)::int AS invites,
+              (SELECT count(*) FROM users i WHERE i.invited_by = users.id AND i.email_verified_at IS NULL)::int AS pending
          FROM users WHERE id = $1`,
       [u.id],
     );
     const r = rows[0];
-    return { handle: r.handle, email: r.email, emailVerified: r.email_verified, phone: r.phone, birthdate: r.birthdate };
+    return {
+      handle: r.handle, email: r.email, emailVerified: r.email_verified, phone: r.phone, birthdate: r.birthdate,
+      inviteCode: r.invite_code, invites: Number(r.invites), invitesPending: Number(r.pending),
+    };
   });
 
   // Phone number: set once (password required), then locked like the birthdate.

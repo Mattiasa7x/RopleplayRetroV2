@@ -2,6 +2,7 @@ import { AGE, PASSWORD_MIN, SITE_NAME } from '../../../shared/config.js';
 import type { LoginResult, MeDTO } from '../../../shared/types.js';
 import { connect, field, form, navigate, page, state, applyPrefs, toast } from '../core.js';
 import { api, h } from '../dom.js';
+import { formatInviteCode, normalizeInviteCode } from '../../../shared/trophies.js';
 
 function signedIn(me: MeDTO, to = '/home') {
   state.me = me;
@@ -47,6 +48,8 @@ export function viewLogin() {
 }
 
 export function viewSignup() {
+  // An invite link (/signup?invite=ABCD-EFGH) fills in the code.
+  const invite = formatInviteCode(normalizeInviteCode(new URLSearchParams(location.search).get('invite') ?? '').slice(0, 8));
   const max = new Date();
   max.setFullYear(max.getFullYear() - AGE.minimum);
   page('Sign up',
@@ -58,12 +61,14 @@ export function viewSignup() {
           field('Email', 'email', 'email', { autocomplete: 'email' }),
           field(`Password (${PASSWORD_MIN}+ characters)`, 'password', 'password', { minlength: PASSWORD_MIN, autocomplete: 'new-password' }),
           field('Your real birthdate', 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
+          field('Invite code (optional)', 'inviteCode', 'text', { required: false, maxlength: 12, autocapitalize: 'characters', autocomplete: 'off', spellcheck: false, placeholder: 'ABCD-EFGH', value: invite }),
+          h('p', { class: 'hint' }, 'Did a friend invite you? Their code gives them credit toward invite trophies.'),
           h('p', { class: 'hint' }, `You must be ${AGE.minimum} or older. Your birthdate is private, never shown, and can't be changed later: it keeps younger members safe. Your character's age is separate: set any age you like on your profile.`),
         ],
         'Create account',
         async (d) => {
           const me = await api<MeDTO>('/api/signup', {
-            body: { handle: d.get('handle'), email: d.get('email'), password: d.get('password'), birthdate: d.get('birthdate') },
+            body: { handle: d.get('handle'), email: d.get('email'), password: d.get('password'), birthdate: d.get('birthdate'), inviteCode: String(d.get('inviteCode') ?? '') || undefined },
           });
           signedIn(me, '/verify');
         },

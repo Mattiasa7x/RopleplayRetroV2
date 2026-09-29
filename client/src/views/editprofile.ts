@@ -1,6 +1,6 @@
 import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, characterAgeFrom, PROFILE, RP_STYLES, Trust, type RpStyle } from '../../../shared/config.js';
 import type { AccountDTO, ProfileDTO, RoomImageDTO, TrophyPageDTO } from '../../../shared/types.js';
-import { TROPHIES, TROPHY_BY_ID } from '../../../shared/trophies.js';
+import { formatInviteCode, TROPHIES, TROPHY_BY_ID } from '../../../shared/trophies.js';
 import { trophyBadge } from '../trophyart.js';
 import { card, page, state, toast } from '../core.js';
 import { api, apiUpload, h } from '../dom.js';
@@ -28,6 +28,34 @@ const lockRow = (label: string, value: string, note: string) =>
   h('div', { class: 'setting locked-row' },
     h('div', {}, h('span', { class: 'setting-label' }, label), h('span', { class: 'muted small block' }, note)),
     h('div', { class: 'locked-value' }, h('span', {}, value), h('span', { class: 'tag' }, 'Locked')));
+
+/** Your permanent invite code, a link to share, and how many people have joined with it. */
+function inviteRow(acct: AccountDTO): HTMLElement {
+  const code = formatInviteCode(acct.inviteCode);
+  const link = `${location.origin}/signup?invite=${code}`;
+  const status = h('span', { class: 'muted small', 'aria-live': 'polite' });
+  const copy = async (text: string, what: string) => {
+    try { await navigator.clipboard.writeText(text); status.textContent = `${what} copied.`; }
+    catch { status.textContent = text; } // no clipboard access: show it so it can be copied by hand
+  };
+  const count = acct.invites === 1 ? '1 person has joined with your code.' : `${acct.invites} people have joined with your code.`;
+  const pending = acct.invitesPending ? ` ${acct.invitesPending} more still need${acct.invitesPending === 1 ? 's' : ''} to confirm their email.` : '';
+  const share = 'share' in navigator
+    ? h('button', { type: 'button', class: 'quiet', onclick: (() => void navigator.share({ title: 'Join me on RoleplayRetro', text: `Join me on RoleplayRetro! My invite code is ${code}.`, url: link }).catch(() => {})) as EventListener }, 'Share')
+    : null;
+  return h('div', { class: 'setting invite-row' },
+    h('div', {},
+      h('span', { class: 'setting-label' }, 'Invite code'),
+      h('span', { class: 'muted small block' }, 'New members can enter it when they sign up. Invites count once they confirm their email.')),
+    h('div', { class: 'invite-box' },
+      h('code', { class: 'invite-code', 'aria-label': `Your invite code: ${code.split('').join(' ')}` }, code),
+      h('div', { class: 'row wrap invite-actions' },
+        h('button', { type: 'button', class: 'quiet', onclick: (() => void copy(code, 'Code')) as EventListener }, 'Copy code'),
+        h('button', { type: 'button', class: 'quiet', onclick: (() => void copy(link, 'Invite link')) as EventListener }, 'Copy link'),
+        share),
+      h('span', { class: 'small invite-count' }, count + pending, ' ', h('a', { href: `/profile/${acct.handle}/trophies` }, 'Invite trophies')),
+      status));
+}
 
 export async function viewEditProfile() {
   const me = state.me!;
@@ -94,6 +122,7 @@ export async function viewEditProfile() {
   const accountCard = card('Account',
     h('p', { class: 'muted small' }, 'Only you can see these. They are kept for confirming it\'s really you, and can\'t be changed once set.'),
     lockRow('Username', acct.handle, 'Chosen when you signed up.'),
+    inviteRow(acct),
     acct.emailVerified
       ? lockRow('Email address', acct.email, 'Confirmed.')
       : h('div', { class: 'setting' },
