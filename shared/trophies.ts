@@ -4,7 +4,7 @@
  * badge lives in the browser (client/src/trophyart.ts).
  */
 
-export type TrophyGroup = 'time' | 'security' | 'chat' | 'social';
+export type TrophyGroup = 'time' | 'security' | 'chat' | 'social' | 'mail';
 
 export interface TrophyDef {
   id: string;
@@ -12,7 +12,7 @@ export interface TrophyDef {
   group: TrophyGroup;
   /** How it's earned, shown under the badge. */
   how: string;
-  /** Account age in hours (time), messages sent in rooms (chat) or friends (social). */
+  /** Account age in hours (time), messages sent in rooms (chat), friends (social) or private messages sent (mail). */
   goal?: number;
 }
 
@@ -21,6 +21,7 @@ export const TROPHY_GROUPS: { id: TrophyGroup; title: string }[] = [
   { id: 'security', title: 'Security' },
   { id: 'chat', title: 'Room chat' },
   { id: 'social', title: 'Friends' },
+  { id: 'mail', title: 'Private messages' },
 ];
 
 const DAY = 24;
@@ -45,6 +46,11 @@ export const TROPHIES: TrophyDef[] = [
   { id: 'butterfly', name: 'Social Butterfly', group: 'social', goal: 60, how: 'Have 60 friends.' },
   { id: 'heart', name: 'Heart of the Realm', group: 'social', goal: 100, how: 'Have 100 friends.' },
   { id: 'luminary', name: 'Luminary', group: 'social', goal: 300, how: 'Have 300 friends.' },
+
+  { id: 'courier', name: 'Courier', group: 'mail', goal: 100, how: 'Send 100 private messages.' },
+  { id: 'herald', name: 'Herald', group: 'mail', goal: 1_000, how: 'Send 1,000 private messages.' },
+  { id: 'emissary', name: 'Emissary', group: 'mail', goal: 100_000, how: 'Send 100,000 private messages.' },
+  { id: 'ravens', name: 'Master of Ravens', group: 'mail', goal: 1_000_000, how: 'Send 1,000,000 private messages.' },
 ];
 
 export const TROPHY_BY_ID = new Map(TROPHIES.map((t) => [t.id, t]));

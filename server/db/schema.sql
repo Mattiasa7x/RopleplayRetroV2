@@ -638,3 +638,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_trophy TEXT;
 DO $$ BEGIN
   ALTER TABLE users ADD CONSTRAINT users_profile_trophy_format CHECK (profile_trophy IS NULL OR profile_trophy ~ '^[a-z_]{1,40}$');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Lifetime count of private messages sent (for trophies). Filled from existing messages the first time.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'dm_count') THEN
+    ALTER TABLE users ADD COLUMN dm_count INTEGER NOT NULL DEFAULT 0;
+    UPDATE users u SET dm_count = c.n
+      FROM (SELECT sender_id, count(*) AS n FROM direct_messages WHERE NOT is_shadow GROUP BY sender_id) c
+     WHERE c.sender_id = u.id;
+  END IF;
+END $$;

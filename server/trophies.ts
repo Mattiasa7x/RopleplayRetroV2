@@ -19,6 +19,7 @@ for (const t of TROPHIES) {
   if (t.group === 'time') RULE[t.id] = `u.created_at <= now() - interval '${Number(t.goal)} hours'`;
   if (t.group === 'chat') RULE[t.id] = `u.message_count >= ${Number(t.goal)}`;
   if (t.group === 'social') RULE[t.id] = `${FRIENDS} >= ${Number(t.goal)}`;
+  if (t.group === 'mail') RULE[t.id] = `u.dm_count >= ${Number(t.goal)}`;
 }
 const AWARD_SQL = `
   INSERT INTO user_trophies (user_id, trophy_id)
@@ -60,6 +61,13 @@ export function afterRoomMessage(userId: string, count: number): void {
 /** After a security change (email confirmed, phone added, two-factor on). */
 export function afterSecurityChange(userId: string): void {
   void awardTrophies([userId]).catch((e) => console.error(e));
+}
+
+const MAIL_GOALS = new Set(TROPHIES.filter((t) => t.group === 'mail').map((t) => t.goal!));
+
+/** After a private message: only worth checking when the count lands on a goal. */
+export function afterPrivateMessage(userId: string, count: number): void {
+  if (MAIL_GOALS.has(count)) void awardTrophies([userId]).catch((e) => console.error(e));
 }
 
 /** After a friendship is accepted (both people may reach a goal). */
@@ -106,13 +114,13 @@ export function registerTrophyRoutes(app: FastifyInstance) {
       earned: rows.map((r) => ({ id: r.trophy_id, earnedAt: r.earned_at.toISOString() })),
     };
     if (self) {
-      const { rows: p } = await db.query<{ hours: number; messages: number; friends: number; email: boolean; phone: boolean; two_factor: boolean }>(
-        `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages,
+      const { rows: p } = await db.query<{ hours: number; messages: number; dms: number; friends: number; email: boolean; phone: boolean; two_factor: boolean }>(
+        `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages, dm_count AS dms,
                 ${FRIENDS.replace(/u\.id/g, 'users.id')} AS friends,
                 email_verified_at IS NOT NULL AS email, phone IS NOT NULL AS phone, totp_enabled AS two_factor
            FROM users WHERE id = $1`, [u.id]);
       out.progress = {
-        accountHours: Number(p[0].hours), messages: Number(p[0].messages), friends: Number(p[0].friends),
+        accountHours: Number(p[0].hours), messages: Number(p[0].messages), privateMessages: Number(p[0].dms), friends: Number(p[0].friends),
         security: { email: p[0].email, phone: p[0].phone, twoFactor: p[0].two_factor },
       };
     }

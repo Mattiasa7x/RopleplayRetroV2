@@ -10,6 +10,7 @@ import { maskMature } from './safety/mature.js';
 import { pushTo } from './push.js';
 import { checkSocialText } from './safety/social-text.js';
 import { db } from './store.js';
+import { afterPrivateMessage } from './trophies.js';
 
 /**
  * Private messages. Friends only, blocks respected both ways, same 420-character rule,
@@ -181,6 +182,8 @@ export function registerMessageRoutes(app: FastifyInstance, io: IO) {
       await db.query('INSERT INTO photo_shares (photo_id, recipient_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [photo.id, other.id]);
     }
     if (!shadow) {
+      const { rows: c } = await db.query<{ n: number }>('UPDATE users SET dm_count = dm_count + 1 WHERE id = $1 RETURNING dm_count AS n', [me.id]);
+      afterPrivateMessage(me.id, Number(c[0]?.n ?? 0));
       io.to(rooms.user(other.id)).emit('dm', { from: me.handle, id: rows[0].id });
       pushTo(other.id, 'dm', { title: `${me.handle} sent you a message`, body: 'Tap to read it.', url: `/messages/${me.handle}`, tag: `dm-${me.handle}` });
     }

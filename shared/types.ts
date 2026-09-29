@@ -213,6 +213,7 @@ export interface TrophyPageDTO {
   progress?: {
     accountHours: number;
     messages: number;
+    privateMessages: number;
     friends: number;
     security: { email: boolean; phone: boolean; twoFactor: boolean };
   };
