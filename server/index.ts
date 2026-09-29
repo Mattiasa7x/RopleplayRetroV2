@@ -27,6 +27,7 @@ import { rooms, setupRealtime, type IO } from './realtime.js';
 import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
 import { registerTrophyRoutes, startTrophies } from './trophies.js';
+import { pageDecision } from './pages.js';
 import { db, redis } from './store.js';
 
 const app = Fastify({
@@ -60,14 +61,16 @@ app.setErrorHandler((err, _req, reply) => sendError(reply, err));
 
 await app.register(fastifyStatic, { root: resolve('client/public'), index: false, wildcard: false }); // one route per built file; the catch-all below handles pages
 
-// Every page is a real address (/home, /rooms, /room/tavern, /profile/John, /settings...).
-// Anything that isn't the API or a file gets the site's single HTML page, which draws that page.
-const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|edit-profile|people|admin|friends|messages(\/[A-Za-z0-9_]{3,16})?|profile\/[A-Za-z0-9_]{3,16}(\/(photos|comments|trophies))?|photo\/\d{1,19}|settings(\/[a-z-]+)?|login|signup|verify|mod)\/?$/;
+// Every page is a real address (/home, /rooms, /room/tavern, /profile/John, /settings...);
+// see server/pages.ts for which pages a visitor without an account may open.
 const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
-  const path = req.url.split('?')[0];
-  if (path === '/mod') return reply.sendFile('mod.html');
-  if (PAGE.test(path)) return reply.sendFile('index.html');
-  return reply.callNotFound();
+  const [path, query = ''] = req.url.split('?');
+  const d = pageDecision(path, query, !!req.user);
+  if (d.kind === 'none') return reply.callNotFound();
+  // The page shell is always fetched fresh, so the sign-in check can't be skipped by a cached copy.
+  reply.header('Cache-Control', 'no-cache, private');
+  if (d.kind === 'redirect') return reply.redirect(d.to, 302);
+  return reply.sendFile(d.file);
 };
 app.get('/', servePage);
 app.get('/*', servePage);

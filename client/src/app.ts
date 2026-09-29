@@ -26,7 +26,8 @@ async function route() {
   const open = ['login', 'signup'].includes(parts[0] ?? '');
 
   if (!state.me && (await refreshMe())) connect();
-  if (!state.me && !open) return navigate('/login', true);
+  // No account, no entry: everything but sign-up and log-in goes to sign-up (and back here after).
+  if (!state.me && !open) return navigate(path === '/' || path === '/home' ? '/signup' : `/signup?next=${encodeURIComponent(path + location.search)}`, true);
   if (state.me && (path === '/' || open)) return navigate('/home', true);
   if (state.me) void refreshUnread();
 

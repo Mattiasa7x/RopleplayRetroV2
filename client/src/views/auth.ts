@@ -4,7 +4,18 @@ import { connect, field, form, navigate, page, state, applyPrefs, toast } from '
 import { api, h } from '../dom.js';
 import { formatInviteCode, normalizeInviteCode } from '../../../shared/trophies.js';
 
-function signedIn(me: MeDTO, to = '/home') {
+/** Where to go after joining or logging in: the page they were headed to (same-site only), else Home. */
+export function nextPage(): string {
+  const n = new URLSearchParams(location.search).get('next') ?? '';
+  return /^\/(?!\/)[A-Za-z0-9/_\-.?=&%]*$/.test(n) && !/^\/(signup|login)\b/.test(n) ? n : '/home';
+}
+/** Carry ?next= along between the sign-up and log-in pages. */
+const withNext = (path: string) => {
+  const n = nextPage();
+  return n === '/home' ? path : `${path}?next=${encodeURIComponent(n)}`;
+};
+
+function signedIn(me: MeDTO, to = nextPage()) {
   state.me = me;
   applyPrefs(me.prefs);
   connect();
@@ -44,7 +55,7 @@ export function viewLogin() {
   page('Log in',
     h('div', { class: 'card hero' }, h('h1', {}, `Welcome to ${SITE_NAME}`), h('p', { class: 'muted' }, 'Roleplay and chat rooms, built for your phone.')),
     h('section', { class: 'card' }, passwordStep, codeStep),
-    h('p', { class: 'center' }, 'New here? ', h('a', { href: '/signup' }, 'Create an account')));
+    h('p', { class: 'center' }, 'New here? ', h('a', { href: withNext('/signup') }, 'Create an account')));
 }
 
 export function viewSignup() {
@@ -53,6 +64,8 @@ export function viewSignup() {
   const max = new Date();
   max.setFullYear(max.getFullYear() - AGE.minimum);
   page('Sign up',
+    h('div', { class: 'card hero' }, h('h1', {}, `Welcome to ${SITE_NAME}`),
+      h('p', { class: 'muted' }, 'Roleplay and chat rooms, built for your phone. Members only: create a free account to come in.')),
     h('section', { class: 'card' },
       form(
         [
@@ -70,14 +83,14 @@ export function viewSignup() {
           const me = await api<MeDTO>('/api/signup', {
             body: { handle: d.get('handle'), email: d.get('email'), password: d.get('password'), birthdate: d.get('birthdate'), inviteCode: String(d.get('inviteCode') ?? '') || undefined },
           });
-          signedIn(me, '/verify');
+          signedIn(me, nextPage() === '/home' ? '/verify' : `/verify?next=${encodeURIComponent(nextPage())}`);
         },
       )),
-    h('p', { class: 'center' }, 'Already a member? ', h('a', { href: '/login' }, 'Log in')));
+    h('p', { class: 'center' }, 'Already a member? ', h('a', { href: withNext('/login') }, 'Log in')));
 }
 
 export function viewVerify() {
-  if (state.me?.emailVerified) return navigate('/home', true);
+  if (state.me?.emailVerified) return navigate(nextPage(), true);
   page('Confirm email',
     h('section', { class: 'card' },
       h('p', {}, `We sent a 6-digit code to ${state.me?.email ?? 'your email'}. It works for 15 minutes.`),
@@ -85,7 +98,7 @@ export function viewVerify() {
         await api('/api/verify/email', { body: { code: String(d.get('code')).trim() } });
         state.me = await api<MeDTO>('/api/me');
         state.flash = 'Email confirmed. Every room is open to you now.';
-        navigate('/home', true);
+        navigate(nextPage(), true);
       }),
       h('div', { class: 'row' },
         h('button', { type: 'button', class: 'quiet', onclick: (async () => {

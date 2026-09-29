@@ -89,8 +89,9 @@ export async function downloadMissingRoomImages(log: (m: string) => void): Promi
 }
 
 export function registerRoomImageRoutes(app: FastifyInstance) {
-  /** Room pictures are public stock photos, so any visitor may load them and browsers may cache them. */
+  /** Room pictures: members only, like the rest of the site. Stock photos, so browsers may cache them privately. */
   app.get<{ Params: { id: string; variant: string } }>('/room-img/:id/:variant', async (req, reply) => {
+    requireUser(req);
     if (!/^\d{1,9}$/.test(req.params.id)) throw new HttpError(404, 'no_image', 'Picture not found.');
     const col = req.params.variant === 'full' ? 'full_data' : 'thumb_data';
     const { rows } = await db.query<{ data: Buffer | null; v: string }>(
@@ -100,7 +101,7 @@ export function registerRoomImageRoutes(app: FastifyInstance) {
     if (!rows[0]?.data) throw new HttpError(404, 'no_image', 'Picture not found.');
     const etag = `"ri${req.params.id}-${col}-${rows[0].v}"`;
     reply.header('ETag', etag);
-    reply.header('Cache-Control', 'public, max-age=604800');
+    reply.header('Cache-Control', 'private, max-age=604800');
     if (req.headers['if-none-match'] === etag) return reply.status(304).send();
     reply.header('Content-Type', 'image/webp');
     return reply.send(rows[0].data);

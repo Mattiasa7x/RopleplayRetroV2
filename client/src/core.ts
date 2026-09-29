@@ -109,7 +109,7 @@ export function page(title: string, ...content: (Node | string | null | undefine
   const here = location.pathname;
   const header = h('header', { class: 'site-header' },
     h('div', { class: 'site-bar' },
-      h('a', { href: state.me ? '/home' : '/login', class: 'brand', 'aria-label': `${SITE_NAME} home` },
+      h('a', { href: state.me ? '/home' : '/signup', class: 'brand', 'aria-label': `${SITE_NAME} home` },
         h('img', { src: '/logo-mark.svg', alt: '', class: 'brand-mark light-only', width: 34, height: 31 }),
         h('img', { src: '/logo-mark-dark.svg', alt: '', class: 'brand-mark dark-only', width: 34, height: 31 }),
         h('span', { class: 'brand-word', 'aria-hidden': 'true' }, 'ROLEPLAY', h('span', {}, 'RETRO'))),
