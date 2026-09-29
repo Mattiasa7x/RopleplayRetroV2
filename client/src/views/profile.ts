@@ -62,9 +62,7 @@ export async function viewProfile(handle: string) {
             self ? h('a', { href: '/edit-profile', class: 'button primary edit-profile' }, 'Edit profile') : null)
         : null,
       charLine ? h('p', { class: 'char-line' }, charLine) : null,
-      h('div', { class: 'profile-meta' },
-        h('span', { class: 'muted small' }, `${p.trustLabel} · `, friendsBit),
-        viewsLink),
+      h('p', { class: 'profile-meta muted small' }, `${p.trustLabel} · `, friendsBit, viewsLink ? ' · ' : null, viewsLink),
       profileTrophy(p, self),
       self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,
