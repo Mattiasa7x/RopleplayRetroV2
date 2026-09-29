@@ -198,6 +198,21 @@ export interface ProfileDTO extends PublicUser {
   /** False when the profile is friends-only and the viewer isn't a friend: only the name and picture show. */
   visible: boolean;
   blockedByMe: boolean;
+  /** Earned trophy ids (empty when the profile isn't visible). */
+  trophies: string[];
+}
+
+export interface TrophyPageDTO {
+  handle: string;
+  self: boolean;
+  visible: boolean;
+  earned: { id: string; earnedAt: string }[];
+  /** Only on your own trophy page. */
+  progress?: {
+    accountHours: number;
+    messages: number;
+    security: { email: boolean; phone: boolean; twoFactor: boolean };
+  };
 }
 
 export interface CommentDTO {
@@ -302,6 +317,8 @@ export interface ServerToClient {
   notice: (p: { message: string }) => void;
   social: (p: { kind: 'friend_request' | 'friend_accept' | 'comment'; from: string }) => void;
   dm: (p: { from: string; id: string }) => void;
+  /** Newly earned trophies (ids from shared/trophies.ts). */
+  trophy: (p: { ids: string[] }) => void;
 }
 
 export interface ClientToServer {

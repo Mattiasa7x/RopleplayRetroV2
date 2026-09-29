@@ -1,3 +1,4 @@
+import { viewTrophies } from './views/trophies.js';
 import { connect, navigate, page, refreshMe, refreshUnread, setRouter, state } from './core.js';
 import { h } from './dom.js';
 import { viewLogin, viewSignup, viewVerify } from './views/auth.js';
@@ -44,6 +45,7 @@ async function route() {
         const who = decodeURIComponent(parts[1] ?? state.me!.handle);
         if (parts[2] === 'photos') return await viewGallery(who);
         if (parts[2] === 'comments') return await viewProfileComments(who);
+        if (parts[2] === 'trophies') return await viewTrophies(who);
         return await viewProfile(who);
       }
       case 'photo': return await viewPhoto(parts[1] ?? '');

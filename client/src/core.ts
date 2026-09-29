@@ -1,3 +1,5 @@
+import { TROPHY_BY_ID } from '../../shared/trophies.js';
+import { trophyBadge } from './trophyart.js';
 import { io, type Socket } from 'socket.io-client';
 import { SITE_NAME, type Prefs } from '../../shared/config.js';
 import type { ClientToServer, MeDTO, ServerToClient } from '../../shared/types.js';
@@ -142,6 +144,20 @@ export function toast(text: string, error = false) {
   setTimeout(() => t.remove(), 4500);
 }
 
+/** "Trophy earned" announcement with the badge; confirmed as seen once shown. */
+async function showTrophies(ids: string[]) {
+  const known = ids.filter((id) => TROPHY_BY_ID.has(id));
+  if (!known.length || !state.me) return;
+  const names = known.map((id) => TROPHY_BY_ID.get(id)!.name);
+  const t = h('a', { href: `/profile/${state.me.handle}/trophies`, class: 'toast trophy-toast', role: 'status' },
+    trophyBadge(known[known.length - 1], { size: 44 }),
+    h('span', {}, h('span', { class: 'small block' }, known.length === 1 ? 'Trophy earned!' : `${known.length} trophies earned!`), h('strong', {}, names.join(', '))));
+  t.addEventListener('click', () => t.remove());
+  document.body.append(t);
+  setTimeout(() => t.remove(), 7000);
+  await api('/api/me/trophies/seen', { body: { ids } }).catch(() => {});
+}
+
 export function card(title: string | null, ...children: (Node | string | null | undefined | false)[]): HTMLElement {
   return h('section', { class: 'card' }, title ? h('h2', {}, title) : null, ...children);
 }
@@ -195,6 +211,7 @@ export function connect() {
     setUnread(state.unreadMessages + 1);
     toast(`New message from ${p.from}`);
   });
+  s.on('trophy', (p) => void showTrophies(p.ids));
   s.on('kicked', (p) => {
     if (state.currentRoomId === p.roomId) {
       state.flash = `You were removed from that room. ${p.reason}`;

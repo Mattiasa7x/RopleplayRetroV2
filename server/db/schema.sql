@@ -623,3 +623,12 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS users_single_admin ON users;
 CREATE TRIGGER users_single_admin BEFORE INSERT OR UPDATE OF trust_level ON users
   FOR EACH ROW EXECUTE FUNCTION users_single_admin();
+
+-- Trophies earned just by using the site (definitions in shared/trophies.ts).
+CREATE TABLE IF NOT EXISTS user_trophies (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  trophy_id  TEXT NOT NULL CHECK (trophy_id ~ '^[a-z_]{1,40}$'),
+  earned_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  seen_at    TIMESTAMPTZ,  -- when the "trophy earned" announcement was shown
+  PRIMARY KEY (user_id, trophy_id)
+);

@@ -604,3 +604,26 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .flag .row .button, .flag .row button { min-height: 2.4rem; padding: 0.2rem 0.8rem; }
 button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 .ban-form { margin-top: 0.6rem; }
+
+/* ---------- trophies ---------- */
+.trophy-badge { display: inline-block; line-height: 0; flex: none; }
+.trophy-badge svg { display: block; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.3)); }
+.trophy-badge.locked svg { filter: grayscale(1) contrast(0.8); opacity: 0.35; }
+.trophy-shelf { display: flex; flex-wrap: wrap; gap: 0.2rem; align-items: center; text-decoration: none; padding: 0.1rem 0; }
+.trophy-shelf.empty { font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+.trophy-count { margin: 0 0 0.6rem; font-weight: 700; }
+.trophy-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.trophy-item { display: flex; gap: 0.75rem; align-items: center; }
+.trophy-text { display: grid; gap: 0.15rem; min-width: 0; flex: 1; }
+.trophy-text strong { font-size: 1.05rem; }
+.trophy-item:not(.earned) .trophy-text strong { color: var(--muted); }
+.trophy-progress { display: grid; gap: 0.2rem; margin-top: 0.15rem; }
+.trophy-bar { display: block; padding: 0; height: 0.5rem; border-radius: 99px; background: var(--soft); overflow: hidden; border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); }
+.trophy-bar span { display: block; height: 100%; background: var(--red); border-radius: inherit; }
+.trophy-steps { list-style: none; margin: 0.2rem 0 0; padding: 0; font-size: 0.9rem; display: grid; gap: 0.1rem; }
+.trophy-steps li.done { color: var(--muted); }
+.trophy-toast { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; padding: 0.5rem 1rem 0.5rem 0.6rem; }
+.trophy-toast .block { display: block; opacity: 0.8; font-weight: 600; }
+.trophy-toast strong { font-size: 1.05rem; }
+[data-theme="dark"] .trophy-bar span { background: linear-gradient(90deg, var(--pink), var(--mint)); box-shadow: 0 0 8px rgba(255, 79, 163, 0.6); }
+[data-theme="dark"] .trophy-item.earned .trophy-badge svg { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.18)); }

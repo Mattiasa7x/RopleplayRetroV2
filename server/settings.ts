@@ -9,6 +9,7 @@ import { disconnectUser, setFilterGroup, type IO } from './realtime.js';
 import { slidingWindow } from './safety/limits.js';
 import { audit, db, redis, tx } from './store.js';
 import { newBackupCodes, newTotpSecret, otpauthUri, verifyTotp } from './totp.js';
+import { afterSecurityChange } from './trophies.js';
 
 const PrefsBody = z
   .object({
@@ -84,6 +85,7 @@ export function registerSettingsRoutes(app: FastifyInstance, io: IO) {
     const { rowCount } = await db.query('UPDATE users SET phone = $2 WHERE id = $1 AND phone IS NULL', [u.id, phone]);
     if (!rowCount) throw new HttpError(403, 'locked', 'Your phone number is already set and locked.');
     await audit(db, u.id, 'phone_set', 'user', u.id);
+    afterSecurityChange(u.id);
     return { ok: true };
   });
 
@@ -172,6 +174,7 @@ export function registerSettingsRoutes(app: FastifyInstance, io: IO) {
       }
       await audit(q, u.id, '2fa_enable', 'user', u.id);
     });
+    afterSecurityChange(u.id);
     return { backupCodes: codes }; // shown once
   });
 

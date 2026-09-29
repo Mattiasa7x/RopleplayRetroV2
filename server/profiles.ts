@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { TROPHIES } from '../shared/trophies.js';
 import sharp from 'sharp';
 import { ADULT_RP_STYLES, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, PROFILE, RP_STYLES, TRUST_LABEL, Trust, type CharacterSheet, type RpStyle } from '../shared/config.js';
 import type { CommentDTO, ProfileDTO, StatusDTO } from '../shared/types.js';
@@ -98,6 +99,10 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     const { rows: th } = a.visible && t.profile_theme_id != null
       ? await db.query<{ id: number; title: string }>('SELECT id, title FROM room_images WHERE id = $1 AND full_data IS NOT NULL', [t.profile_theme_id])
       : { rows: [] as { id: number; title: string }[] };
+    const { rows: tr } = a.visible
+      ? await db.query<{ trophy_id: string }>('SELECT trophy_id FROM user_trophies WHERE user_id = $1', [t.id])
+      : { rows: [] as { trophy_id: string }[] };
+    const earned = new Set(tr.map((r) => r.trophy_id));
     const sheet: CharacterSheet = {};
     if (a.visible) {
       for (const f of CHARACTER_SHEET) {
@@ -127,6 +132,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       canComment: a.canComment,
       visible: a.visible,
       blockedByMe: a.iBlocked,
+      trophies: TROPHIES.filter((x) => earned.has(x.id)).map((x) => x.id),
     };
   });
 

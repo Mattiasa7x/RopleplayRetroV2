@@ -15,6 +15,7 @@ import { bumpDaily, slidingWindow, underDailyCap } from './safety/limits.js';
 import { ipPrefix, matchesSanctionedAccount, recordSignals, signalHash } from './safety/signals.js';
 import { audit, db, redis, tx, type Tx } from './store.js';
 import { verifyTotp } from './totp.js';
+import { afterSecurityChange } from './trophies.js';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number, opts: object) => Promise<Buffer>;
 const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
@@ -282,6 +283,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
       );
       await audit(q, u.id, 'email_verified', 'user', u.id);
     });
+    afterSecurityChange(u.id);
     return { ok: true };
   });
 

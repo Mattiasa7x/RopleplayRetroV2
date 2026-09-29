@@ -50,7 +50,7 @@ export async function visibleNewestFirst(roomId: number, viewerId: string): Prom
 }
 
 export type SendOutcome =
-  | { ok: true; message: MessageDTO; shadow: boolean; mentionedIds: string[] }
+  | { ok: true; message: MessageDTO; shadow: boolean; mentionedIds: string[]; messageCount: number }
   | { ok: false; error: string; message: string };
 
 export async function sendMessage(userId: string, slug: string, raw: string): Promise<SendOutcome> {
@@ -98,8 +98,10 @@ export async function sendMessage(userId: string, slug: string, raw: string): Pr
       [room.id, RETAINED_PER_ROOM],
     );
 
+    let messageCount = 0;
     if (!verdict.shadow) {
-      await q.query('UPDATE users SET message_count = message_count + 1 WHERE id = $1', [user.id]);
+      const { rows: mc } = await q.query<{ n: number }>('UPDATE users SET message_count = message_count + 1 WHERE id = $1 RETURNING message_count AS n', [user.id]);
+      messageCount = Number(mc[0].n);
       // Automatic promotion to Established.
       await q.query(
         `UPDATE users SET trust_level = $2
@@ -112,7 +114,7 @@ export async function sendMessage(userId: string, slug: string, raw: string): Pr
       );
     }
 
-    return { ok: true as const, message: toDTO(rows[0]), shadow: verdict.shadow, mentionedIds: verdict.shadow ? [] : mentionedIds };
+    return { ok: true as const, message: toDTO(rows[0]), shadow: verdict.shadow, mentionedIds: verdict.shadow ? [] : mentionedIds, messageCount };
   });
 }
 

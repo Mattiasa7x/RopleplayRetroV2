@@ -10,6 +10,7 @@ import { maskMature } from './safety/mature.js';
 import { pushTo } from './push.js';
 import { socketBlocked } from './admin.js';
 import { recordStrike } from './safety/strikes.js';
+import { afterRoomMessage, sendUnseen } from './trophies.js';
 import { db, redis } from './store.js';
 
 export type IO = Server<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
@@ -85,6 +86,7 @@ export function setupRealtime(io: IO) {
     await redis.hincrby('online', userId, 1);
     const { rows } = await db.query<{ ignored_user_id: string }>('SELECT ignored_user_id FROM ignores WHERE user_id = $1', [userId]);
     if (rows.length) await socket.join(rows.map((r) => rooms.ignoredBy(r.ignored_user_id)));
+    void sendUnseen(userId).catch(() => {}); // trophies earned while away
 
     socket.on('room:join', async ({ slug }, ack) => {
       try {
@@ -116,6 +118,7 @@ export function setupRealtime(io: IO) {
         const out = await sendMessage(userId, String(slug), body);
         if (!out.ok) return ack(out);
         const m = out.message;
+        afterRoomMessage(userId, out.messageCount);
         if (out.shadow) {
           // Only the sender's own tabs see it.
           io.to(rooms.user(userId)).emit('msg:new', socket.data.filter ? { ...m, body: maskMature(m.body) } : m);

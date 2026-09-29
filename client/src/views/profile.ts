@@ -6,6 +6,8 @@ import { commentThread } from './comments.js';
 import { reportContent } from './home.js';
 import { lightbox } from './photos.js';
 import { photoSection } from './photosection.js';
+import { trophyBadge } from '../trophyart.js';
+import { TROPHY_BY_ID } from '../../../shared/trophies.js';
 
 export async function viewProfile(handle: string) {
   page(handle, h('p', { class: 'muted' }, 'Loading…'));
@@ -50,6 +52,7 @@ export async function viewProfile(handle: string) {
       p.rpStyle ? h('span', { class: `nameplate${p.rpStyle === 'NSFW' ? ' adult' : ''}` }, p.rpStyle) : null,
       charLine ? h('p', { class: 'char-line' }, charLine) : null,
       h('p', { class: 'muted small' }, `${p.trustLabel} · ${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`),
+      trophyShelf(p.handle, p.trophies ?? [], self && p.visible),
       self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,
         blockBtn, reportBtn)),
@@ -100,6 +103,18 @@ export async function viewProfile(handle: string) {
     main.prepend(h('div', { class: 'profile-bg', 'aria-hidden': 'true' }, h('img', { src: p.theme.image, alt: '' })));
   }
   if (location.pathname !== `/profile/${p.handle}`) history.replaceState({}, '', `/profile/${p.handle}`);
+}
+
+/** A row of small earned-trophy badges under the name; tapping opens the full trophy case. */
+function trophyShelf(handle: string, ids: string[], self: boolean): HTMLElement | null {
+  if (!ids.length) return self ? h('a', { href: `/profile/${handle}/trophies`, class: 'trophy-shelf empty' }, '🏆 Trophies you can earn') : null;
+  const names = ids.map((id) => TROPHY_BY_ID.get(id)?.name ?? id).join(', ');
+  return h('a', { href: `/profile/${handle}/trophies`, class: 'trophy-shelf', 'aria-label': `${ids.length} troph${ids.length === 1 ? 'y' : 'ies'}: ${names}. See all.` },
+    ...ids.map((id) => {
+      const b = trophyBadge(id, { size: 30 });
+      b.title = TROPHY_BY_ID.get(id)?.name ?? '';
+      return b;
+    }));
 }
 
 /** Every photo on a profile (and the private album, for those allowed), each opening its own page. */
