@@ -49,8 +49,8 @@ export const TROPHIES: TrophyDef[] = [
 
   { id: 'courier', name: 'Courier', group: 'mail', goal: 100, how: 'Send 100 private messages.' },
   { id: 'herald', name: 'Herald', group: 'mail', goal: 1_000, how: 'Send 1,000 private messages.' },
-  { id: 'emissary', name: 'Emissary', group: 'mail', goal: 100_000, how: 'Send 100,000 private messages.' },
-  { id: 'ravens', name: 'Master of Ravens', group: 'mail', goal: 1_000_000, how: 'Send 1,000,000 private messages.' },
+  { id: 'emissary', name: 'Emissary', group: 'mail', goal: 10_000, how: 'Send 10,000 private messages.' },
+  { id: 'ravens', name: 'Master of Ravens', group: 'mail', goal: 100_000, how: 'Send 100,000 private messages.' },
 ];
 
 export const TROPHY_BY_ID = new Map(TROPHIES.map((t) => [t.id, t]));
