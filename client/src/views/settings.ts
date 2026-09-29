@@ -224,6 +224,7 @@ export async function viewSettings() {
       choice('whoCanComment', 'Who can comment on my profile', ['everyone', 'friends', 'nobody']),
       choice('whoCanFriend', 'Who can send me friend requests', ['everyone', 'nobody']),
       choice('friendsList', 'Who can see my friends list', ['me', 'friends', 'everyone']),
+      choice('giftsVisibility', 'Who can see my gifts', ['me', 'friends', 'everyone']),
       toggle('showOnline', 'Show friends when I’m online'))),
 
     withId('chat', card('Chat',

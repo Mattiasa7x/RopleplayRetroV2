@@ -206,12 +206,48 @@ export interface ProfileDTO extends PublicUser {
   blockedByMe: boolean;
   /** Whether this viewer may open the friends list (owner always; others per the owner's privacy setting). */
   canViewFriends: boolean;
+  /** Whether this viewer may see the member's gifts (owner always; others per their privacy setting). */
+  canViewGifts: boolean;
+  /** The gift they chose to show (catalog id), when this viewer may see gifts. */
+  profileGift: string | null;
+  /** Whether this viewer may send them a gift (confirmed email, not blocked, same side of 18). */
+  canSendGift: boolean;
   /** Own profile only: people who viewed it since you last opened Views. */
   newViews?: number;
   /** The one trophy shown on the profile (the member's pick, else their newest), or null. */
   trophy: string | null;
   /** How many trophies they've earned (0 when the profile isn't visible). */
   trophyCount: number;
+}
+
+export interface ReceivedGiftDTO {
+  id: string;
+  gift: string;
+  /** Null once the sender's account is deleted. */
+  from: PublicUser | null;
+  message: string | null;
+  createdAt: string;
+}
+export interface MyGiftsDTO {
+  gifts: ReceivedGiftDTO[];
+  page: number;
+  pages: number;
+  total: number;
+  /** The gift row shown on your profile. */
+  profileGiftId: string | null;
+}
+export interface GiftAllowanceDTO {
+  left: number;
+  limit: number;
+  /** When the next one frees up, if you're out. */
+  nextAt: string | null;
+}
+export interface ProfileGiftsDTO {
+  handle: string;
+  allowed: boolean;
+  /** Catalog ids with how many of each, most received first. */
+  gifts: { gift: string; count: number }[];
+  total: number;
 }
 
 export interface ProfileViewsDTO {
@@ -352,7 +388,7 @@ export interface ServerToClient {
   mention: (p: { roomId: number; roomSlug: string; from: string; messageId: string }) => void;
   kicked: (p: { roomId: number; reason: string; minutes: number }) => void;
   notice: (p: { message: string }) => void;
-  social: (p: { kind: 'friend_request' | 'friend_accept' | 'comment'; from: string }) => void;
+  social: (p: { kind: 'friend_request' | 'friend_accept' | 'comment' | 'gift'; from: string }) => void;
   dm: (p: { from: string; id: string }) => void;
   /** Newly earned trophies (ids from shared/trophies.ts). */
   trophy: (p: { ids: string[] }) => void;

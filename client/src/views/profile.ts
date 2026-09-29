@@ -1,6 +1,7 @@
 import { CHARACTER_SHEET, PROFILE, Trust } from '../../../shared/config.js';
 import type { PhotoPageDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO } from '../../../shared/types.js';
 import { person } from './friends.js';
+import { giftName, giftTile } from '../giftart.js';
 import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
 import { commentThread } from './comments.js';
@@ -51,6 +52,10 @@ export async function viewProfile(handle: string) {
   const viewsLink = self
     ? h('a', { href: '/profile-views', class: 'views-link' }, 'Views', p.newViews ? h('span', { class: 'badge views-new', 'aria-label': `${p.newViews} new` }, String(p.newViews)) : null)
     : null;
+  // Your own gifts, or "Send a gift" on someone else's profile.
+  const giftLink = self
+    ? h('a', { href: '/gifts' }, 'Gifts')
+    : p.canSendGift ? h('a', { href: `/profile/${p.handle}/gift` }, 'Send a gift') : null;
   const head = h('section', { class: 'profile-top' },
     h('div', { class: `profile-banner${p.banner ? '' : ' art-member'}` }, p.banner ? h('img', { src: p.banner, alt: '' }) : null),
     h('div', { class: 'profile-id' },
@@ -62,8 +67,9 @@ export async function viewProfile(handle: string) {
             self ? h('a', { href: '/edit-profile', class: 'button primary edit-profile' }, 'Edit profile') : null)
         : null,
       charLine ? h('p', { class: 'char-line' }, charLine) : null,
-      h('p', { class: 'profile-meta muted small' }, `${p.trustLabel} · `, friendsBit, viewsLink ? ' · ' : null, viewsLink),
-      profileTrophy(p, self),
+      h('p', { class: 'profile-meta muted small' }, `${p.trustLabel} · `, friendsBit, viewsLink ? ' · ' : null, viewsLink,
+        giftLink ? ' · ' : null, giftLink),
+      h('div', { class: 'showcase-row' }, profileTrophy(p, self), profileGiftPill(p, self)),
       self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,
         blockBtn, reportBtn)));
@@ -129,7 +135,15 @@ function profileTrophy(p: ProfileDTO, self: boolean): HTMLElement | null {
     trophyBadge(p.trophy, { size: 40 }),
     h('span', { class: 'profile-trophy-text' },
       h('strong', {}, name),
-      h('span', { class: 'muted small' }, others > 0 ? `+${others} more troph${others === 1 ? 'y' : 'ies'}` : 'Trophy')));
+      h('span', { class: 'muted small' }, others > 0 ? `+${others} more` : 'Trophy')));
+}
+
+/** The gift a member chose to show (never its message or sender), beside their trophy. */
+function profileGiftPill(p: ProfileDTO, self: boolean): HTMLElement | null {
+  if (!p.profileGift) return null;
+  return h('a', { href: self ? '/gifts' : `/profile/${p.handle}/gifts`, class: 'profile-trophy profile-gift', 'aria-label': `Favourite gift: ${giftName(p.profileGift)}. See ${self ? 'your' : `${p.handle}'s`} gifts.` },
+    giftTile(p.profileGift, 'sm'),
+    h('span', { class: 'profile-trophy-text' }, h('strong', {}, giftName(p.profileGift)), h('span', { class: 'muted small' }, 'Favourite gift')));
 }
 
 /** A member's friends, if they let you see the list. */

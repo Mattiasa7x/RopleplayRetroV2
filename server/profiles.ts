@@ -15,6 +15,8 @@ import { textBlocked } from './safety/pipeline.js';
 import { checkSocialText } from './safety/social-text.js';
 import { audit, db, redis } from './store.js';
 import { afterProfileEdit } from './trophies.js';
+import { giftBlockReason } from './gifts.js';
+import { GIFT_BY_ID } from '../shared/gifts.js';
 
 // ---------------- profile visibility ----------------
 
@@ -23,6 +25,7 @@ interface Access {
   visible: boolean;
   canComment: boolean;
   canViewFriends: boolean;
+  canViewGifts: boolean;
   friendState: ProfileDTO['friendState'];
   iBlocked: boolean;
   iIgnore: boolean;
@@ -41,9 +44,18 @@ export async function profileAccess(viewer: SessionUser, handle: string): Promis
   const canComment =
     visible && !rel.iBlocked && viewer.trust >= Trust.Verified &&
     (self || (p.whoCanComment === 'everyone') || (p.whoCanComment === 'friends' && friends));
-  const fl = p.friendsList;
+  const fl = p.friendsList, gv = p.giftsVisibility;
+  const canViewGifts = visible && (self || viewer.trust >= Trust.Admin || gv === 'everyone' || (gv === 'friends' && friends));
   const canViewFriends = visible && (self || viewer.trust >= Trust.Admin || fl === 'everyone' || (fl === 'friends' && friends));
-  return { target, visible, canComment, canViewFriends, friendState: rel.friendState, iBlocked: rel.iBlocked, iIgnore: rel.iIgnore };
+  return { target, visible, canComment, canViewFriends, canViewGifts, friendState: rel.friendState, iBlocked: rel.iBlocked, iIgnore: rel.iIgnore };
+}
+
+/** The gift a member shows on their profile (catalog id), if it's still theirs and visible. */
+async function shownGift(userId: string): Promise<string | null> {
+  const { rows } = await db.query<{ gift_key: string }>(
+    `SELECT g.gift_key FROM users u JOIN gifts g ON g.id = u.profile_gift_id
+      WHERE u.id = $1 AND g.recipient_id = u.id AND g.hidden_at IS NULL`, [userId]);
+  return rows[0] && GIFT_BY_ID.has(rows[0].gift_key) ? rows[0].gift_key : null;
 }
 
 const view = (viewer: SessionUser, text: string) => (viewer.prefs.chatFilter ? maskMature(text) : text);
@@ -59,6 +71,8 @@ const ProfileBody = z.object({
   rpStyle: z.enum(RP_STYLES).nullable().optional(),
   characterSheet: z.record(z.string(), z.string()).optional(),
   profileThemeId: z.number().int().positive().nullable().optional(),
+  /** One of your received gifts (its id), or null for none. */
+  profileGift: z.string().regex(/^\d{1,19}$/).nullable().optional(),
   /** A trophy you've earned, or 'none'. */
   profileTrophy: z.string().regex(/^[a-z_]{1,40}$/).optional(),
 }).strict();
@@ -160,6 +174,9 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       visible: a.visible,
       blockedByMe: a.iBlocked,
       canViewFriends: a.canViewFriends,
+      canViewGifts: a.canViewGifts,
+      profileGift: a.canViewGifts ? await shownGift(t.id) : null,
+      canSendGift: !self && a.visible && !(await giftBlockReason(u, t)),
       ...(self ? { newViews: Number(nv[0]?.n ?? 0) } : {}),
       trophy: shown,
       trophyCount: earned.length,
@@ -210,7 +227,14 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
   app.patch('/api/me/profile', async (req) => {
     const u = requireUser(req);
     const b = parse(ProfileBody, req.body);
-    const quick = ['profileThemeId', 'profileTrophy'];
+    const quick = ['profileThemeId', 'profileTrophy', 'profileGift'];
+    if (b.profileGift !== undefined) {
+      if (b.profileGift !== null) {
+        const { rowCount } = await db.query('SELECT 1 FROM gifts WHERE id = $1 AND recipient_id = $2 AND hidden_at IS NULL', [b.profileGift, u.id]);
+        if (!rowCount) throw new HttpError(400, 'bad_gift', 'Pick one of your gifts.');
+      }
+      await db.query('UPDATE users SET profile_gift_id = $2 WHERE id = $1', [u.id, b.profileGift]);
+    }
     if (b.profileThemeId !== undefined) {
       if (b.profileThemeId !== null && !(await isPoolImage(b.profileThemeId))) throw new HttpError(400, 'bad_theme', 'Pick one of the themes shown.');
       await db.query('UPDATE users SET profile_theme_id = $2 WHERE id = $1', [u.id, b.profileThemeId]);

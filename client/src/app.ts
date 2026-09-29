@@ -1,4 +1,5 @@
 import { viewTrophies } from './views/trophies.js';
+import { viewMyGifts, viewProfileGifts, viewSendGift } from './views/gifts.js';
 import { connect, navigate, page, refreshMe, refreshUnread, setRouter, state } from './core.js';
 import { h } from './dom.js';
 import { viewLogin, viewSignup, viewVerify } from './views/auth.js';
@@ -48,9 +49,12 @@ async function route() {
         if (parts[2] === 'comments') return await viewProfileComments(who);
         if (parts[2] === 'trophies') return await viewTrophies(who);
         if (parts[2] === 'friends') return await viewProfileFriends(who);
+        if (parts[2] === 'gift') return await viewSendGift(who);
+        if (parts[2] === 'gifts') return await viewProfileGifts(who);
         return await viewProfile(who);
       }
       case 'profile-views': return await viewProfileViews();
+      case 'gifts': return await viewMyGifts();
       case 'photo': return await viewPhoto(parts[1] ?? '');
       case 'edit-profile': return await viewEditProfile();
       case 'people': return await viewPeople();

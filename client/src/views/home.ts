@@ -7,7 +7,7 @@ import { lightbox } from './photos.js';
 import { onlineCard } from './online.js';
 import { roomTile } from './rooms.js';
 
-export async function reportContent(kind: 'status' | 'comment' | 'photo' | 'profile' | 'dm' | 'photo_comment', id?: string, handle?: string) {
+export async function reportContent(kind: 'status' | 'comment' | 'photo' | 'profile' | 'dm' | 'photo_comment' | 'gift', id?: string, handle?: string) {
   const reason = prompt('What is wrong with it? (sent privately to the moderators)');
   if (!reason?.trim()) return;
   try {

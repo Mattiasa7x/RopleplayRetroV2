@@ -201,7 +201,7 @@ export function connect() {
   s.on('social', (p) => {
     if (p.kind === 'friend_request') state.friendRequests++;
     if (!state.me?.prefs.friendAlerts) return;
-    toast(p.kind === 'friend_request' ? `${p.from} sent you a friend request` : p.kind === 'friend_accept' ? `${p.from} accepted your friend request` : `${p.from} commented on your profile`);
+    toast(p.kind === 'friend_request' ? `${p.from} sent you a friend request` : p.kind === 'friend_accept' ? `${p.from} accepted your friend request` : p.kind === 'gift' ? `🎁 ${p.from} sent you a gift!` : `${p.from} commented on your profile`);
   });
   s.on('dm', (p) => {
     if (state.onDirectMessage) {

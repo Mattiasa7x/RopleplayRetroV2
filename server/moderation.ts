@@ -39,7 +39,7 @@ async function userByHandle(handle: string) {
 
 const ReportBody = z.object({ messageId: z.string().regex(/^\d{1,19}$/), reason: z.string().trim().min(1).max(300) });
 const ContentReportBody = z.object({
-  kind: z.enum(['profile', 'photo', 'comment', 'status', 'dm', 'photo_comment']),
+  kind: z.enum(['profile', 'photo', 'comment', 'status', 'dm', 'photo_comment', 'gift']),
   id: z.string().regex(/^\d{1,19}$/).optional(),
   handle: z.string().max(16).optional(),
   reason: z.string().trim().min(1).max(300),
@@ -123,6 +123,14 @@ export function registerModerationRoutes(app: FastifyInstance, io: IO) {
       const r = await db.query(
         `SELECT m.sender_id AS user_id, u.handle, coalesce(m.body, '(photo)') || CASE WHEN m.photo_id IS NOT NULL THEN ' [photo /media/' || m.photo_id || '/full]' ELSE '' END AS body, m.created_at, m.id
            FROM direct_messages m JOIN users u ON u.id = m.sender_id WHERE m.id = $1 AND m.recipient_id = $2`,
+        [b.id ?? '0', u.id],
+      );
+      target = r.rows[0];
+    } else if (b.kind === 'gift') {
+      // Only the person who received a gift can report its message.
+      const r = await db.query(
+        `SELECT g.sender_id AS user_id, u.handle, '[' || g.gift_key || '] ' || coalesce(g.message, '(no message)') AS body, g.created_at, g.id
+           FROM gifts g JOIN users u ON u.id = g.sender_id WHERE g.id = $1 AND g.recipient_id = $2`,
         [b.id ?? '0', u.id],
       );
       target = r.rows[0];

@@ -689,3 +689,23 @@ CREATE TABLE IF NOT EXISTS profile_views (
 CREATE INDEX IF NOT EXISTS profile_views_recent ON profile_views (profile_user_id, viewed_at DESC);
 -- When the owner last opened their Views list (for the "new" count).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS views_seen_at TIMESTAMPTZ;
+
+-- Gifts: one of the catalog gifts (shared/gifts.ts), with an optional private message.
+CREATE TABLE IF NOT EXISTS gifts (
+  id           BIGSERIAL PRIMARY KEY,
+  gift_key     TEXT NOT NULL CHECK (gift_key ~ '^[a-z_]{1,40}$'),
+  sender_id    BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message      TEXT CHECK (message IS NULL OR char_length(message) BETWEEN 1 AND 1000),
+  hidden_at    TIMESTAMPTZ,  -- held back by the safety filter: the recipient never sees it
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (sender_id IS NULL OR sender_id <> recipient_id)
+);
+CREATE INDEX IF NOT EXISTS gifts_sender_recent ON gifts (sender_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS gifts_recipient ON gifts (recipient_id, id DESC);
+-- The one received gift shown on your profile.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_gift_id BIGINT REFERENCES gifts(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_kind;
+  ALTER TABLE reports ADD CONSTRAINT reports_target_kind CHECK (target_kind IN ('message', 'profile', 'comment', 'status', 'photo', 'dm', 'photo_comment', 'gift'));
+END $$;

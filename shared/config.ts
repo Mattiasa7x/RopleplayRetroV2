@@ -218,6 +218,8 @@ export interface Prefs {
   whoCanFriend: FriendRequestPermission;
   /** Who can open your friends list. Private ('me') unless you allow it. */
   friendsList: FriendsListVisibility;
+  /** Who can see the gifts you've received (never the messages or senders). Private unless you allow it. */
+  giftsVisibility: FriendsListVisibility;
   showOnline: boolean;
   mentionAlerts: boolean;
   friendAlerts: boolean;
@@ -235,6 +237,7 @@ export const DEFAULT_PREFS: Prefs = {
   whoCanComment: 'friends',
   whoCanFriend: 'everyone',
   friendsList: 'me',
+  giftsVisibility: 'me',
   showOnline: true,
   mentionAlerts: true,
   friendAlerts: true,

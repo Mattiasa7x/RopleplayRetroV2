@@ -11,7 +11,7 @@ interface Ban { id: string; handle: string; reason: string; created_at: string; 
 
 const KIND_LABEL: Record<string, string> = {
   message: 'Chat line', dm: 'Private message', comment: 'Profile comment', photo_comment: 'Photo comment',
-  status: 'Status', photo: 'Photo', profile: 'Profile',
+  status: 'Status', photo: 'Photo', profile: 'Profile', gift: 'Gift message',
 };
 
 /** A button that asks "Tap again to …" before doing something permanent (no browser pop-ups). */

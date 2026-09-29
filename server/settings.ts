@@ -20,6 +20,7 @@ const PrefsBody = z
     whoCanComment: z.enum(COMMENT_PERMISSION),
     whoCanFriend: z.enum(FRIEND_REQUESTS),
     friendsList: z.enum(FRIENDS_LIST_VISIBILITY),
+    giftsVisibility: z.enum(FRIENDS_LIST_VISIBILITY),
     showOnline: z.boolean(),
     mentionAlerts: z.boolean(),
     friendAlerts: z.boolean(),

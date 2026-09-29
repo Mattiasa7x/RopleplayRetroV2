@@ -28,6 +28,7 @@ import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
 import { registerTrophyRoutes, startTrophies } from './trophies.js';
 import { pageDecision } from './pages.js';
+import { registerGiftRoutes } from './gifts.js';
 import { PROFILE } from '../shared/config.js';
 import { db, redis } from './store.js';
 
@@ -95,6 +96,7 @@ registerOnlineRoutes(app);
 registerPushRoutes(app);
 registerAdminRoutes(app, io);
 registerTrophyRoutes(app);
+registerGiftRoutes(app, io);
 registerCommentRoutes(app, io);
 registerSocialRoutes(app, io);
 registerModerationRoutes(app, io);

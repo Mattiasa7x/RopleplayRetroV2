@@ -69,7 +69,7 @@ export function socketBlocked(headers: Record<string, string | string[] | undefi
 
 // ---------------- routes ----------------
 
-const KINDS = ['message', 'dm', 'comment', 'photo_comment', 'status', 'photo'] as const;
+const KINDS = ['message', 'dm', 'comment', 'photo_comment', 'status', 'photo', 'gift'] as const;
 const DeleteBody = z.object({ kind: z.enum(KINDS), id: z.string().regex(/^\d{1,19}$/) });
 const BanBody = z.object({
   handle: z.string().min(1).max(32),
@@ -85,6 +85,7 @@ const TABLE: Record<(typeof KINDS)[number], { table: string; author: string }> =
   photo_comment: { table: 'photo_comments', author: 'author_id' },
   status: { table: 'statuses', author: 'user_id' },
   photo: { table: 'profile_photos', author: 'user_id' },
+  gift: { table: 'gifts', author: 'sender_id' },
 };
 
 export function registerAdminRoutes(app: FastifyInstance, io: IO) {
