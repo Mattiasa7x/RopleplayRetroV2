@@ -10,7 +10,7 @@ const OPEN_PAGE = /^\/(signup|login)\/?$/;
 export type PageDecision =
   | { kind: 'none' }
   | { kind: 'redirect'; to: string }
-  | { kind: 'file'; file: 'index.html' | 'mod.html' };
+  | { kind: 'file'; file: 'index.html' | 'mod.html'; invite?: boolean };
 
 export function pageDecision(path: string, query: string, signedIn: boolean): PageDecision {
   if (!PAGE.test(path)) return { kind: 'none' };
@@ -19,5 +19,20 @@ export function pageDecision(path: string, query: string, signedIn: boolean): Pa
     return { kind: 'redirect', to: home ? '/signup' : `/signup?next=${encodeURIComponent(path + (query ? `?${query}` : ''))}` };
   }
   if (signedIn && OPEN_PAGE.test(path)) return { kind: 'redirect', to: '/home' };
+  if (/^\/signup\/?$/.test(path) && /(^|&)invite=[A-Za-z0-9-]{4,20}(&|$)/.test(query)) return { kind: 'file', file: 'index.html', invite: true };
   return { kind: 'file', file: path === '/mod' ? 'mod.html' : 'index.html' };
+}
+
+const INVITE_TITLE = "You're invited to RoleplayRetro";
+const INVITE_TEXT = 'A friend invited you to RoleplayRetro: roleplay and chat rooms built for your phone. Tap to join free.';
+
+/** The page for an invite link: same page, with an invitation in its link preview. */
+export function inviteShell(html: string, url: string): string {
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return html
+    .replace(/(<meta property="og:title" content=")[^"]*(")/, `$1${esc(INVITE_TITLE)}$2`)
+    .replace(/(<meta name="twitter:title" content=")[^"]*(")/, `$1${esc(INVITE_TITLE)}$2`)
+    .replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${esc(INVITE_TEXT)}$2`)
+    .replace(/(<meta name="twitter:description" content=")[^"]*(")/, `$1${esc(INVITE_TEXT)}$2`)
+    .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${esc(url)}$2`);
 }

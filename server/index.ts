@@ -27,7 +27,8 @@ import { rooms, setupRealtime, type IO } from './realtime.js';
 import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
 import { registerTrophyRoutes, startTrophies } from './trophies.js';
-import { pageDecision } from './pages.js';
+import { inviteShell, pageDecision } from './pages.js';
+import { readFile } from 'node:fs/promises';
 import { registerGiftRoutes } from './gifts.js';
 import { PROFILE } from '../shared/config.js';
 import { db, redis } from './store.js';
@@ -65,6 +66,7 @@ await app.register(fastifyStatic, { root: resolve('client/public'), index: false
 
 // Every page is a real address (/home, /rooms, /room/tavern, /profile/John, /settings...);
 // see server/pages.ts for which pages a visitor without an account may open.
+let inviteHtml: string | undefined;
 const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
   const [path, query = ''] = req.url.split('?');
   const d = pageDecision(path, query, !!req.user);
@@ -72,6 +74,11 @@ const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
   // The page shell is always fetched fresh, so the sign-in check can't be skipped by a cached copy.
   reply.header('Cache-Control', 'no-cache, private');
   if (d.kind === 'redirect') return reply.redirect(d.to, 302);
+  if (d.invite) {
+    inviteHtml ??= await readFile(resolve('client/public/index.html'), 'utf8');
+    const code = new URLSearchParams(query).get('invite') ?? '';
+    return reply.type('text/html; charset=utf-8').send(inviteShell(inviteHtml, `https://roleplayretro.com/signup?invite=${encodeURIComponent(code)}`));
+  }
   return reply.sendFile(d.file);
 };
 app.get('/', servePage);
