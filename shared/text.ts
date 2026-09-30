@@ -44,7 +44,7 @@ export function checkBody(raw: string): BodyCheck {
   return { ok: true, body, length };
 }
 
-const MENTION_RE = /(^|[^A-Za-z0-9_])@([A-Za-z0-9_]{3,16})\b/g;
+const MENTION_RE = /(^|[^A-Za-z0-9_-])@([A-Za-z0-9_-]{3,16})(?![A-Za-z0-9_-])/g;
 
 /** Unique @handles in the order they appear (lower-cased). */
 export function extractMentions(body: string): string[] {

@@ -6,8 +6,8 @@ import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { AGE, HANDLE_PATTERN, PASSWORD_MIN, SAFETY, SITE_NAME, TERMS_VERSION, Trust } from '../shared/config.js';
-import { isReservedHandle } from '../shared/handles.js';
+import { AGE, NEW_HANDLE_PATTERN, PASSWORD_MIN, SAFETY, SITE_NAME, TERMS_VERSION, Trust } from '../shared/config.js';
+import { HANDLE_PROBLEM_MESSAGE, handleProblem } from './safety/handle-check.js';
 import type { LoginResult, MeDTO } from '../shared/types.js';
 import { ageOn, effectivePrefs, isUnderage } from './account.js';
 import { env } from './env.js';
@@ -142,7 +142,7 @@ export async function issueCode(userId: string, email: string): Promise<void> {
 // ---------- routes ----------
 
 const SignupBody = z.object({
-  handle: z.string().regex(HANDLE_PATTERN, '3–16 letters, digits or underscores'),
+  handle: z.string().regex(NEW_HANDLE_PATTERN, '3–16 letters, hyphens (-) or underscores (_), starting with a letter. No numbers, spaces or other symbols.'),
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(PASSWORD_MIN, `at least ${PASSWORD_MIN} characters`).max(200),
   birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a date like 2001-06-30'),
@@ -206,7 +206,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
     const born = new Date(`${body.birthdate}T00:00:00Z`);
     if (Number.isNaN(born.getTime()) || born > new Date() || ageOn(born) > 120) throw new HttpError(400, 'birthdate', 'Enter a real birthdate.');
     if (ageOn(born) < AGE.minimum) throw new HttpError(403, 'too_young', `${SITE_NAME} is for adults only. You must be ${AGE.minimum} or older to join.`);
-    if (isReservedHandle(body.handle)) throw new HttpError(409, 'handle_reserved', 'That name is reserved. Please pick another.');
+    const problem = handleProblem(body.handle);
+    if (problem) throw new HttpError(409, problem === 'reserved' ? 'handle_reserved' : 'handle_offensive', HANDLE_PROBLEM_MESSAGE[problem]);
 
     if (!(await underDailyCap(redis, `signup:${net}`, SAFETY.signupsPerNetworkPerDay))) {
       throw new HttpError(429, 'signup_cap', 'Too many new accounts from this network today. Try again tomorrow.');

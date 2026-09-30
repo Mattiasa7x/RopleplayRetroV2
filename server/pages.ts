@@ -4,7 +4,7 @@
  * except the sign-up and log-in pages themselves, the Terms of Service and the Privacy Policy.
  */
 
-const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|edit-profile|people|admin|friends|messages(\/[A-Za-z0-9_]{3,16})?|profile\/[A-Za-z0-9_]{3,16}(\/(photos|comments|trophies|friends|gifts|gift))?|profile-views|gifts|photo\/\d{1,19}|settings(\/[a-z-]+)?|login|signup|verify|mod|terms|privacy|gold-quill(\/return)?)\/?$/;
+const PAGE = /^\/(|home|rooms|room\/[a-z0-9-]+(\/manage)?|new-room|edit-profile|people|admin|friends|messages(\/[A-Za-z0-9_-]{3,16})?|profile\/[A-Za-z0-9_-]{3,16}(\/(photos|comments|trophies|friends|gifts|gift))?|profile-views|gifts|photo\/\d{1,19}|settings(\/[a-z-]+)?|login|signup|verify|mod|terms|privacy|gold-quill(\/return)?)\/?$/;
 const OPEN_PAGE = /^\/(signup|login)\/?$/;
 
 export type PageDecision =

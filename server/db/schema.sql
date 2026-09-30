@@ -854,3 +854,11 @@ CREATE TABLE IF NOT EXISTS family_tags (
   PRIMARY KEY (user_id, family_id),
   CHECK (user_id <> family_id)
 );
+
+-- Usernames may now contain hyphens (new ones: letters, - and _ only; older ones keep their digits).
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_handle_check' AND pg_get_constraintdef(oid) NOT LIKE '%\_-]%') THEN
+    ALTER TABLE users DROP CONSTRAINT users_handle_check;
+    ALTER TABLE users ADD CONSTRAINT users_handle_check CHECK (handle ~ '^[A-Za-z0-9_-]{3,16}$');
+  END IF;
+END $$;
