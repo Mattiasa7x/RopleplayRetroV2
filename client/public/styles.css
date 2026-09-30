@@ -853,3 +853,13 @@ img.avatar.quill { background-clip: border-box; }
 [data-theme="dark"] .comments.composer-below .comment-list { border-top-color: var(--pink); }
 /* The tabs' bottom rule already sits above the first comment: don't draw a second one. */
 .profile-tabs + .comments.composer-below .comment-list { border-top: 0; padding-top: 0.2rem; }
+/* Profile dividers all match the site header's bottom border (3px red; 2px red with a glow in dark). */
+:root { --rule-w: 3px; --rule-glow: none; }
+[data-theme="dark"] { --rule-w: 2px; --rule-glow: 0 0 10px rgba(255, 59, 80, 0.45); }
+.recent-photos, [data-theme="dark"] .recent-photos { border-bottom: var(--rule-w) solid var(--red); }
+.profile-tabs, [data-theme="dark"] .profile-tabs { border-top: var(--rule-w) solid var(--red); border-bottom: var(--rule-w) solid var(--red); }
+.comments.composer-below .comment-list, [data-theme="dark"] .comments.composer-below .comment-list { border-top: var(--rule-w) solid var(--red); }
+.profile-tabs + .comments.composer-below .comment-list { border-top: 0; }
+.comments .post, [data-theme="dark"] .comments .post { border-bottom: var(--rule-w) solid var(--red); }
+.comments .post:last-child { border-bottom: 0; }
+[data-theme="dark"] .recent-photos, [data-theme="dark"] .profile-tabs, [data-theme="dark"] .comments.composer-below .comment-list, [data-theme="dark"] .comments .post { box-shadow: none; }
