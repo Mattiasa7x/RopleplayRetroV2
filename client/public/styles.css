@@ -953,3 +953,7 @@ a.family-name { color: var(--red); }
 [data-theme="dark"] .family-node.me { background: var(--pink); color: var(--bg); }
 [data-theme="dark"] a.family-name { color: var(--pink); }
 .family-edit-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+/* Profile tabs (About / Character sheet / Family Tree): same red as the profile's dividers */
+.profile-tab-bar .tab, [data-theme="dark"] .profile-tab-bar .tab { border: 2px solid var(--red); }
+.profile-tab-bar .tab.active, [data-theme="dark"] .profile-tab-bar .tab.active { border-color: var(--red); }
+[data-theme="dark"] .profile-tab-bar .tab.active { background: var(--red); color: #fff; }
