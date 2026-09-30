@@ -59,7 +59,7 @@ export async function friendActivity(u: SessionUser, before: string | null): Pro
          FROM (SELECT p.user_id, ${AT('max(p.created_at)')} AS at, max(p.created_at) AS sort_at,
                       (array_agg(p.id ORDER BY p.id DESC))[1:4]::text[] AS ids, count(*) AS count
                  FROM profile_photos p
-                WHERE p.user_id = ANY($1::bigint[]) AND NOT p.is_private AND ($2::timestamptz IS NULL OR p.created_at < $2)
+                WHERE p.user_id = ANY($1::bigint[]) AND NOT p.is_private AND p.review = 'approved' AND ($2::timestamptz IS NULL OR p.created_at < $2)
                 GROUP BY p.user_id, date_trunc('day', p.created_at)
                 ORDER BY sort_at DESC LIMIT $3) g
          JOIN users u ON u.id = g.user_id

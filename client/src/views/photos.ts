@@ -1,7 +1,7 @@
 import { PROFILE } from '../../../shared/config.js';
 import type { PhotoDTO } from '../../../shared/types.js';
 import { toast } from '../core.js';
-import { apiUpload, h } from '../dom.js';
+import { ApiErr, apiUpload, h } from '../dom.js';
 
 /** Full-screen photo viewer. Tap outside or Close to dismiss. */
 export function lightbox(url: string) {
@@ -15,8 +15,9 @@ export function lightbox(url: string) {
 }
 
 /**
- * Let the member pick one or more photos and upload them one by one with progress.
- * Resolves with the photos that uploaded (failures are reported and skipped).
+ * Let the member pick one or more photos (several at once) and upload them one by one with
+ * progress. Resolves with the photos that uploaded (failures are reported and skipped; a full
+ * album stops the rest).
  */
 export function uploadPhotos(toPrivate: boolean, multiple = true): Promise<PhotoDTO[]> {
   return new Promise((resolve) => {
@@ -38,11 +39,18 @@ export function uploadPhotos(toPrivate: boolean, multiple = true): Promise<Photo
         try {
           done.push(await apiUpload<PhotoDTO>(`/api/me/photos${toPrivate ? '?private=1' : ''}`, f));
         } catch (e) {
+          if (e instanceof ApiErr && e.code === 'album_full') {
+            const left = files.length - i;
+            toast(`${e.message}${left > 1 ? ` ${left} photo${left === 1 ? '' : 's'} not uploaded.` : ''}`, true);
+            break;
+          }
           toast(`${f.name}: ${(e as Error).message}`, true);
         }
       }
       bar.remove();
-      if (done.length) toast(`${done.length} photo${done.length === 1 ? '' : 's'} added${toPrivate ? ' to your private album' : ''}.`);
+      const n = done.length;
+      const waiting = done.filter((p) => p.pending).length;
+      if (n) toast(`${n} photo${n === 1 ? '' : 's'} added${toPrivate ? ' to your private album' : ''}.${waiting ? ` ${waiting === n ? (n === 1 ? 'It' : 'They') : `${waiting} of them`} will show on your profile once approved.` : ''}`);
       resolve(done);
     });
     input.addEventListener('cancel', () => { input.remove(); resolve([]); });

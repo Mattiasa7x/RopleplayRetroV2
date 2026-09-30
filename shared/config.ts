@@ -182,16 +182,20 @@ export function characterAgeFrom(birthday: string, today = new Date()): number {
 export const PROFILE = {
   /** "About" on the profile: a character's story. */
   bioMax: 1000,
-  /** Largest photo file accepted, in bytes (phone originals are usually 2-20 MB). There's no limit on how many photos. */
+  /** Largest photo file accepted, in bytes (phone originals are usually 2-20 MB). */
   photoMaxBytes: 30 * 1024 * 1024,
   /** Any resolution is accepted up to this many pixels (250 MP covers every phone camera). */
   photoMaxInputPixels: 250_000_000,
-  /** Stored display version: longest edge in pixels (sharp on any phone or laptop screen). */
-  photoMaxEdge: 2560,
+  /** Stored display version: at most 3840 × 2160 (4K), or 2160 × 3840 for portrait photos. Larger photos are scaled down to fit. */
+  photoMaxLong: 3840,
+  photoMaxShort: 2160,
+  /** Most photos a member can keep: public photos, and photos in the private album. */
+  publicPhotoMax: 300,
+  privatePhotoMax: 50,
   /** Stored thumbnail: longest edge in pixels, used in grids and lists. */
   photoThumbEdge: 480,
   /** Anti-spam: photo uploads allowed per hour. */
-  photoUploadsPerHour: 60,
+  photoUploadsPerHour: 120,
   /** A new photo this close (bits of 64) to another member's photo is refused as a copy. */
   photoCloneDistance: 5,
   commentMax: 420,

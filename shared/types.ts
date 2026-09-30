@@ -205,11 +205,13 @@ export type FriendState = 'none' | 'friends' | 'request_sent' | 'request_receive
 
 export interface PhotoDTO {
   id: string;
-  /** Display version (up to 2560 px). */
+  /** Display version (up to 3840 × 2160). */
   url: string;
   /** Small version for grids. */
   thumb: string;
   private: boolean;
+  /** Public photo still waiting for admin approval (only its owner and the admin ever see it). */
+  pending?: boolean;
 }
 
 /** The signed-in member's own private details. Never about anyone else. */

@@ -93,7 +93,8 @@ export async function viewProfile(handle: string) {
   const photoStrip = recent.length || p.canViewAlbum
     ? h('section', { class: 'recent-photos', 'aria-label': 'Newest photos' },
         recent.length ? h('ul', { class: 'photo-strip' }, ...recent.map((ph, i) =>
-          h('li', {}, h('a', { href: `/photo/${ph.id}`, class: 'photo', 'aria-label': `Photo ${i + 1}` }, h('img', { src: ph.thumb, alt: '', loading: 'lazy' }))))) : null,
+          h('li', {}, h('a', { href: `/photo/${ph.id}`, class: `photo${ph.pending ? ' pending' : ''}`, 'aria-label': `Photo ${i + 1}${ph.pending ? ', awaiting approval' : ''}` },
+            h('img', { src: ph.thumb, alt: '', loading: 'lazy' }), ph.pending ? h('span', { class: 'pending-tag' }, 'Pending') : null)))) : null,
         h('a', { href: `/profile/${p.handle}/photos`, class: 'gallery-btn', 'aria-label': `Gallery, ${p.photos.length} photos` }, 'Gallery'))
     : null;
 

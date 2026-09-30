@@ -6,19 +6,33 @@ import type { PhotoDTO, PublicUser } from '../shared/types.js';
 import { endFriendship, prefsOf, publicUser, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
 import { slidingWindow } from './safety/limits.js';
-import { audit, db, redis } from './store.js';
+import { audit, db, redis, tx, type Tx } from './store.js';
 import { afterPhotoUpload } from './trophies.js';
 
 // Keep memory low on small servers: one image at a time, no libvips cache.
 sharp.concurrency(1);
 sharp.cache(false);
 
-export const photoDTO = (p: { id: string; is_private: boolean }): PhotoDTO => ({
+export const photoDTO = (p: { id: string; is_private: boolean; review?: string }): PhotoDTO => ({
   id: p.id,
   url: `/media/${p.id}/full`,
   thumb: `/media/${p.id}/thumb`,
   private: p.is_private,
+  ...(!p.is_private && p.review === 'pending' ? { pending: true } : {}),
 });
+
+/** How many photos a member may keep in their public photos / private album. */
+export const photoLimit = (isPrivate: boolean) => (isPrivate ? PROFILE.privatePhotoMax : PROFILE.publicPhotoMax);
+const fullMessage = (isPrivate: boolean) => isPrivate
+  ? `Your private album is full (${PROFILE.privatePhotoMax} photos). Delete one to add another.`
+  : `You have the most public photos allowed (${PROFILE.publicPhotoMax}). Delete one to add another.`;
+
+/** With the member's row locked (inside a transaction): refuse if that album is already full. */
+async function assertRoom(q: Tx, userId: string, isPrivate: boolean, adding = 1) {
+  await q.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [userId]);
+  const { rows } = await q.query<{ n: number }>('SELECT count(*)::int AS n FROM profile_photos WHERE user_id = $1 AND is_private = $2', [userId, isPrivate]);
+  if (Number(rows[0].n) + adding > photoLimit(isPrivate)) throw new HttpError(409, 'album_full', fullMessage(isPrivate));
+}
 
 // ---------------- image processing ----------------
 
@@ -33,13 +47,24 @@ export async function dHash(img: Buffer): Promise<bigint> {
 }
 
 /**
- * Any resolution in; two versions out: a sharp display copy (up to 2560 px) and a thumbnail.
- * Re-encoding fixes rotation and strips all metadata, including GPS location.
+ * Any resolution in; two versions out: a display copy no larger than 3840 × 2160 (2160 × 3840
+ * for portrait photos) and a thumbnail. Re-encoding fixes rotation and strips all metadata,
+ * including GPS location.
  */
 export async function processPhoto(input: Buffer): Promise<{ full: Buffer; thumb: Buffer; width: number; height: number }> {
   const base = () => sharp(input, { limitInputPixels: PROFILE.photoMaxInputPixels, failOn: 'none' }).rotate();
+  const meta = await sharp(input, { limitInputPixels: PROFILE.photoMaxInputPixels, failOn: 'none' }).metadata();
+  // EXIF orientations 5-8 turn the picture on its side, so width and height swap after rotating.
+  const turned = (meta.orientation ?? 1) >= 5;
+  const w = (turned ? meta.height : meta.width) ?? 1;
+  const h = (turned ? meta.width : meta.height) ?? 1;
+  const portrait = h > w;
   const fullOut = await base()
-    .resize({ width: PROFILE.photoMaxEdge, height: PROFILE.photoMaxEdge, fit: 'inside', withoutEnlargement: true })
+    .resize({
+      width: portrait ? PROFILE.photoMaxShort : PROFILE.photoMaxLong,
+      height: portrait ? PROFILE.photoMaxLong : PROFILE.photoMaxShort,
+      fit: 'inside', withoutEnlargement: true,
+    })
     .webp({ quality: 84 })
     .toBuffer({ resolveWithObject: true });
   const thumb = await sharp(fullOut.data)
@@ -95,7 +120,7 @@ export async function canViewAlbum(viewer: { id: string; trust: number }, ownerI
  * and never by or from anyone under 18. Blocks hide everything both ways. Moderators can open
  * any photo to review reports.
  */
-export async function canViewPhoto(viewer: { id: string; trust: number }, photo: { id: string; user_id: string; is_private: boolean }): Promise<boolean> {
+export async function canViewPhoto(viewer: { id: string; trust: number }, photo: { id: string; user_id: string; is_private: boolean; review?: string }): Promise<boolean> {
   if (viewer.id === photo.user_id) return true;
   if (viewer.trust >= Trust.RoomModerator) return true;
   const rel = await relation(viewer.id, photo.user_id);
@@ -104,6 +129,8 @@ export async function canViewPhoto(viewer: { id: string; trust: number }, photo:
   const { rowCount: shared } = await db.query('SELECT 1 FROM photo_shares WHERE photo_id = $1 AND recipient_id = $2', [photo.id, viewer.id]);
   if (shared) return true;
   if (photo.is_private) return canViewAlbum(viewer, photo.user_id);
+  // A public photo waiting for approval is seen only by its owner and staff.
+  if (photo.review === 'pending') return false;
   const { rows } = await db.query<UserRow>(`SELECT ${USER_COLS} FROM users u WHERE u.id = $1`, [photo.user_id]);
   if (!rows[0]) return false;
   return prefsOf(rows[0]).profileVisibility === 'everyone' || rel.friendState === 'friends';
@@ -111,8 +138,8 @@ export async function canViewPhoto(viewer: { id: string; trust: number }, photo:
 
 export async function photoRow(id: string) {
   if (!/^\d{1,19}$/.test(id)) return null;
-  const { rows } = await db.query<{ id: string; user_id: string; is_private: boolean }>(
-    'SELECT id, user_id, is_private FROM profile_photos WHERE id = $1',
+  const { rows } = await db.query<{ id: string; user_id: string; is_private: boolean; review: string }>(
+    'SELECT id, user_id, is_private, review FROM profile_photos WHERE id = $1',
     [id],
   );
   return rows[0] ?? null;
@@ -153,7 +180,10 @@ export function registerPhotoRoutes(app: FastifyInstance) {
     return reply.send(rows[0].data);
   });
 
-  /** Upload one photo. ?private=1 puts it in the private album. */
+  /**
+   * Upload one photo. ?private=1 puts it in the private album. Public photos wait for the
+   * admin's approval before anyone else sees them (the admin's own don't).
+   */
   app.post<{ Querystring: { private?: string } }>('/api/me/photos', async (req, reply) => {
     const u = requireUser(req, Trust.Verified);
     const raw = req.body as Buffer;
@@ -180,19 +210,21 @@ export function registerPhotoRoutes(app: FastifyInstance) {
       throw new HttpError(409, 'clone', "This photo matches another member's photo, so it can't be used. Please upload your own.");
     }
     const isPrivate = req.query.private === '1';
+    const review = u.trust >= Trust.Admin ? 'approved' : 'pending';
     const client = await db.connect();
     try {
       await client.query('BEGIN');
+      await assertRoom(client, u.id, isPrivate);
       const { rows } = await client.query<{ id: string }>(
-        `INSERT INTO profile_photos (user_id, dhash, position, is_private, width, height)
-         VALUES ($1, $2, COALESCE((SELECT max(position) + 1 FROM profile_photos WHERE user_id = $1), 0), $3, $4, $5) RETURNING id`,
-        [u.id, hash, isPrivate, img.width, img.height],
+        `INSERT INTO profile_photos (user_id, dhash, position, is_private, width, height, review)
+         VALUES ($1, $2, COALESCE((SELECT max(position) + 1 FROM profile_photos WHERE user_id = $1), 0), $3, $4, $5, $6) RETURNING id`,
+        [u.id, hash, isPrivate, img.width, img.height, review],
       );
       const id = rows[0].id;
       await client.query("INSERT INTO photo_blobs (photo_id, variant, mime, data) VALUES ($1, 'full', 'image/webp', $2), ($1, 'thumb', 'image/webp', $3)", [id, img.full, img.thumb]);
       await client.query('COMMIT');
       afterPhotoUpload(u.id);
-      return reply.status(201).send(photoDTO({ id, is_private: isPrivate }));
+      return reply.status(201).send(photoDTO({ id, is_private: isPrivate, review }));
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;
@@ -225,15 +257,28 @@ export function registerPhotoRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>('/api/me/photos/:id/visibility', async (req) => {
     const u = requireUser(req);
     const b = parse(VisibilityBody, req.body);
-    let rowCount: number | null;
+    let rowCount: number | null = 0;
+    let review = 'approved';
     try {
-      ({ rowCount } = await db.query('UPDATE profile_photos SET is_private = $3 WHERE id = $1 AND user_id = $2', [req.params.id, u.id, b.private]));
+      await tx(async (q) => {
+        const { rows: cur } = await q.query<{ is_private: boolean }>('SELECT is_private FROM profile_photos WHERE id = $1 AND user_id = $2', [req.params.id, u.id]);
+        if (!cur[0]) return;
+        if (cur[0].is_private !== b.private) await assertRoom(q, u.id, b.private);
+        // Going public needs the admin's approval, unless the admin already approved it once.
+        const r = await q.query<{ review: string }>(
+          `UPDATE profile_photos SET is_private = $3,
+                  review = CASE WHEN $3 OR reviewed_at IS NOT NULL OR $4 THEN review ELSE 'pending' END
+            WHERE id = $1 AND user_id = $2 RETURNING review`,
+          [req.params.id, u.id, b.private, u.trust >= Trust.Admin]);
+        rowCount = r.rowCount;
+        review = r.rows[0]?.review ?? review;
+      });
     } catch (e) {
       if (isAdultsOnlyError(e)) throw new HttpError(403, 'adults_only', ADULTS_ONLY);
       throw e;
     }
     if (!rowCount) throw new HttpError(404, 'no_photo', 'Photo not found.');
-    return { ok: true };
+    return { ok: true, pending: !b.private && review === 'pending' };
   });
 
   /** A member's private album, if the viewer may see it. */
@@ -251,8 +296,8 @@ export function registerPhotoRoutes(app: FastifyInstance) {
   /** All my photos (public and private), e.g. to pick one to share in a message. */
   app.get('/api/me/photos', async (req) => {
     const u = requireUser(req);
-    const { rows } = await db.query<{ id: string; is_private: boolean }>(
-      'SELECT id, is_private FROM profile_photos WHERE user_id = $1 ORDER BY is_private, position, id',
+    const { rows } = await db.query<{ id: string; is_private: boolean; review: string }>(
+      'SELECT id, is_private, review FROM profile_photos WHERE user_id = $1 ORDER BY is_private, position, id',
       [u.id],
     );
     return rows.map(photoDTO);

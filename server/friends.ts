@@ -46,7 +46,7 @@ export function characterAgeText(u: Pick<UserRow, 'character_birthday' | 'charac
 
 export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.prefs, u.birthdate, u.character_age, u.character_city,
   to_char(u.character_birthday, 'YYYY-MM-DD') AS character_birthday, u.character_gender, u.rp_style, u.character_sheet, u.profile_theme_id, u.profile_trophy, u.quill_until,
-  (SELECT p.id FROM profile_photos p WHERE p.user_id = u.id AND NOT p.is_private ORDER BY p.position, p.id LIMIT 1) AS avatar_id`;
+  (SELECT p.id FROM profile_photos p WHERE p.user_id = u.id AND NOT p.is_private AND p.review = 'approved' ORDER BY p.position, p.id LIMIT 1) AS avatar_id`;
 
 export function prefsOf(u: UserRow): Prefs {
   return effectivePrefs(u.prefs);

@@ -7,6 +7,7 @@ interface Flag {
   snapshot: { message?: { handle: string; body: string; room: string | null }; context?: { handle: string; body: string }[] };
   reporter: string; target: string; room: string | null; report_count: number; target_banned: boolean;
 }
+interface PendingPhoto { id: string; handle: string; created_at: string; width: number | null; height: number | null; thumb: string; url: string }
 interface Ban { id: string; handle: string; reason: string; created_at: string; blocked: number }
 
 const KIND_LABEL: Record<string, string> = {
@@ -108,19 +109,51 @@ async function bansPane(reload: () => void): Promise<HTMLElement> {
         : h('p', { class: 'muted' }, 'Nobody is banned.')));
 }
 
+/** New public photos waiting for approval, oldest first. Private-album photos never come here. */
+async function photosPane(reload: () => void): Promise<HTMLElement> {
+  const d = await api<{ total: number; photos: PendingPhoto[] }>('/api/admin/photos');
+  if (!d.photos.length) return card(null, h('p', { class: 'muted' }, 'No photos waiting for approval.'));
+  const decide = async (action: 'approve' | 'deny', ids: string[]) => {
+    const r = await api<{ approved?: number; denied?: number }>(`/api/admin/photos/${action}`, { body: { ids } });
+    const n = r.approved ?? r.denied ?? 0;
+    toast(`${n} photo${n === 1 ? '' : 's'} ${action === 'approve' ? 'approved' : 'denied and removed'}.`);
+  };
+  const tile = (ph: PendingPhoto) => {
+    const li = h('li', { class: 'review-tile' },
+      h('a', { href: ph.url, target: '_blank', rel: 'noopener', class: 'photo', 'aria-label': `Open ${ph.handle}'s photo full size` },
+        h('img', { src: ph.thumb, alt: '', loading: 'lazy' })),
+      h('p', { class: 'small review-meta' }, h('a', { href: `/profile/${ph.handle}` }, h('strong', {}, ph.handle)),
+        h('span', { class: 'muted' }, ` · ${timeAgo(ph.created_at)}${ph.width ? ` · ${ph.width}×${ph.height}` : ''}`)),
+      h('div', { class: 'review-actions' },
+        h('button', { type: 'button', class: 'primary', onclick: (async () => {
+          try { await decide('approve', [ph.id]); li.remove(); } catch (e) { toast((e as Error).message, true); }
+        }) as EventListener }, 'Approve'),
+        twoStep('Deny', 'Tap again', 'danger', async () => { await decide('deny', [ph.id]); li.remove(); })));
+    return li;
+  };
+  return h('div', { class: 'stack' },
+    h('div', { class: 'row wrap review-head' },
+      h('p', { class: 'muted small' }, `${d.total} waiting${d.total > d.photos.length ? ` · showing the oldest ${d.photos.length}` : ''}. Tap a photo to see it full size. Denied photos are deleted.`),
+      twoStep(`Approve all ${d.photos.length}`, 'Tap again to approve all', 'quiet', async () => { await decide('approve', d.photos.map((p) => p.id)); reload(); })),
+    h('ul', { class: 'review-grid' }, ...d.photos.map(tile)));
+}
+
 /** The admin's page: flagged content first, then bans. Only the site owner's account sees it. */
 export async function viewAdmin() {
   if ((state.me?.trust ?? 0) < Trust.Admin) {
     page('Admin', h('p', { class: 'notice' }, 'This page is for the site admin.'));
     return;
   }
-  const tab = new URLSearchParams(location.search).get('tab') === 'bans' ? 'bans' : 'flagged';
+  const want = new URLSearchParams(location.search).get('tab');
+  const tab = want === 'bans' || want === 'photos' ? want : 'flagged';
   const reload = () => void viewAdmin();
   page('Admin', h('p', { class: 'muted' }, 'Loading…'));
-  const body = tab === 'bans' ? await bansPane(reload) : await flaggedPane(reload);
+  const body = tab === 'bans' ? await bansPane(reload) : tab === 'photos' ? await photosPane(reload) : await flaggedPane(reload);
   const tabBtn = (id: string, label: string) => h('a', { href: `/admin?tab=${id}`, class: `button ${tab === id ? 'primary' : 'quiet'}` }, label);
   page('Admin',
-    h('div', { class: 'row admin-tabs' }, tabBtn('flagged', 'Flagged'), tabBtn('bans', 'Bans')),
-    h('p', { class: 'muted small' }, 'For what auto-moderation misses. You only see flagged content; private messages stay private unless reported.'),
+    h('div', { class: 'row admin-tabs' }, tabBtn('flagged', 'Flagged'), tabBtn('photos', 'Photos'), tabBtn('bans', 'Bans')),
+    h('p', { class: 'muted small' }, tab === 'photos'
+      ? 'New public photos wait here for approval. Private-album photos are never reviewed.'
+      : 'You see flagged content and new public photos. Private messages and albums stay private unless reported.'),
     body);
 }

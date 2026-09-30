@@ -238,4 +238,57 @@ export function registerAdminRoutes(app: FastifyInstance, io: IO) {
     await loadBlocks();
     return { ok: true };
   });
+
+  // ---------------- photo approval (public photos only) ----------------
+  // Private-album photos are never listed here: review applies only while a photo is public.
+
+  /** Public photos waiting for approval, oldest first. */
+  app.get('/api/admin/photos', async (req) => {
+    requireUser(req, Trust.Admin);
+    const [{ rows }, { rows: n }] = await Promise.all([
+      db.query<{ id: string; handle: string; created_at: Date; width: number | null; height: number | null }>(
+        `SELECT p.id::text AS id, u.handle, p.created_at, p.width, p.height
+           FROM profile_photos p JOIN users u ON u.id = p.user_id
+          WHERE p.review = 'pending' AND NOT p.is_private
+          ORDER BY p.created_at, p.id LIMIT 60`),
+      db.query<{ n: number }>("SELECT count(*)::int AS n FROM profile_photos WHERE review = 'pending' AND NOT is_private"),
+    ]);
+    return { total: n[0].n, photos: rows.map((r) => ({ ...r, thumb: `/media/${r.id}/thumb`, url: `/media/${r.id}/full` })) };
+  });
+
+  const PhotoIds = z.object({ ids: z.array(z.string().regex(/^\d{1,19}$/)).min(1).max(60) });
+  const tellOwners = (owners: string[], message: string) => {
+    for (const id of new Set(owners)) io.to(rooms.user(id)).emit('notice', { message });
+  };
+
+  /** Approve one or more pending public photos: they appear on the member's profile. */
+  app.post('/api/admin/photos/approve', async (req) => {
+    const u = requireUser(req, Trust.Admin);
+    const { ids } = parse(PhotoIds, req.body);
+    const owners = await tx(async (q) => {
+      const { rows } = await q.query<{ id: string; user_id: string }>(
+        `UPDATE profile_photos SET review = 'approved', reviewed_at = now(), reviewed_by = $2
+          WHERE id = ANY($1::bigint[]) AND review = 'pending' AND NOT is_private
+          RETURNING id::text AS id, user_id::text AS user_id`, [ids, u.id]);
+      for (const r of rows) await audit(q, u.id, 'photo_approved', 'photo', r.id, { owner: r.user_id });
+      return rows.map((r) => r.user_id);
+    });
+    tellOwners(owners, 'Your new photo was approved and is now on your profile.');
+    return { ok: true, approved: owners.length };
+  });
+
+  /** Deny pending public photos: they're deleted and the member is told. */
+  app.post('/api/admin/photos/deny', async (req) => {
+    const u = requireUser(req, Trust.Admin);
+    const { ids } = parse(PhotoIds, req.body);
+    const owners = await tx(async (q) => {
+      const { rows } = await q.query<{ id: string; user_id: string }>(
+        `DELETE FROM profile_photos WHERE id = ANY($1::bigint[]) AND review = 'pending' AND NOT is_private
+          RETURNING id::text AS id, user_id::text AS user_id`, [ids]);
+      for (const r of rows) await audit(q, u.id, 'photo_denied', 'photo', r.id, { owner: r.user_id });
+      return rows.map((r) => r.user_id);
+    });
+    tellOwners(owners, "A photo you uploaded wasn't approved, so it was removed. Photos must follow the Terms of Service.");
+    return { ok: true, denied: owners.length };
+  });
 }

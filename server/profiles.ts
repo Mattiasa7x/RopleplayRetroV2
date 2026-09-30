@@ -105,8 +105,11 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     const t = a.target;
     const [{ rows: photos }, { rows: fc }, albumOk] = await Promise.all([
       a.visible
-        ? db.query<{ id: string; is_private: boolean }>('SELECT id, is_private FROM profile_photos WHERE user_id = $1 AND NOT is_private ORDER BY position, id', [t.id])
-        : Promise.resolve({ rows: [] as { id: string; is_private: boolean }[] }),
+        // Photos waiting for approval show only on your own profile.
+        ? db.query<{ id: string; is_private: boolean; review: string }>(
+            "SELECT id, is_private, review FROM profile_photos WHERE user_id = $1 AND NOT is_private AND (review = 'approved' OR $2) ORDER BY position, id",
+            [t.id, t.id === u.id])
+        : Promise.resolve({ rows: [] as { id: string; is_private: boolean; review: string }[] }),
       db.query<{ n: string }>("SELECT count(*) AS n FROM friendships WHERE (user_a = $1 OR user_b = $1) AND status = 'accepted'", [t.id]),
       a.visible ? canViewAlbum(u, t.id) : Promise.resolve(false),
     ]);

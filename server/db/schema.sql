@@ -803,3 +803,15 @@ DO $$ BEGIN
     ALTER TABLE users ADD CONSTRAINT users_character_city_len CHECK (character_city IS NULL OR char_length(character_city) BETWEEN 1 AND 75);
   END IF;
 END $$;
+
+-- Public photos are checked by the admin before anyone else sees them. Private-album photos are
+-- never reviewed (review only matters while a photo is public). Denied photos are deleted.
+ALTER TABLE profile_photos ADD COLUMN IF NOT EXISTS review TEXT NOT NULL DEFAULT 'approved';
+ALTER TABLE profile_photos ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE profile_photos ADD COLUMN IF NOT EXISTS reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profile_photos_review') THEN
+    ALTER TABLE profile_photos ADD CONSTRAINT profile_photos_review CHECK (review IN ('pending', 'approved'));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS profile_photos_pending ON profile_photos (created_at) WHERE review = 'pending' AND NOT is_private;
