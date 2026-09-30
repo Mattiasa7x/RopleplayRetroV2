@@ -72,9 +72,13 @@ function bannedPage(ban: { reason: string; expiresAt: Date | null }): string {
  * signed-in member is using (at most hourly) so a ban can include it.
  */
 export async function blockAndRecord(req: FastifyRequest, reply: FastifyReply) {
-  const ban = blockFor(req);
+  // The site owner is never locked out (e.g. after banning a test account used on the same
+  // phone or Wi-Fi); the sign-in page and its API stay open so they can always get back in.
+  // A banned account still can't sign in there (the ban is checked at sign-in).
+  const path = req.url.split('?')[0];
+  const ban = req.user && req.user.trust >= Trust.Admin ? null
+    : /^\/(login|api\/login(\/2fa)?|api\/me)\/?$/.test(path) ? null : blockFor(req);
   if (ban) {
-    const path = req.url.split('?')[0];
     if (path.startsWith('/api/') || path.startsWith('/socket.io')) {
       return reply.status(403).send({ error: 'banned', message: banMessage(ban) });
     }
