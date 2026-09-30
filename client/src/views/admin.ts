@@ -55,7 +55,7 @@ function banForm(handle: string, done: () => void): HTMLElement {
 
 async function flaggedPane(reload: () => void): Promise<HTMLElement> {
   const flags = await api<Flag[]>('/api/admin/flagged');
-  if (!flags.length) return card(null, h('p', { class: 'muted' }, 'Nothing flagged right now. Automatic moderation is keeping up.'));
+  if (!flags.length) return card(null, h('p', { class: 'muted' }, 'Nothing flagged right now.'));
   return h('div', { class: 'stack' }, ...flags.map((f) => {
     const msg = f.snapshot.message;
     const banSlot = h('div', {});
@@ -121,6 +121,6 @@ export async function viewAdmin() {
   const tabBtn = (id: string, label: string) => h('a', { href: `/admin?tab=${id}`, class: `button ${tab === id ? 'primary' : 'quiet'}` }, label);
   page('Admin',
     h('div', { class: 'row admin-tabs' }, tabBtn('flagged', 'Flagged'), tabBtn('bans', 'Bans')),
-    h('p', { class: 'muted small' }, 'For when automatic moderation misses something. You only see what members flag; private messages stay private unless one is reported to you.'),
+    h('p', { class: 'muted small' }, 'For what auto-moderation misses. You only see flagged content; private messages stay private unless reported.'),
     body);
 }

@@ -799,3 +799,11 @@ img.avatar.quill { background-clip: border-box; }
 .receipt { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
 .profile-id .avatar.lg.quill, [data-theme="dark"] .profile-id .avatar.lg.quill, .content.themed .profile-id .avatar.lg.quill {
   border: 5px solid transparent; box-shadow: 0 0 0 3px var(--bg), 0 0 20px rgba(212, 160, 23, 0.65); }
+.quill-banner { display: flex; align-items: center; gap: 0.7rem; padding: 0.65rem 0.85rem; border-radius: 14px; text-decoration: none; color: #2b1d00;
+  background: linear-gradient(120deg, #fff4cc, #f6d67a 55%, #e9b93a); border: 2px solid var(--gold-b); box-shadow: 0 2px 10px rgba(212, 160, 23, 0.35); }
+.quill-banner:hover { filter: brightness(1.04); }
+.quill-banner-icon { font-size: 1.6rem; width: 2.4rem; height: 2.4rem; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, 0.6); flex: none; }
+.quill-banner-text { display: flex; flex-direction: column; line-height: 1.25; font-size: 0.85rem; flex: 1; }
+.quill-banner-text strong { font-size: 1rem; }
+.quill-banner-go { font-size: 1.6rem; font-weight: 800; }
+[data-theme="dark"] .quill-banner { color: #2b1d00; box-shadow: 0 0 14px rgba(212, 160, 23, 0.5); }

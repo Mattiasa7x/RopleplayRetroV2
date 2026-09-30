@@ -65,7 +65,7 @@ function regionalPane(list: RoomSummary[]): HTMLElement {
         ...[...subs].map(([sub, rs]) => section(sub, rs, true))));
   };
   return h('div', { class: 'regions' },
-    h('p', { class: 'muted small' }, 'Chat with people from your part of the world. Tap a region to see its rooms.'),
+    h('p', { class: 'muted small' }, 'Tap a region to see its rooms.'),
     ...[...groups].map(([name, rooms]) => section(name, rooms)));
 }
 
@@ -92,7 +92,7 @@ export async function viewRooms() {
     ? h('div', { class: 'stack' },
         member.length ? tiles(member) : h('p', { class: 'muted' }, 'No member realms yet. Start one!'),
         h('a', { href: '/new-room', class: 'button primary wide' }, '+ Create a room'))
-    : h('p', { class: 'muted' }, 'Member realms are made and run by verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.'), member]);
+    : h('p', { class: 'muted' }, 'Member realms are for verified members. ', h('a', { href: '/verify' }, 'Confirm your email'), ' to see, join and create them.'), member]);
 
   const wanted = new URLSearchParams(location.search).get('tab');
   // Every theme is visible at once as a list of buttons: nothing hidden off to the side.
@@ -119,10 +119,10 @@ export async function viewRooms() {
   const bar = h('div', { class: 'theme-list', role: 'tablist', 'aria-label': 'Room themes' }, ...buttons);
 
   page('Rooms',
-    !verified ? h('p', { class: 'notice' }, 'Until you confirm your email you can read every site room and chat in Newcomers and Help Desk. ', h('a', { href: '/verify' }, 'Enter code')) : null,
+    !verified ? h('p', { class: 'notice' }, 'Confirm your email to chat everywhere. ', h('a', { href: '/verify' }, 'Enter code')) : null,
     bar,
     ...panes,
-    h('p', { class: 'muted small center' }, 'Site rooms are strictly auto-moderated: no links, and repeated rule-breaking earns an automatic mute.'));
+    h('p', { class: 'muted small center' }, 'Site rooms are auto-moderated: no links, repeat offenders are muted.'));
   const start = tabs.some(([id]) => id === wanted) ? wanted! : tabs[0][0];
   show(start);
 }
@@ -167,7 +167,7 @@ async function imagePicker(current: number | null): Promise<{ el: HTMLElement; v
   paint();
   const el = h('div', { class: 'field' },
     h('span', {}, 'Room picture'),
-    pool.length ? pagedGrid(buttons, { className: 'picker', label: 'Room pictures', startIndex: Math.max(0, buttons.findIndex((b) => Number(b.dataset.id) === (current ?? 0))) }) : h('p', { class: 'muted small' }, 'Pictures are still loading on the server. You can pick one later from Manage.'),
+    pool.length ? pagedGrid(buttons, { className: 'picker', label: 'Room pictures', startIndex: Math.max(0, buttons.findIndex((b) => Number(b.dataset.id) === (current ?? 0))) }) : h('p', { class: 'muted small' }, 'Pictures are still loading. Pick one later in Manage.'),
     pool.length ? h('span', { class: 'muted small' }, 'Photos from Unsplash, free to use.') : null);
   return { el, value: () => chosen };
 }
@@ -183,13 +183,13 @@ export async function viewNewRoom() {
   const picker = await imagePicker(null);
   page('New room',
     card(null,
-      h('p', { class: 'muted small' }, `You can own up to ${MEMBER_ROOMS.maxOwnedPerUser} rooms. Only verified members can find or enter member rooms.`),
+      h('p', { class: 'muted small' }, `Up to ${MEMBER_ROOMS.maxOwnedPerUser} rooms. Only verified members can see member rooms.`),
       form([
         field('Room name', 'name', 'text', { minlength: MEMBER_ROOMS.nameMin, maxlength: MEMBER_ROOMS.nameMax }),
         field('Description (optional)', 'description', 'text', { maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
         checkbox('Invite-only: only people on my list can see and enter', 'whitelistOnly'),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'chatFilter', checked: true }),
-      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on still sees them masked)."))),
+      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: swear words can't be sent here."))),
         picker.el,
       ], 'Create room', async (d) => {
         const room = await api<RoomDetail>('/api/rooms', {
@@ -223,14 +223,14 @@ export async function viewManage(slug: string) {
     site
       ? field('Room name', 'name', 'text', { value: room.name, minlength: MEMBER_ROOMS.nameMin, maxlength: MEMBER_ROOMS.nameMax })
       : h('div', { class: 'setting locked-row' },
-          h('div', {}, h('span', { class: 'setting-label' }, 'Room name'), h('span', { class: 'muted small block' }, "Set when the room was made; it can't be changed.")),
+          h('div', {}, h('span', { class: 'setting-label' }, 'Room name'), h('span', { class: 'muted small block' }, "Can't be changed.")),
           h('div', { class: 'locked-value' }, h('span', {}, room.name), h('span', { class: 'tag' }, 'Locked'))),
     field('Description', 'description', 'text', { value: room.description ?? '', maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
     site ? null : checkbox('Invite-only (people not on the list are removed right away)', 'whitelistOnly', room.whitelistOnly),
     site ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'chatFilter', checked: room.chatFilter }),
-      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: messages with swear words can't be sent in this room. Off: they're allowed (anyone with their own filter on still sees them masked)."))),
+      h('span', {}, h('strong', {}, 'Chat filter'), h('span', { class: 'muted small block' }, "On: swear words can't be sent here."))),
     site ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'readOnly', checked: room.readOnly }),
-      h('span', {}, h('strong', {}, 'Read-only'), h('span', { class: 'muted small block' }, 'Only you and the people you allow can chat; everyone else can read. Anyone who comes in starts read-only. Pick who can speak from the People list in the room. Turning this on or off clears everyone\'s voice.'))),
+      h('span', {}, h('strong', {}, 'Read-only'), h('span', { class: 'muted small block' }, 'Only you and people you allow can chat. Pick them in the room\'s People list.'))),
     h('label', { class: 'field' }, h('span', {}, 'Slow mode'),
       h('select', { name: 'slow' }, ...[0, 5, 10, 30, 60].map((s) => h('option', { value: s, selected: s === room.slowModeSeconds }, s ? `One message every ${s} seconds` : 'Off')))),
     picker.el,
@@ -249,7 +249,7 @@ export async function viewManage(slug: string) {
         h('button', { type: 'button', class: 'quiet', onclick: (async () => {
           try { await api(`${path}/whitelist/${encodeURIComponent(handle)}`, { method: 'DELETE' }); reload(); } catch (e) { toast((e as Error).message, true); }
         }) as EventListener }, 'Remove')))
-    : [h('li', { class: 'muted' }, 'Nobody yet. You always have access as the owner.')]));
+    : [h('li', { class: 'muted' }, 'Nobody yet.')]));
 
   const add = form([field('Add a verified member by name', 'handle', 'text', { maxlength: 16, autocapitalize: 'off' })], 'Add to list', async (d, err) => {
     try { await api(`${path}/whitelist/${encodeURIComponent(String(d.get('handle')).trim())}`, { method: 'PUT', body: {} }); reload(); }
@@ -285,14 +285,14 @@ export async function viewManage(slug: string) {
     card('Room settings', settings),
     site ? null : card(`Room team (${team.length})`,
       h('ul', { class: 'team-help' },
-        h('li', {}, h('span', { class: 'role-badge owner' }, 'Owner'), ' You. Nobody on your team can kick, mute or ban you here.'),
-        h('li', {}, h('span', { class: 'role-badge moderator' }, 'Mod'), ' Can kick, mute and ban anyone here except you.'),
-        h('li', {}, h('span', { class: 'role-badge operator' }, 'Op'), ' Can kick, mute and ban regular members only.')),
-      h('p', { class: 'muted small' }, 'Badges show beside their names in this room only. Only you can change the team. RoleplayRetro staff can step in anywhere.'),
+        h('li', {}, h('span', { class: 'role-badge owner' }, 'Owner'), ' You. Your team can\'t act on you.'),
+        h('li', {}, h('span', { class: 'role-badge moderator' }, 'Mod'), ' Kick, mute or ban anyone but you.'),
+        h('li', {}, h('span', { class: 'role-badge operator' }, 'Op'), ' Kick, mute or ban regular members.')),
+      h('p', { class: 'muted small' }, 'Badges show in this room only.'),
       teamList, addTeam),
     site ? null : await bansCard(path, reload),
     site ? null : card(`Invite list (${room.whitelist?.length ?? 0})`,
-      h('p', { class: 'muted small' }, room.whitelistOnly ? 'Only these members (and you) can see and enter this room.' : 'The room is open to all verified members; the list applies once invite-only is on.'),
+      h('p', { class: 'muted small' }, room.whitelistOnly ? 'Only these members and you can enter.' : 'Applies when invite-only is on.'),
       list, add),
     site ? null : card('Delete room',
       h('button', { type: 'button', class: 'danger wide', onclick: (async () => {

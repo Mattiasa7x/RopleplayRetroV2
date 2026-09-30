@@ -5,6 +5,7 @@ import { avatar, card, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
 import { lightbox } from './photos.js';
 import { onlineCard } from './online.js';
+import { meIsQuill } from './quill.js';
 import { roomTile } from './rooms.js';
 
 export async function reportContent(kind: 'status' | 'comment' | 'photo' | 'profile' | 'dm' | 'photo_comment' | 'gift', id?: string, handle?: string) {
@@ -106,7 +107,7 @@ export async function viewHome() {
   const fill = (items: ActivityDTO[]) => {
     for (const a of items) feed.append(activityItem(a));
     if (!feed.children.length) {
-      feed.append(h('li', { class: 'muted empty' }, 'No friend activity yet. ', h('a', { href: '/friends' }, 'Find friends'), ' and their statuses, comments, new photos and profile updates will show up here.'));
+      feed.append(h('li', { class: 'muted empty' }, 'No friend activity yet. ', h('a', { href: '/friends' }, 'Find friends'), ' to see their updates here.'));
     }
     moreBtn.hidden = !data.olderCursor;
   };
@@ -126,7 +127,11 @@ export async function viewHome() {
     : h('p', { class: 'muted' }, h('a', { href: '/rooms' }, 'Browse rooms'));
 
   page('Home',
-    !me.emailVerified ? h('p', { class: 'notice' }, 'Confirm your email to unlock every room, member rooms and posting. ', h('a', { href: '/verify' }, 'Enter code')) : null,
+    meIsQuill() ? null : h('a', { href: '/gold-quill', class: 'quill-banner' },
+      h('span', { class: 'quill-banner-icon', 'aria-hidden': 'true' }, '🪶'),
+      h('span', { class: 'quill-banner-text' }, h('strong', {}, 'Go Gold Quill'), h('span', {}, 'Profile Views, 50 exclusive gifts, gold ring & more. From $0.99.')),
+      h('span', { class: 'quill-banner-go', 'aria-hidden': 'true' }, '›')),
+    !me.emailVerified ? h('p', { class: 'notice' }, 'Confirm your email to unlock everything. ', h('a', { href: '/verify' }, 'Enter code')) : null,
     data.pendingRequests ? h('p', { class: 'notice' }, h('a', { href: '/friends' }, `You have ${data.pendingRequests} friend request${data.pendingRequests === 1 ? '' : 's'}`)) : null,
     card('Your status', latest, post),
     card('Friend activity', feed, moreBtn),

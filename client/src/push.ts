@@ -33,7 +33,7 @@ export async function deviceSubscribed(): Promise<boolean> {
 export async function enablePush(): Promise<void> {
   if (!pushSupported()) throw new Error("This browser can't show notifications from websites.");
   const perm = await Notification.requestPermission();
-  if (perm !== 'granted') throw new Error('Notifications are blocked for this site. Allow them in your browser settings, then try again.');
+  if (perm !== 'granted') throw new Error('Notifications are blocked. Allow them in your browser settings.');
   const reg = await registration();
   const { key } = await api<{ key: string }>('/api/push/key');
   const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) }));

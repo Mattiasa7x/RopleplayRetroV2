@@ -31,7 +31,7 @@ export async function photoSection(p: ProfileDTO, opts: { manage: boolean; reloa
   const publicPane = h('div', { role: 'tabpanel' },
     p.photos.length ? photoGrid(p.photos, false) : h('p', { class: 'muted' }, 'No photos yet.'),
     manage ? h('button', { type: 'button', class: 'primary wide', onclick: (async () => { if ((await uploadPhotos(false)).length) reload(); }) as EventListener }, '+ Add photos') : null,
-    manage ? h('p', { class: 'muted small' }, 'Any size, as many as you like. Location data is removed automatically, and photos copied from another member are refused.') : null);
+    manage ? h('p', { class: 'muted small' }, 'Location data is removed. Copies of other members\' photos are refused.') : null);
 
   let albumPane: HTMLElement | null = null;
   // Your own album is managed on Edit profile; on your profile page you see what visitors see.
@@ -41,7 +41,7 @@ export async function photoSection(p: ProfileDTO, opts: { manage: boolean; reloa
       const photos = await api<PhotoDTO[]>(`/api/profiles/${encodeURIComponent(p.handle)}/album`);
       const parts: (Node | null)[] = [
         h('p', { class: 'muted small' }, self
-          ? 'Only you, friends you give access to below, and people you share a photo with in Messages can see these.'
+          ? 'Only you, friends you allow below, and people you share with can see these.'
           : `${p.handle} gave you access to their private album. Please keep it private.`),
         photos.length ? photoGrid(photos, true) : h('p', { class: 'muted' }, 'No private photos yet.'),
       ];
@@ -63,7 +63,7 @@ export async function photoSection(p: ProfileDTO, opts: { manage: boolean; reloa
                 if (!select.value) throw new Error('Choose a friend first.');
                 await api(`/api/me/album-access/${select.value}`, { method: 'PUT', body: {} });
               }, 'Access given.')))
-            : h('p', { class: 'muted small' }, 'Add friends first: album access is for friends only.'));
+            : h('p', { class: 'muted small' }, 'Album access is for friends only.'));
       }
       albumPane!.replaceChildren(...(parts.filter(Boolean) as Node[]));
     };

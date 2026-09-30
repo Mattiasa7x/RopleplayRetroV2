@@ -22,7 +22,7 @@ export async function viewInbox() {
             h('span', { class: 'inbox-meta' },
               h('span', { class: 'muted small' }, timeAgo(c.lastAt)),
               c.unread ? h('span', { class: 'badge' }, String(c.unread)) : null))))
-        : h('p', { class: 'muted' }, 'No messages yet. You can message any friend from their profile or your friends list.')),
+        : h('p', { class: 'muted' }, 'No messages yet. Message a friend from their profile.')),
     h('a', { href: '/friends', class: 'button quiet wide' }, 'Start a conversation from Friends'));
 }
 
@@ -63,7 +63,7 @@ async function pickPhoto(): Promise<PhotoDTO | null> {
     const priv = mine.filter((p) => p.private);
     const parts: (Node | null)[] = [
       h('h2', {}, 'Share a photo'),
-      h('p', { class: 'muted small' }, 'Private-album photos are shared with this friend only, one photo at a time.'),
+      h('p', { class: 'muted small' }, 'Private photos are shared with this friend only.'),
       pub.length ? h('h3', {}, 'My photos') : null, pub.length ? grid(pub) : null,
       priv.length ? h('h3', {}, '🔒 Private album') : null, priv.length ? grid(priv) : null,
       !mine.length ? h('p', { class: 'muted' }, 'You have no photos yet.') : null,

@@ -36,7 +36,7 @@ export async function viewFriends() {
     card(`Friends (${d.friends.length})`,
       d.friends.length
         ? h('ul', { class: 'people' }, ...d.friends.map((u) => person(u, h('a', { href: `/messages/${u.handle}`, class: 'button quiet', 'aria-label': `Message ${u.handle}` }, '✉'))))
-        : h('p', { class: 'muted' }, 'No friends yet. Tap a name in any room to view their profile and add them.'),
+        : h('p', { class: 'muted' }, 'No friends yet. Tap a name in any room to add them.'),
       add),
     d.outgoing.length ? card('Sent requests', h('ul', { class: 'people' }, ...d.outgoing.map((u) => person(u,
       act('Cancel', 'quiet', () => api(`/api/friends/${u.handle}`, { method: 'DELETE' }))))) ) : null);

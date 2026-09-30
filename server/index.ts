@@ -1,4 +1,5 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
@@ -68,6 +69,26 @@ await app.register(fastifyStatic, { root: resolve('client/public'), index: false
 
 // Every page is a real address (/home, /rooms, /room/tavern, /profile/John, /settings...);
 // see server/pages.ts for which pages a visitor without an account may open.
+/**
+ * The app's code and styles are linked with a version (a hash of their contents), so every deploy
+ * makes browsers, and phones' home-screen apps, fetch the new ones instead of a cached old copy.
+ */
+const assetVersion = (() => {
+  const h = createHash('sha1');
+  for (const f of ['client/public/app.js', 'client/public/styles.css']) {
+    try { h.update(readFileSync(resolve(f))); } catch { /* not built (tests) */ }
+  }
+  return h.digest('hex').slice(0, 10);
+})();
+const versioned = (html: string) => html
+  .replace('href="/styles.css"', `href="/styles.css?v=${assetVersion}"`)
+  .replace('src="/app.js"', `src="/app.js?v=${assetVersion}"`);
+const shells = new Map<string, string>();
+const shell = async (file: string) => {
+  let html = shells.get(file);
+  if (!html) { html = versioned(await readFile(resolve('client/public', file), 'utf8')); shells.set(file, html); }
+  return html;
+};
 let inviteHtml: string | undefined;
 const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
   const [path, query = ''] = req.url.split('?');
@@ -77,10 +98,11 @@ const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
   reply.header('Cache-Control', 'no-cache, private');
   if (d.kind === 'redirect') return reply.redirect(d.to, 302);
   if (d.invite) {
-    inviteHtml ??= await readFile(resolve('client/public/index.html'), 'utf8');
+    inviteHtml ??= await shell('index.html');
     const code = new URLSearchParams(query).get('invite') ?? '';
     return reply.type('text/html; charset=utf-8').send(inviteShell(inviteHtml, `https://roleplayretro.com/signup?invite=${encodeURIComponent(code)}`));
   }
+  if (d.file === 'index.html' || d.file === 'mod.html') return reply.type('text/html; charset=utf-8').send(await shell(d.file));
   return reply.sendFile(d.file);
 };
 app.get('/', servePage);

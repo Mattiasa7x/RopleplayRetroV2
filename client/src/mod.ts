@@ -87,7 +87,7 @@ async function viewUser(handle: string) {
 async function viewReview() {
   const rows = await api<{ handle: string; created_at: string; message_count: number; matched_handle: string | null }[]>('/api/mod/review');
   mount(main, h('h2', {}, 'Ban-evasion review'),
-    h('p', { class: 'small' }, 'These accounts share device or network signals with a banned account. New ones are shadow-muted until you decide.'),
+    h('p', { class: 'small' }, 'These accounts match a banned account\'s device or network. New ones stay shadow-muted until you decide.'),
     ...(rows.length ? rows.map((r) => h('article', { class: 'card' },
       h('p', {}, h('strong', {}, r.handle), ` · joined ${new Date(r.created_at).toLocaleString()} · ${r.message_count} messages · matches ${r.matched_handle ?? 'a banned account'}`),
       h('div', { class: 'row' },

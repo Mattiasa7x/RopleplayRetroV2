@@ -48,7 +48,7 @@ function passCards(st: QuillStatusDTO): HTMLElement {
 }
 
 const statusLine = (st: QuillStatusDTO) => st.active && st.until
-  ? h('p', { class: 'quill-status on' }, '🪶 Active until ', h('strong', {}, when(st.until)), ` (${timeLeft(st.until)}). Buying another pass adds its time on top.`)
+  ? h('p', { class: 'quill-status on' }, '🪶 Active until ', h('strong', {}, when(st.until)), ` (${timeLeft(st.until)}). More passes add time.`)
   : h('p', { class: 'quill-status' }, st.until ? `Your last pass ended ${when(st.until)}.` : `You don't have a ${QUILL_NAME} pass yet.`);
 
 /** /gold-quill: what it is, and the three passes. */
@@ -57,19 +57,19 @@ export async function viewGoldQuill() {
   const st = await api<QuillStatusDTO>('/api/quill');
   const q = new URLSearchParams(location.search);
   page(QUILL_NAME,
-    q.get('from') === 'views' ? h('p', { class: 'notice' }, `👁️ Profile Views are a ${QUILL_NAME} perk. Get a pass to see who visited your profile.`) : null,
+    q.get('from') === 'views' ? h('p', { class: 'notice' }, `👁️ Views are a ${QUILL_NAME} perk.`) : null,
     q.get('cancelled') ? h('p', { class: 'notice' }, "Checkout cancelled. You haven't been charged.") : null,
     h('section', { class: 'card quill-hero' },
       h('div', { class: 'quill-ring-demo', 'aria-hidden': 'true' }, '🪶'),
       h('h1', {}, QUILL_NAME),
-      h('p', {}, 'Support RoleplayRetro and unlock a little extra. One-time passes through PayPal: nothing renews automatically.'),
+      h('p', {}, 'Support RoleplayRetro and unlock extras. One-time passes; nothing auto-renews.'),
       statusLine(st)),
     card('What you get', h('ul', { class: 'quill-perks' }, ...QUILL_PERKS.map((p) =>
       h('li', {}, h('span', { class: 'quill-perk-icon', 'aria-hidden': 'true' }, p.icon), h('span', {}, h('strong', {}, p.title), h('span', { class: 'muted small block' }, p.text)))))),
     card('Choose a pass', passCards(st),
-      h('p', { class: 'muted small' }, 'Prices in US dollars. You pay on PayPal’s site (PayPal balance or card); RoleplayRetro never sees your payment details. Passes are one-time purchases and don’t renew. ',
+      h('p', { class: 'muted small' }, 'US dollars, paid on PayPal. We never see your payment details. ',
         h('a', { href: '/terms#passes', target: '_blank', rel: 'noopener' }, 'Pass terms'), '.'),
-      st.sandbox && st.available ? h('p', { class: 'notice small' }, '🧪 Test mode: payments use PayPal sandbox accounts, not real money.') : null));
+      st.sandbox && st.available ? h('p', { class: 'notice small' }, '🧪 Test mode: no real money.') : null));
 }
 
 /** Back from PayPal: finish the purchase. */
@@ -99,7 +99,7 @@ export async function viewQuillReturn() {
     }
   } catch (e) {
     page(QUILL_NAME, card(null, h('p', { class: 'notice error' }, (e as Error).message),
-      h('p', { class: 'muted small' }, 'If you were charged, your pass will show in Settings › Subscriptions; you can check again there.'),
+      h('p', { class: 'muted small' }, 'If you were charged, check Settings › Subscriptions.'),
       h('a', { href: '/settings?tab=subscriptions', class: 'button quiet wide' }, 'Settings › Subscriptions')));
   }
 }
@@ -128,8 +128,8 @@ export async function subscriptionsCard(badgeToggle: HTMLElement): Promise<HTMLE
     h('div', { class: 'quill-sub-head' }, h('span', { class: 'quill-ring-demo small', 'aria-hidden': 'true' }, '🪶'), h('strong', {}, QUILL_NAME)),
     statusLine(st),
     h('a', { href: '/gold-quill', class: `button ${st.active ? 'quiet' : 'primary'} wide` }, st.active ? 'Add more time' : `Get ${QUILL_NAME}`),
-    h('p', { class: 'muted small' }, 'Passes are one-time purchases, so there’s nothing to cancel: your pass simply ends when its time runs out.'),
-    badgeToggle,
+    h('p', { class: 'muted small' }, 'Passes end on their own; nothing to cancel.'),
+    st.active ? badgeToggle : null,
     h('h3', {}, 'Purchase history'),
     rows.length ? h('ul', { class: 'people receipts' }, ...rows) : h('p', { class: 'muted small' }, 'No purchases yet.'));
 }

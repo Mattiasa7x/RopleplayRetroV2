@@ -73,7 +73,7 @@ async function readPhoto(file: File): Promise<Blob> {
   try {
     bytes = await file.arrayBuffer();
   } catch {
-    throw new ApiErr('read', "Couldn't read that photo from your phone. If it's stored in the cloud, open it in your gallery first so it downloads, then try again.", 0);
+    throw new ApiErr('read', "Couldn't read that photo. If it's in the cloud, open it in your gallery first, then try again.", 0);
   }
   if (SERVER_TYPES.includes(file.type)) return new Blob([bytes], { type: file.type });
   // HEIC and other formats the server can't open: let the phone convert it to JPEG.

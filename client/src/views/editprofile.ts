@@ -47,7 +47,7 @@ function inviteRow(acct: AccountDTO): HTMLElement {
   return h('div', { class: 'setting invite-row' },
     h('div', {},
       h('span', { class: 'setting-label' }, 'Invite code'),
-      h('span', { class: 'muted small block' }, 'New members can enter it when they sign up. Invites count once they confirm their email.')),
+      h('span', { class: 'muted small block' }, 'New members enter it at sign-up. It counts once they confirm their email.')),
     h('div', { class: 'invite-box' },
       h('code', { class: 'invite-code', 'aria-label': `Your invite code: ${code.split('').join(' ')}` }, code),
       h('div', { class: 'row wrap invite-actions' },
@@ -92,7 +92,7 @@ export async function viewEditProfile() {
   };
   const bannerCard = card('Banner',
     bannerBox,
-    h('p', { class: 'muted small' }, 'A wide picture shown across the top of your profile. Any size works; it\'s cropped to fit.'),
+    h('p', { class: 'muted small' }, 'A wide picture across the top of your profile.'),
     me.trust >= Trust.Verified
       ? h('div', { class: 'row wrap' },
           h('button', { type: 'button', class: 'primary', onclick: pickBanner as EventListener }, p.banner ? 'Change banner' : 'Add a banner'),
@@ -108,7 +108,7 @@ export async function viewEditProfile() {
         const phone = h('input', { type: 'tel', inputmode: 'tel', autocomplete: 'tel', placeholder: '+13035551234', maxlength: 24 });
         const pw = h('input', { type: 'password', autocomplete: 'current-password', maxlength: 200 });
         const f = h('form', { class: 'stack phone-form' },
-          h('div', {}, h('span', { class: 'setting-label' }, 'Phone number'), h('span', { class: 'muted small block' }, "Optional. Once saved it can't be changed.")),
+          h('div', {}, h('span', { class: 'setting-label' }, 'Phone number'), h('span', { class: 'muted small block' }, "Optional. Can't be changed once saved.")),
           h('label', { class: 'field' }, h('span', {}, 'Number'), phone),
           h('label', { class: 'field' }, h('span', {}, 'Your password'), pw),
           h('button', { type: 'submit', class: 'primary' }, 'Save phone number'));
@@ -121,13 +121,13 @@ export async function viewEditProfile() {
         return f;
       })();
   const accountCard = card('Account',
-    h('p', { class: 'muted small' }, 'Only you can see these. They are kept for confirming it\'s really you, and can\'t be changed once set.'),
+    h('p', { class: 'muted small' }, 'Private to you. Can\'t be changed once set.'),
     lockRow('Username', acct.handle, 'Chosen when you signed up.'),
     inviteRow(acct),
     acct.emailVerified
       ? lockRow('Email address', acct.email, 'Confirmed.')
       : h('div', { class: 'setting' },
-          h('div', {}, h('span', { class: 'setting-label' }, 'Email address'), h('span', { class: 'muted small block' }, 'Not confirmed yet. You can fix a typo in Settings until you confirm it; then it locks.')),
+          h('div', {}, h('span', { class: 'setting-label' }, 'Email address'), h('span', { class: 'muted small block' }, 'Not confirmed yet. Fix typos in Settings until you confirm.')),
           h('span', {}, acct.email)),
     phoneArea,
     lockRow('Birthday', acct.birthdate ? new Date(acct.birthdate + 'T12:00:00Z').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) : 'Not set', 'Your real birthday. Never shown on your profile.'));
@@ -190,7 +190,7 @@ export async function viewEditProfile() {
     h('div', { class: 'field', role: 'group', 'aria-label': 'Roleplay style' },
       h('span', {}, 'Roleplay style'),
       h('div', { class: 'style-picker' }, ...styleBtns),
-      h('span', { class: 'muted small' }, `Shown on the gold nameplate under your picture. One at a time. NSFW needs a character aged ${NSFW_CHARACTER_MIN_AGE} or older.`)),
+      h('span', { class: 'muted small' }, `Shown under your picture. NSFW needs a character aged ${NSFW_CHARACTER_MIN_AGE}+.`)),
     h('label', { class: 'field' }, h('span', {}, 'About'), about.ta, h('span', { class: 'row about-foot' }, h('span', { class: 'muted small' }, 'Tell your story.'), about.left)),
     saveProfile);
 
@@ -230,7 +230,7 @@ export async function viewEditProfile() {
   }
   paintThemes();
   const themeCard = card('Background theme',
-    h('p', { class: 'muted small' }, 'Shown behind your profile. Tap one and it saves right away.'),
+    h('p', { class: 'muted small' }, 'Shown behind your profile. Saves when tapped.'),
     pagedGrid(themeBtns, { className: 'theme-grid', label: 'Background themes', startIndex: Math.max(0, themeBtns.findIndex((b) => Number(b.dataset.id) === (themeId ?? 0))) }),
     themeState);
 
@@ -274,7 +274,7 @@ export async function viewEditProfile() {
   }
   const trophyCard = card('Profile trophy',
     earnedIds.length
-      ? h('p', { class: 'muted small' }, 'Shown under your name. Tap one and it saves right away.')
+      ? h('p', { class: 'muted small' }, 'Shown under your name. Saves when tapped.')
       : h('p', { class: 'muted small' }, "You haven't earned a trophy yet. ", h('a', { href: `/profile/${me.handle}/trophies` }, 'See what you can earn')),
     earnedIds.length
       ? pagedGrid(trophyBtns, { className: 'trophy-grid', label: 'Earned trophies', startIndex: Math.max(0, trophyBtns.findIndex((b) => b.dataset.id === trophyPick)) })
@@ -303,7 +303,7 @@ export async function viewEditProfile() {
     saveSheet.disabled = false;
   });
   const sheetCard = card('Character sheet',
-    h('p', { class: 'muted small' }, 'Fill in as much or as little as you like. Only filled-in parts show on your profile, and you can change it any time.'),
+    h('p', { class: 'muted small' }, 'Fill in what you like. Only filled-in parts show.'),
     h('div', { class: 'sheet-grid' }, ...sheetFields),
     saveSheet);
 

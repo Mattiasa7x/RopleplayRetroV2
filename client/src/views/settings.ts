@@ -2,7 +2,7 @@ import { PASSWORD_MIN, TEXT_SIZES, THEMES, type Prefs } from '../../../shared/co
 import type { MeDTO, SessionInfo } from '../../../shared/types.js';
 import { applyPrefs, card, disconnect, field, form, navigate, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
-import { subscriptionsCard } from './quill.js';
+import { meIsQuill, subscriptionsCard } from './quill.js';
 import { deviceSubscribed, disablePush, enablePush, needsHomeScreen, pushSupported } from '../push.js';
 
 const LABELS: Record<string, string> = {
@@ -51,12 +51,12 @@ async function pushRow(): Promise<HTMLElement> {
   const input = h('input', { type: 'checkbox', role: 'switch' });
   const row = h('label', { class: 'setting switch-row' },
     h('span', {}, h('span', { class: 'setting-label' }, 'Push notifications'),
-      h('span', { class: 'muted small block' }, 'Messages, mentions, friend requests and comments, even when RoleplayRetro is closed. They only say who did what, never the words.'),
+      h('span', { class: 'muted small block' }, 'Alerts even when the site is closed. Never includes message text.'),
       status),
     input, h('span', { class: 'switch', 'aria-hidden': 'true' }));
   if (needsHomeScreen()) {
     input.disabled = true;
-    status.textContent = 'On iPhone or iPad: tap Share, then Add to Home Screen, open RoleplayRetro from there and turn this on.';
+    status.textContent = 'iPhone/iPad: Share › Add to Home Screen, open it from there, then turn this on.';
     return row;
   }
   if (!pushSupported()) {
@@ -97,7 +97,7 @@ async function twoFactorSection(): Promise<HTMLElement> {
   const box = h('div', {});
   if (me.twoFactor) {
     box.append(
-      h('p', {}, '✅ Two-factor sign-in is on. You’ll need your authenticator app (or a backup code) to log in.'),
+      h('p', {}, '✅ Two-factor sign-in is on.'),
       details('Turn off two-factor sign-in', form([
         field('Password', 'password', 'password', { autocomplete: 'current-password' }),
         field('Code from your app or a backup code', 'code', 'text', { autocomplete: 'one-time-code', maxlength: 12 }),
@@ -111,7 +111,7 @@ async function twoFactorSection(): Promise<HTMLElement> {
   }
   const step2 = h('div', { hidden: true });
   const step1 = form([
-    h('p', { class: 'muted small' }, 'Adds a 6-digit code from an authenticator app (Google Authenticator, Authy, 1Password…) when you log in.'),
+    h('p', { class: 'muted small' }, 'Asks for a code from an authenticator app when you log in.'),
     field('Confirm your password to start', 'password', 'password', { autocomplete: 'current-password' }),
   ], 'Set up two-factor', async (d) => {
     const r = await api<{ secret: string; uri: string }>('/api/me/2fa/setup', { body: { password: d.get('password') } });
@@ -126,7 +126,7 @@ async function twoFactorSection(): Promise<HTMLElement> {
         state.me = await api<MeDTO>('/api/me');
         box.replaceChildren(
           h('p', {}, '✅ Two-factor sign-in is on.'),
-          h('p', { class: 'notice' }, 'Save these backup codes somewhere safe. Each works once if you lose your phone. They won’t be shown again.'),
+          h('p', { class: 'notice' }, 'Save these backup codes. Each works once, and they won’t be shown again.'),
           h('ul', { class: 'backup-codes' }, ...res.backupCodes.map((c) => h('li', {}, h('code', {}, c)))),
           h('button', { type: 'button', class: 'primary', onclick: (() => void viewSettings()) as EventListener }, 'I saved them'));
       }));
@@ -159,7 +159,7 @@ async function blockedSection(): Promise<HTMLElement> {
       await api(`/api/ignores/${encodeURIComponent(r.handle)}`, { method: 'DELETE' });
       toast(`${r.handle} removed from your list.`);
       void viewSettings();
-    }) as EventListener }, r.mode === 'block' ? 'Unblock' : 'Unignore'))) : [h('li', { class: 'muted' }, 'Nobody. Tap a name in a room or on a profile to block or ignore someone.')]));
+    }) as EventListener }, r.mode === 'block' ? 'Unblock' : 'Unignore'))) : [h('li', { class: 'muted' }, 'Nobody. Tap a name to block or ignore someone.')]));
   const add = form([
     field('Name', 'handle', 'text', { maxlength: 16, autocapitalize: 'off' }),
     h('label', { class: 'field' }, h('span', {}, 'Action'), h('select', { name: 'mode' }, h('option', { value: 'block' }, 'Block'), h('option', { value: 'ignore' }, 'Ignore (hide chat lines only)'))),
@@ -175,13 +175,13 @@ async function blockedSection(): Promise<HTMLElement> {
 export async function viewSettings() {
   const me = state.me!;
   page('Settings', h('p', { class: 'muted' }, 'Loading…'));
-  const [twoFA, devices, blocked, push, subs] = await Promise.all([twoFactorSection(), devicesSection(), blockedSection(), pushRow(), subscriptionsCard(toggle('showQuillBadge', 'Show my Gold Quill ring', 'Gold Quill members: a gold frame around your picture everywhere on the site. Turn off to hide it.'))]);
+  const [twoFA, devices, blocked, push, subs] = await Promise.all([twoFactorSection(), devicesSection(), blockedSection(), pushRow(), subscriptionsCard(toggle('showQuillBadge', 'Show my Gold Quill ring', 'Gold Quill: the gold frame around your picture.'))]);
 
   const withId = (id: string, el: HTMLElement) => { el.id = id; return el; };
 
   const sections: HTMLElement[] = [
     withId('account', card('Account',
-      h('div', { class: 'setting' }, h('span', {}, h('span', { class: 'setting-label' }, 'Name'), h('span', { class: 'muted small block' }, 'Permanent and protected from lookalikes')), h('strong', {}, me.handle)),
+      h('div', { class: 'setting' }, h('span', {}, h('span', { class: 'setting-label' }, 'Name'), h('span', { class: 'muted small block' }, 'Permanent')), h('strong', {}, me.handle)),
       h('div', { class: 'setting' }, h('span', {}, h('span', { class: 'setting-label' }, 'Email'), h('span', { class: 'muted small block' }, me.emailVerified ? 'Confirmed and locked' : 'Not confirmed yet')), h('span', { class: 'truncate' }, me.email)),
       !me.emailVerified ? h('a', { href: '/verify', class: 'button quiet wide' }, 'Confirm email') : null,
       me.emailVerified ? null : details('Fix email (until confirmed)', form([
@@ -223,13 +223,13 @@ export async function viewSettings() {
       choice('friendsList', 'Who can see my friends list', ['me', 'friends', 'everyone']),
       choice('giftsVisibility', 'Who can see my gifts', ['me', 'friends', 'everyone']),
       toggle('showOnline', 'Show friends when I’m online'),
-      toggle('showQuillBadge', 'Show my Gold Quill ring', 'Gold Quill members: a gold frame around your picture everywhere on the site. Turn off to hide it.'))),
+      !meIsQuill() ? null : toggle('showQuillBadge', 'Show my Gold Quill ring', 'Gold Quill: the gold frame around your picture.'))),
 
     withId('subscriptions', subs),
 
     withId('chat', card('Chat',
-      toggle('chatFilter', 'Chat filter', 'Masks mature language in chat, comments and statuses (h***). Slurs are always blocked for everyone.'),
-      toggle('enterToSend', 'Enter key sends', 'Turn off so a stray Enter on your keyboard never sends'),
+      toggle('chatFilter', 'Chat filter', 'Masks mature words (h***). Slurs are always blocked.'),
+      toggle('enterToSend', 'Enter key sends', 'Off: Enter never sends.'),
       toggle('showTimestamps', 'Show times next to messages'))),
 
     withId('blocked', card('Blocked and ignored', blocked)),
@@ -245,7 +245,7 @@ export async function viewSettings() {
 
     card('Delete account',
       details('Delete my account', form([
-        h('p', { class: 'muted small' }, 'This removes your profile, photos, friends and messages for good. Your name stays reserved so nobody can pretend to be you.'),
+        h('p', { class: 'muted small' }, 'Deletes your profile, photos, friends and messages for good. Your name stays reserved.'),
         field('Password', 'password', 'password', { autocomplete: 'current-password' }),
         field(`Type ${me.handle} to confirm`, 'confirmHandle', 'text', { autocapitalize: 'off', autocomplete: 'off' }),
       ], 'Delete forever', async (d) => {

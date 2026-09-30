@@ -40,7 +40,7 @@ export async function viewProfile(handle: string) {
   const blockBtn = self ? null : p.blockedByMe
     ? btn('Unblock', 'quiet', call(() => api(`/api/ignores/${p.handle}`, { method: 'DELETE' }), `${p.handle} is unblocked.`))
     : btn('Block', 'quiet', call(async () => {
-        if (!confirm(`Block ${p.handle}? You won't see each other's messages, profiles or comments, and any friendship ends.`)) return;
+        if (!confirm(`Block ${p.handle}? You won't see each other anywhere, and any friendship ends.`)) return;
         await api(`/api/ignores/${p.handle}`, { method: 'PUT', body: { mode: 'block' } });
       }, `${p.handle} is blocked.`));
   const reportBtn = self ? null : btn('Report', 'quiet', () => void reportContent('profile', undefined, p.handle));
@@ -95,7 +95,7 @@ export async function viewProfile(handle: string) {
   const statusLine = statuses[0] ? h('p', { class: 'profile-status' }, statuses[0].body) : null;
 
   // ----- the story (no heading), then the character sheet -----
-  const bioCard = p.bio ? card(null, h('p', { class: 'bio' }, p.bio)) : self ? card(null, h('p', { class: 'muted' }, 'Tell your story on the Edit profile page.')) : null;
+  const bioCard = p.bio ? card(null, h('p', { class: 'bio' }, p.bio)) : self ? card(null, h('p', { class: 'muted' }, 'Add one in Edit profile.')) : null;
   const sheetRows = CHARACTER_SHEET.filter((f) => p.characterSheet[f.key]);
   const sheetCard = sheetRows.length
     ? card('Character sheet', h('dl', { class: 'sheet-view' }, ...sheetRows.flatMap((f) => [
@@ -188,7 +188,7 @@ export async function viewProfileViews(pageNo = 1) {
   page('Profile views',
     h('a', { href: `/profile/${me.handle}`, class: 'back' }, `‹ ${me.handle}`),
     card(`Who viewed your profile (${d.total})`,
-      h('p', { class: 'muted small' }, 'Only you can see this. Each person shows once, with their latest visit, for 90 days.'),
+      h('p', { class: 'muted small' }, 'Only you see this. Latest visit per person, last 90 days.'),
       list, pager));
 }
 

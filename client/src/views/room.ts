@@ -35,7 +35,7 @@ export async function viewRoom(slug: string) {
   let readOnly = false;
   let canSpeak = true;
   const voiceNote = h('p', { class: 'notice filter-hint voice-note', role: 'status', hidden: true },
-    '🔇 Read-only right now: you can read along. The owner can give you a voice.');
+    '🔇 Read-only: only people the owner allows can chat.');
   const readOnlyTag = h('span', { class: 'tag read-only-tag', hidden: true }, 'Read-only');
   function paintVoice() {
     readOnlyTag.hidden = !readOnly;
@@ -60,7 +60,7 @@ export async function viewRoom(slug: string) {
     h('div', { class: 'thread-head' }, h('h2', {}, 'People here'),
       h('button', { type: 'button', class: 'quiet', onclick: (() => sheet.close()) as EventListener }, 'Close')),
     ownerControls,
-    h('p', { class: 'muted small' }, 'Ages shown are character ages from profiles, never anyone\'s real age.'),
+    h('p', { class: 'muted small' }, 'Ages are character ages, never real ones.'),
     peopleList, peopleNote);
   const isRoomOwner = () => !!hist && hist.room.kind === 'member' && hist.room.canManage;
   /** Owner: a short line about read-only at the top of the People panel (the switch lives in Manage). */
@@ -73,11 +73,11 @@ export async function viewRoom(slug: string) {
     }
     if (!isRoomOwner()) return;
     ownerControls.replaceChildren(h('p', { class: 'small' }, readOnly
-      ? 'Read-only is on: tap Allow to speak to let someone chat. '
-      : 'Want to pick who can chat? Turn on Read-only in ',
+      ? 'Read-only: tap Allow to speak to let someone chat. '
+      : 'Choose who can chat with Read-only in ',
       readOnly ? h('a', { href: `/room/${slug}/manage` }, 'Room settings') : h('a', { href: `/room/${slug}/manage` }, 'Manage'),
       readOnly ? '' : '.'),
-      h('p', { class: 'small' }, 'Add or remove moderators and operators under ', h('a', { href: `/room/${slug}/manage` }, 'Manage › Room team'), '.'));
+      h('p', { class: 'small' }, 'Moderators and operators: ', h('a', { href: `/room/${slug}/manage` }, 'Manage › Room team'), '.'));
   }
   let peopleTimer: number | undefined;
   async function loadPeople() {
@@ -124,7 +124,7 @@ export async function viewRoom(slug: string) {
 
   // Rooms whose owner turned the chat filter on: swear words are stopped as they're typed.
   let roomWords: BlockEntry[] = [];
-  const filterHint = h('p', { class: 'notice filter-hint', role: 'status', hidden: true }, "This room's chat filter is on: swear words can't be sent here.");
+  const filterHint = h('p', { class: 'notice filter-hint', role: 'status', hidden: true }, "Swear words can't be sent in this room.");
   function updateCounter() {
     const left = CHAT.MAX_CHARS - visibleLength(cleanBody(input.value));
     counter.textContent = `${left}`;

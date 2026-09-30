@@ -42,7 +42,7 @@ export function viewLogin() {
   );
   const codeStep = form(
     [
-      h('p', {}, 'Enter the 6-digit code from your authenticator app, or one of your backup codes.'),
+      h('p', {}, 'Enter the code from your authenticator app, or a backup code.'),
       field('Code', 'code', 'text', { autocomplete: 'one-time-code', inputmode: 'numeric', maxlength: 12 }),
     ],
     'Verify',
@@ -82,7 +82,7 @@ export function viewSignup() {
   const signupForm = form(
     [
       field('Name (3–16 letters, numbers or _)', 'handle', 'text', { pattern: '[A-Za-z0-9_]{3,16}', maxlength: 16, autocomplete: 'username', autocapitalize: 'off' }),
-      h('p', { class: 'hint' }, 'Your name is yours for good: it can’t be changed, and nobody can register a lookalike of it.'),
+      h('p', { class: 'hint' }, 'Your name is permanent, and nobody can copy it.'),
       field('Email', 'email', 'email', { autocomplete: 'email' }),
       field(`Birthday (${AGE.minimum}+)`, 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),
       inviteField,
@@ -104,7 +104,7 @@ export function viewSignup() {
     h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'));
   page('Sign up',
     h('div', { class: 'card hero' }, h('h1', {}, `Welcome to ${SITE_NAME}`),
-      h('p', { class: 'muted' }, `Roleplay and chat rooms, built for your phone. Adults only (${AGE.minimum}+): create a free account to come in.`)),
+      h('p', { class: 'muted' }, `Roleplay and chat rooms for your phone. Adults only (${AGE.minimum}+).`)),
     h('section', { class: 'card' }, signupForm),
     h('p', { class: 'center' }, 'Already a member? ', h('a', { href: withNext('/login') }, 'Log in')));
 }
@@ -127,6 +127,6 @@ export function viewVerify() {
         h('a', { href: '/home', class: 'button quiet' }, 'Later')),
       h('p', { class: 'junk-hint' },
         h('strong', {}, "Can't find the email? "),
-        'Check your junk or spam folder. It comes from ', h('strong', {}, 'no-reply@mail.roleplayretro.com'),
-        '. If it landed there, marking it "Not spam" helps future emails arrive in your inbox.')));
+        'Check junk or spam for ', h('strong', {}, 'no-reply@mail.roleplayretro.com'),
+        ', and mark it "Not spam".')));
 }
