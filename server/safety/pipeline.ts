@@ -42,6 +42,22 @@ export async function activeSanctions(userId: string, roomId: number | null): Pr
   return rows;
 }
 
+/** An active site-wide ban on this account, if any. */
+export async function activeSiteBan(userId: string): Promise<{ reason: string; expiresAt: Date | null } | null> {
+  const { rows } = await db.query<{ reason: string; expires_at: Date | null }>(
+    `SELECT reason, expires_at FROM sanctions
+      WHERE user_id = $1 AND room_id IS NULL AND kind = 'ban' AND revoked_at IS NULL
+        AND (expires_at IS NULL OR expires_at > now())
+      ORDER BY created_at DESC LIMIT 1`, [userId]);
+  return rows[0] ? { reason: rows[0].reason, expiresAt: rows[0].expires_at } : null;
+}
+
+/** "You're banned from RoleplayRetro. Reason: …" */
+export function banMessage(ban: { reason: string; expiresAt: Date | string | null }): string {
+  const end = ban.expiresAt ? ` The ban ends ${new Date(ban.expiresAt).toUTCString()}.` : '';
+  return `This account is banned from RoleplayRetro. Reason: ${ban.reason}${/[.!?]$/.test(ban.reason) ? '' : '.'}${end}`;
+}
+
 function until(d: Date | null): string {
   if (!d) return 'until a moderator lifts it';
   const mins = Math.max(1, Math.ceil((d.getTime() - Date.now()) / 60000));

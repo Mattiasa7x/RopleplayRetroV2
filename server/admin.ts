@@ -5,6 +5,7 @@ import { userByHandle } from './friends.js';
 import { clientSignals, HttpError, parse, requireUser } from './http.js';
 import { disconnectUser, rooms, type IO } from './realtime.js';
 import { exactIpHash, hashedSignals, recordSignals, signalHash } from './safety/signals.js';
+import { banMessage } from './safety/pipeline.js';
 import { audit, db, redis, tx } from './store.js';
 
 /**
@@ -16,11 +17,16 @@ import { audit, db, redis, tx } from './store.js';
 
 // ---------------- device and address blocks ----------------
 
-let blocked = new Set<string>();
+/** Blocked address/device hashes → the ban reason shown to them (and when it ends, if ever). */
+let blocked = new Map<string, { reason: string; expiresAt: Date | null }>();
 
 export async function loadBlocks() {
-  const { rows } = await db.query<{ signal_hash: string }>('SELECT signal_hash FROM site_blocks');
-  blocked = new Set(rows.map((r) => r.signal_hash));
+  const { rows } = await db.query<{ signal_hash: string; reason: string | null; expires_at: Date | null }>(
+    `SELECT b.signal_hash, s.reason, s.expires_at FROM site_blocks b
+       LEFT JOIN LATERAL (SELECT reason, expires_at FROM sanctions s
+                           WHERE s.user_id = b.user_id AND s.room_id IS NULL AND s.kind = 'ban' AND s.revoked_at IS NULL
+                           ORDER BY s.created_at DESC LIMIT 1) s ON true`);
+  blocked = new Map(rows.map((r) => [r.signal_hash, { reason: r.reason ?? 'Breaking the Terms of Service', expiresAt: r.expires_at }]));
 }
 
 /** Hashes for this request's exact address and device ids. */
@@ -33,24 +39,49 @@ function requestHashes(req: FastifyRequest): string[] {
   return out;
 }
 
-export function isBlockedRequest(req: FastifyRequest): boolean {
-  return blocked.size > 0 && requestHashes(req).some((hash) => blocked.has(hash));
+/** The ban that blocks this request's address or device, if any. */
+function blockFor(req: FastifyRequest): { reason: string; expiresAt: Date | null } | null {
+  if (!blocked.size) return null;
+  for (const hash of requestHashes(req)) {
+    const b = blocked.get(hash);
+    if (b && (!b.expiresAt || b.expiresAt.getTime() > Date.now())) return b;
+  }
+  return null;
 }
 
-const BLOCKED_MESSAGE = 'This connection has been banned from RoleplayRetro.';
+export function isBlockedRequest(req: FastifyRequest): boolean {
+  return blockFor(req) !== null;
+}
+
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** The whole-page "you're banned" screen (uses the site's own stylesheet; no scripts). */
+function bannedPage(ban: { reason: string; expiresAt: Date | null }): string {
+  const end = ban.expiresAt ? `<p class="banned-when">The ban ends ${esc(ban.expiresAt.toUTCString())}.</p>` : '';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banned · RoleplayRetro</title><link rel="stylesheet" href="/styles.css"><meta name="robots" content="noindex"></head>
+<body class="banned-body"><main class="banned-card"><img src="/logo-mark.svg" alt="" width="64" height="59">
+<h1>You're banned from RoleplayRetro</h1>
+<p class="banned-reason"><strong>Reason:</strong> ${esc(ban.reason)}</p>${end}
+<p class="banned-help">Think this is a mistake? Email <a href="mailto:support@roleplayretro.com">support@roleplayretro.com</a>.</p>
+<p class="banned-links"><a href="/terms">Terms of Service</a></p></main></body></html>`;
+}
 
 /**
  * Runs on every request: refuse blocked addresses and devices, and note the address a
  * signed-in member is using (at most hourly) so a ban can include it.
  */
 export async function blockAndRecord(req: FastifyRequest, reply: FastifyReply) {
-  if (isBlockedRequest(req)) {
+  const ban = blockFor(req);
+  if (ban) {
     const path = req.url.split('?')[0];
     if (path.startsWith('/api/') || path.startsWith('/socket.io')) {
-      return reply.status(403).send({ error: 'blocked', message: BLOCKED_MESSAGE });
+      return reply.status(403).send({ error: 'banned', message: banMessage(ban) });
     }
-    if (!/\.(css|js|svg|png|webmanifest|woff2)$/.test(path)) {
-      return reply.status(403).type('text/plain; charset=utf-8').send(BLOCKED_MESSAGE);
+    // Pages (and the Terms) get the banned screen; its stylesheet and logo still load.
+    if (!/\.(css|js|svg|png|webmanifest|woff2)$/.test(path) && !/^\/(terms|privacy)\/?$/.test(path)) {
+      reply.header('Cache-Control', 'no-store');
+      return reply.status(403).type('text/html; charset=utf-8').send(bannedPage(ban));
     }
   }
   if (req.user && (await redis.set(`sig:${req.user.id}`, '1', 'EX', 3600, 'NX')) === 'OK') {
@@ -64,7 +95,7 @@ export function socketBlocked(headers: Record<string, string | string[] | undefi
   const cookie = String(headers.cookie ?? '');
   const did = /(?:^|;\s*)did=([A-Za-z0-9_-]{16,64})/.exec(cookie)?.[1];
   const hashes = hashedSignals({ ip, deviceCookie: did }).filter((x) => x.kind !== 'ip_prefix').map((x) => x.hash);
-  return hashes.some((h) => blocked.has(h));
+  return hashes.some((h) => { const b = blocked.get(h); return !!b && (!b.expiresAt || b.expiresAt.getTime() > Date.now()); });
 }
 
 // ---------------- routes ----------------
