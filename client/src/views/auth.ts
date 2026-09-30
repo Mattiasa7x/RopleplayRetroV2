@@ -81,7 +81,7 @@ export function viewSignup() {
   autoDashInvite(inviteField.querySelector('input')!);
   const signupForm = form(
     [
-      field('Name (3–16 letters, - or _)', 'handle', 'text', { pattern: '[A-Za-z][A-Za-z_\\-]{2,15}', title: 'Letters, hyphens (-) and underscores (_) only, starting with a letter', maxlength: 16, autocomplete: 'username', autocapitalize: 'off' }),
+      field('Name (3–16 letters, - or _)', 'handle', 'text', { pattern: '[A-Za-z][A-Za-z_\\-]{1,14}[A-Za-z]', title: 'Letters, hyphens (-) and underscores (_) only; must start and end with a letter', maxlength: 16, autocomplete: 'username', autocapitalize: 'off' }),
       h('p', { class: 'hint' }, 'Your name is permanent, and nobody can copy it.'),
       field('Email', 'email', 'email', { autocomplete: 'email' }),
       field(`Birthday (${AGE.minimum}+)`, 'birthdate', 'date', { max: max.toISOString().slice(0, 10), autocomplete: 'bday' }),

@@ -142,7 +142,7 @@ export async function issueCode(userId: string, email: string): Promise<void> {
 // ---------- routes ----------
 
 const SignupBody = z.object({
-  handle: z.string().regex(NEW_HANDLE_PATTERN, '3–16 letters, hyphens (-) or underscores (_), starting with a letter. No numbers, spaces or other symbols.'),
+  handle: z.string().regex(NEW_HANDLE_PATTERN, '3–16 letters, hyphens (-) or underscores (_). It must start and end with a letter. No numbers, spaces or other symbols.'),
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(PASSWORD_MIN, `at least ${PASSWORD_MIN} characters`).max(200),
   birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a date like 2001-06-30'),

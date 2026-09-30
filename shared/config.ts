@@ -24,8 +24,11 @@ export const RETAINED_PER_ROOM = CHAT.PAGE_SIZE * CHAT.MAX_PAGES;
 
 /** Any existing username (older ones may contain digits). Used to look names up. */
 export const HANDLE_PATTERN = /^[A-Za-z0-9_-]{3,16}$/;
-/** New usernames: 3–16 characters, letters, hyphens and underscores only, starting with a letter. */
-export const NEW_HANDLE_PATTERN = /^[A-Za-z][A-Za-z_-]{2,15}$/;
+/**
+ * New usernames: 3–16 characters of letters, hyphens (-) and underscores (_). The first and
+ * last characters must be letters, so a name never starts or ends with - or _.
+ */
+export const NEW_HANDLE_PATTERN = /^[A-Za-z][A-Za-z_-]{1,14}[A-Za-z]$/;
 export const PASSWORD_MIN = 10;
 
 export enum Trust {
