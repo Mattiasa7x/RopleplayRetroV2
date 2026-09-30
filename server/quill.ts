@@ -25,9 +25,12 @@ const API = () => (env.paypalEnv === 'live' ? 'https://api-m.paypal.com' : 'http
 export const paypalConfigured = () => !!(env.paypalClientId && env.paypalSecret);
 
 let token: { value: string; until: number } | null = null;
+let lastTokenError = '';
 async function paypalToken(): Promise<string> {
   if (token && token.until > Date.now() + 60_000) return token.value;
-  const res = await fetch(`${API()}/v1/oauth2/token`, {
+  let res: Response;
+  try {
+    res = await fetch(`${API()}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${Buffer.from(`${env.paypalClientId}:${env.paypalSecret}`).toString('base64')}`,
@@ -35,8 +38,17 @@ async function paypalToken(): Promise<string> {
     },
     body: 'grant_type=client_credentials',
     signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) throw new HttpError(502, 'paypal', 'PayPal is not reachable right now. Please try again in a few minutes.');
+    });
+  } catch (e) {
+    lastTokenError = `network: ${(e as Error).message}`;
+    throw new HttpError(502, 'paypal', 'PayPal is not reachable right now. Please try again in a few minutes.');
+  }
+  if (!res.ok) {
+    // e.g. 401 invalid_client: wrong keys, or live keys with PAYPAL_ENV not set to live.
+    const body = (await res.json().catch(() => ({}))) as { error?: string; error_description?: string };
+    lastTokenError = `${res.status} ${body.error ?? ''} ${body.error_description ?? ''}`.trim();
+    throw new HttpError(503, 'paypal_setup', 'Payments are being set up. Please try again later.');
+  }
   const j = (await res.json()) as { access_token: string; expires_in: number };
   token = { value: j.access_token, until: Date.now() + j.expires_in * 1000 };
   return token.value;
@@ -124,6 +136,18 @@ async function status(u: SessionUser): Promise<QuillStatusDTO> {
 
 const CheckoutBody = z.object({ pass: z.enum(['day', 'week', 'month']) });
 const CaptureBody = z.object({ orderId: z.string().regex(/^[A-Z0-9]{5,40}$/) });
+
+/** On start: sign in to PayPal once and say in the log whether it worked (never logs the keys). */
+export async function checkPaypal(log: (m: string) => void): Promise<void> {
+  if (!paypalConfigured()) { log('PayPal: not set up (PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET empty); passes show "Coming soon"'); return; }
+  const id = env.paypalClientId;
+  try {
+    await paypalToken();
+    log(`PayPal (${env.paypalEnv}): connected, client id ${id.slice(0, 6)}…${id.slice(-4)}`);
+  } catch {
+    log(`PayPal (${env.paypalEnv}): keys refused: ${lastTokenError}. Check PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET, and that PAYPAL_ENV is "${env.paypalEnv === 'live' ? 'sandbox' : 'live'}" if these are ${env.paypalEnv === 'live' ? 'sandbox' : 'live'} keys (client id ${id.slice(0, 6)}…${id.slice(-4)}, ${id.length} chars)`);
+  }
+}
 
 export function registerQuillRoutes(app: FastifyInstance) {
   app.get('/api/quill', async (req, reply): Promise<QuillStatusDTO> => {

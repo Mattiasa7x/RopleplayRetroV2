@@ -25,7 +25,7 @@ import { blockAndRecord, loadBlocks, registerAdminRoutes } from './admin.js';
 import { registerCommentRoutes } from './comments.js';
 import { downloadMissingRoomImages, registerRoomImageRoutes, syncRoomImages } from './room-images.js';
 import { syncRegionalRooms } from './regional.js';
-import { registerQuillRoutes } from './quill.js';
+import { checkPaypal, registerQuillRoutes } from './quill.js';
 import { rooms, setupRealtime, type IO } from './realtime.js';
 import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
@@ -188,4 +188,5 @@ if (process.env.RESET_PRESENCE_ON_START !== 'false') {
 await app.listen({ port: env.port, host: env.host });
 
 // Fetch any room pictures not stored yet, without holding up the site.
+void checkPaypal((m) => app.log.info(m));
 void downloadMissingRoomImages((m) => app.log.info(m)).catch((e) => app.log.error(e, 'room pictures failed'));

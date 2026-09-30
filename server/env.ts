@@ -23,10 +23,11 @@ export const env = {
   /** Who emails come from; the domain must be verified with the mail provider. */
   mailFrom: process.env.MAIL_FROM ?? 'RoleplayRetro <no-reply@roleplayretro.com>',
   /** PayPal REST app (developer.paypal.com). The secret lives only in the host's environment settings. */
-  paypalClientId: process.env.PAYPAL_CLIENT_ID ?? '',
-  paypalSecret: process.env.PAYPAL_CLIENT_SECRET ?? '',
+  // (Trimmed: a stray space or line break from copy-paste would make PayPal refuse the keys.)
+  paypalClientId: (process.env.PAYPAL_CLIENT_ID ?? '').trim(),
+  paypalSecret: (process.env.PAYPAL_CLIENT_SECRET ?? '').trim(),
   /** 'sandbox' (test money) until you're ready, then 'live'. */
-  paypalEnv: process.env.PAYPAL_ENV === 'live' ? 'live' as const : 'sandbox' as const,
+  paypalEnv: (process.env.PAYPAL_ENV ?? '').trim().toLowerCase() === 'live' ? 'live' as const : 'sandbox' as const,
   /** Where PayPal sends people back to after paying. */
   siteUrl: (process.env.SITE_URL ?? 'https://roleplayretro.com').replace(/\/$/, ''),
 };
