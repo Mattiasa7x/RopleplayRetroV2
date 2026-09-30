@@ -51,12 +51,15 @@ export async function viewProfile(handle: string) {
   const friendsText = `${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`;
   const friendsBit = p.canViewFriends ? h('a', { href: `/profile/${p.handle}/friends` }, friendsText) : h('span', {}, friendsText);
   const viewsLink = self
-    ? h('a', { href: meIsQuill() ? '/profile-views' : '/gold-quill?from=views', class: 'views-link' }, 'Views', meIsQuill() ? null : h('span', { class: 'quill-lock', 'aria-label': 'Gold Quill' }, '🪶'), p.newViews ? h('span', { class: 'badge views-new', 'aria-label': `${p.newViews} new` }, String(p.newViews)) : null)
+    ? h('a', { href: meIsQuill() ? '/profile-views' : '/gold-quill?from=views', class: 'views-link' }, `${p.viewCount ?? 0} view${p.viewCount === 1 ? '' : 's'}`, meIsQuill() ? null : h('span', { class: 'quill-lock', 'aria-label': 'Gold Quill' }, '🪶'), p.newViews ? h('span', { class: 'badge views-new', 'aria-label': `${p.newViews} new` }, String(p.newViews)) : null)
     : null;
   // Your own gifts, or "Send a gift" on someone else's profile.
+  const giftsText = `${p.giftCount ?? 0} gift${p.giftCount === 1 ? '' : 's'}`;
   const giftLink = self
-    ? h('a', { href: '/gifts' }, 'Gifts')
+    ? h('a', { href: '/gifts' }, giftsText)
     : p.canSendGift ? h('a', { href: `/profile/${p.handle}/gift` }, 'Send a gift') : null;
+  // Someone else's gifts, counted, when they share them.
+  const theirGifts = !self && p.giftCount !== undefined ? h('a', { href: `/profile/${p.handle}/gifts` }, giftsText) : null;
   const head = h('section', { class: 'profile-top' },
     h('div', { class: `profile-banner${p.banner ? '' : ' art-member'}` }, p.banner ? h('img', { src: p.banner, alt: '' }) : null),
     h('div', { class: 'profile-id' },
@@ -69,7 +72,7 @@ export async function viewProfile(handle: string) {
         : null,
       charLine ? h('p', { class: 'char-line' }, charLine) : null,
       h('p', { class: 'profile-meta muted small' }, `${p.trustLabel} · `, friendsBit, viewsLink ? ' · ' : null, viewsLink,
-        giftLink ? ' · ' : null, giftLink),
+        theirGifts ? ' · ' : null, theirGifts, giftLink ? ' · ' : null, giftLink),
       h('div', { class: 'showcase-row' }, profileTrophy(p, self), profileGiftPill(p, self)),
       self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,

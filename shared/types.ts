@@ -267,6 +267,10 @@ export interface ProfileDTO extends PublicUser {
   canSendGift: boolean;
   /** Own profile only: people who viewed it since you last opened Views. */
   newViews?: number;
+  /** Your own profile: people who viewed it in the last 90 days. */
+  viewCount?: number;
+  /** Gifts received (your own profile, or when they share their gifts). */
+  giftCount?: number;
   /** The one trophy shown on the profile (the member's pick, else their newest), or null. */
   trophy: string | null;
   /** How many trophies they've earned (0 when the profile isn't visible). */
