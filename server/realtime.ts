@@ -10,7 +10,7 @@ import { maskMature } from './safety/mature.js';
 import { pushTo } from './push.js';
 import { socketBlocked } from './admin.js';
 import { recordStrike } from './safety/strikes.js';
-import { afterRoomMessage, checkOnConnect } from './trophies.js';
+import { afterOnlineTime, afterRoomMessage, checkOnConnect } from './trophies.js';
 import { db, redis } from './store.js';
 
 export type IO = Server<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
@@ -20,6 +20,8 @@ interface SocketData {
   roomId: number | null;
   lastTyping: number;
   filter: boolean;
+  /** The page is showing (not a background tab). Counts toward time-online trophies. */
+  active?: boolean;
 }
 type Sock = Socket<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
 
@@ -161,6 +163,8 @@ export function setupRealtime(io: IO) {
       socket.to(rooms.chat(roomId)).except(rooms.ignoredBy(userId)).emit('typing', { roomId, handle });
     });
 
+    socket.on('active', (p) => { socket.data.active = !!p?.active; });
+
     socket.on('disconnect', async () => {
       await leaveCurrent(io, socket);
       if ((await redis.hincrby('online', userId, -1)) <= 0) await redis.hdel('online', userId);
@@ -185,4 +189,43 @@ export async function removeFromRoom(io: IO, userId: string, roomId: number, rea
 /** Site ban: drop every connection. */
 export function disconnectUser(io: IO, userId: string) {
   io.in(rooms.user(userId)).disconnectSockets(true);
+}
+
+/**
+ * Time online, for the account trophies: once a minute, everyone with the site open in a
+ * visible tab on this server gets the minute added. A short Redis key per person per minute
+ * stops a second server (or a second tab) from counting the same minute twice. Nothing is
+ * written while nobody is on, so the database can still sleep.
+ */
+/** Add `secs` of online time for everyone with a visible tab on this server (once per minute each). */
+export async function tickOnline(io: IO, secs: number, now = Date.now()): Promise<void> {
+  const ids = new Set<string>();
+  for (const s of (io as unknown as { sockets: { sockets: Map<string, { data: unknown }> } }).sockets.sockets.values()) {
+    const d = s.data as SocketData;
+    if (d?.userId && d.active !== false) ids.add(d.userId);
+  }
+  if (!ids.size || secs <= 0) return;
+  const bucket = Math.floor(now / 60_000);
+  const list = [...ids];
+  const pipe = redis.pipeline();
+  for (const id of list) pipe.set(`onl:${bucket}:${id}`, '1', 'EX', 180, 'NX');
+  const res = (await pipe.exec()) ?? [];
+  const fresh = list.filter((_, i) => res[i]?.[1] === 'OK');
+  if (!fresh.length) return;
+  const { rows } = await db.query<{ id: string; seconds: string }>(
+    'UPDATE users SET online_seconds = online_seconds + $2 WHERE id = ANY($1::bigint[]) RETURNING id::text AS id, online_seconds AS seconds',
+    [fresh, secs]);
+  afterOnlineTime(rows.map((r) => ({ id: r.id, seconds: Number(r.seconds) })), secs);
+}
+
+export function startOnlineClock(io: IO, log: (e: unknown) => void): NodeJS.Timeout {
+  let last = Date.now();
+  const timer = setInterval(() => {
+    const now = Date.now();
+    const secs = Math.min(120, Math.round((now - last) / 1000));
+    last = now;
+    tickOnline(io, secs, now).catch(log);
+  }, 60_000);
+  timer.unref();
+  return timer;
 }

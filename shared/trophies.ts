@@ -14,8 +14,9 @@ export interface TrophyDef {
   how: string;
   /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail), people invited or days in a row with a status (account) or photos kept (photos). */
   goal?: number;
-  /** Chat trophies counted in likes received on room messages instead of messages sent. */
-  metric?: 'likes';
+  /** likes: chat trophies counted in likes received on room messages instead of messages sent.
+   *  online: account trophies counted in hours spent on the site (goal in hours, adds up over time). */
+  metric?: 'likes' | 'online';
 }
 
 export const TROPHY_GROUPS: { id: TrophyGroup; title: string; tab: string }[] = [
@@ -45,6 +46,10 @@ export const TROPHIES: TrophyDef[] = [
   { id: 'party_leader', name: 'Party Leader', group: 'account', goal: 10, how: 'Invite 10 people who join and confirm their email.' },
   { id: 'guild_master', name: 'Guild Master', group: 'account', goal: 50, how: 'Invite 50 people who join and confirm their email.' },
   { id: 'sovereign', name: 'Sovereign', group: 'account', goal: 100, how: 'Invite 100 people who join and confirm their email.' },
+  { id: 'lamplighter', name: 'Lamplighter', group: 'account', metric: 'online', goal: 10, how: 'Spend 10 hours on RoleplayRetro.' },
+  { id: 'night_watch', name: 'Night Watch', group: 'account', metric: 'online', goal: 100, how: 'Spend 100 hours on RoleplayRetro.' },
+  { id: 'hearthkeeper', name: 'Hearthkeeper', group: 'account', metric: 'online', goal: 500, how: 'Spend 500 hours on RoleplayRetro.' },
+  { id: 'eternal_flame', name: 'Eternal Flame', group: 'account', metric: 'online', goal: 1_000, how: 'Spend 1,000 hours on RoleplayRetro.' },
 
   { id: 'chatterbox', name: 'Gift of Gab', group: 'chat', goal: 100, how: 'Send 100 messages in rooms.' },
   { id: 'wordsmith', name: 'Wordsmith', group: 'chat', goal: 1_000, how: 'Send 1,000 messages in rooms.' },

@@ -47,6 +47,10 @@ function progressFor(t: TrophyDef, p: NonNullable<TrophyPageDTO['progress']>): H
     const days = (n: number) => `${num(n)} day${n === 1 ? '' : 's'}`;
     return bar(Math.max(cur, best), t.goal!, `Current streak: ${days(cur)} (best ${days(best)})`);
   }
+  if (t.metric === 'online') {
+    const hrs = Math.floor(p.onlineHours);
+    return bar(p.onlineHours, t.goal!, `${num(Math.min(hrs, t.goal!))} / ${num(t.goal!)} hours online`);
+  }
   if (t.group === 'account' && t.goal) return bar(p.invites, t.goal, `${num(Math.min(p.invites, t.goal))} / ${num(t.goal)} people invited`);
   if (t.group === 'mail') return bar(p.privateMessages, t.goal!, `${num(Math.min(p.privateMessages, t.goal!))} / ${num(t.goal!)} private messages`);
   if (t.group === 'social') return bar(p.friends, t.goal!, `${num(Math.min(p.friends, t.goal!))} / ${num(t.goal!)} friends`);

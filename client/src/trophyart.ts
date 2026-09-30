@@ -15,6 +15,7 @@ const COLOR: Record<string, string> = {
   fully_realized: '#1f9d8b', diarist: '#c2566f', chronicler: '#b0852a', keeper_of_days: '#2c4f9e', party_leader: '#e2873a',
   shutterbug: '#e0574a', scrapbooker: '#e3a624', curator: '#3c8f68', master_of_light: '#3a5bd6', guild_master: '#2f7fbf', sovereign: '#7a3fb5',
   courier: '#4e9fe0', herald: '#c9412f', emissary: '#7a5fd0', ravens: '#a9b6c8',
+  lamplighter: '#e3a33a', night_watch: '#3f5fa8', hearthkeeper: '#d9622b', eternal_flame: '#b3321f',
   crowd_pleaser: '#f0567a', beloved_bard: '#c8437e', toast_of_tavern: '#c9432f', living_legend: '#e6a623',
 };
 
@@ -173,6 +174,30 @@ const EMBLEM: Record<string, (dark: string) => string> = {
     <path d="M24.5 36.5c4.7-.4 9.2 1.4 11.8 4.9M23 40.5c3.2-.2 6.3.8 8.3 2.9" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/>
     <path d="M29.5 46.5v3.5M34 46v3.8M27.5 50h4M32 49.8h4" fill="none" stroke="#161a26" stroke-width="1.8" stroke-linecap="round"/>`;
   },
+  // ----- time online (account shields) -----
+  // a lit candle
+  lamplighter: (d) => `<path d="M32 13.5c3 3.4 4.4 5.8 4.4 8.2a4.4 4.4 0 0 1-8.8 0c0-2.4 1.4-4.8 4.4-8.2z" ${W}/>
+    <path d="M32 19.5c1.2 1.5 1.8 2.6 1.8 3.6a1.8 1.8 0 0 1-3.6 0c0-1 .6-2.1 1.8-3.6z" fill="${d}"/>
+    <path d="M32 26.5v2" ${D(d)} stroke-width="1.4"/>
+    <rect x="27" y="28.5" width="10" height="15" rx="1.4" ${W}/>
+    <path d="M30 28.5v4.5" ${D(d)} stroke-width="1.4" stroke-opacity=".5"/>
+    <path d="M22 43.5h20a2.5 2.5 0 0 1-2.5 3h-15a2.5 2.5 0 0 1-2.5-3z" ${W}/>`,
+  // a watchman's lantern
+  night_watch: (d) => `<path d="M28.5 18a3.5 3.5 0 0 1 7 0" ${S} stroke-width="2.2"/>
+    <path d="M25 19.5h14l-1.5 3h-11z" ${W}/>
+    <rect x="25.5" y="22.5" width="13" height="18" rx="1.5" ${W}/>
+    <rect x="28" y="25" width="8" height="13" rx="1" fill="${d}"/>
+    <path d="M32 27.5c1.8 2 2.6 3.5 2.6 5a2.6 2.6 0 0 1-5.2 0c0-1.5.8-3 2.6-5z" fill="#ffd66b"/>
+    <path d="M24.5 40.5h15l1.5 3h-18z" ${W}/>`,
+  // a hearth fire
+  hearthkeeper: (d) => `<path d="M32 16c5.5 5.5 8 9.5 8 14a8 8 0 0 1-16 0c0-3 1.3-5.4 3.3-7.5.3 2.4 1.4 3.8 3 4.5-.8-3.8.2-7.4 1.7-11z" ${W}/>
+    <path d="M32 27c2.3 2.4 3.3 4.2 3.3 6a3.3 3.3 0 0 1-6.6 0c0-1.8 1-3.6 3.3-6z" fill="${d}"/>
+    <path d="M20.5 45l23-6.5M43.5 45l-23-6.5" ${S} stroke-width="3.2"/>`,
+  // a flame burning in a brazier
+  eternal_flame: (d) => `<path d="M32 12.5c6 6.2 9 10.6 9 15.4a9 9 0 0 1-18 0c0-3.4 1.5-6 3.8-8.4.3 2.7 1.5 4.2 3.3 5-1-4.3.3-8.1 1.9-12z" ${W}/>
+    <path d="M32 24.5c2.6 2.7 3.8 4.7 3.8 6.8a3.8 3.8 0 0 1-7.6 0c0-2.1 1.2-4.1 3.8-6.8z" fill="${d}"/>
+    <path d="M21 37.5h22l-3 5.5H24z" ${W}/>
+    <path d="M28 43l-2 5M36 43l2 5M24.5 48h15" ${S} stroke-width="2.4"/>`,
   // ----- chat likes (drawn inside a heart) -----
   // a thrown rose
   crowd_pleaser: (d) => `<path d="M32 46.5V31" ${S} stroke-width="2.6"/>

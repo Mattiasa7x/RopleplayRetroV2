@@ -827,3 +827,6 @@ CREATE TABLE IF NOT EXISTS message_likes (
 CREATE INDEX IF NOT EXISTS message_likes_user ON message_likes (user_id);
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS like_count BIGINT NOT NULL DEFAULT 0;
+
+-- Time spent on the site with the page showing, added a minute at a time (account trophies).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS online_seconds BIGINT NOT NULL DEFAULT 0;

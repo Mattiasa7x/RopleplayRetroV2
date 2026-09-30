@@ -196,6 +196,10 @@ export function connect() {
   if (state.socket) return;
   const s: Sock = io({ withCredentials: true });
   state.socket = s;
+  // Only time with the page showing counts toward the time-online trophies.
+  const sendActive = () => s.emit('active', { active: document.visibilityState === 'visible' });
+  s.on('connect', sendActive);
+  document.addEventListener('visibilitychange', sendActive);
   s.on('mention', (p) => {
     if (state.me?.prefs.mentionAlerts && state.currentRoomId !== p.roomId) toast(`${p.from} mentioned you in ${p.roomSlug}`);
   });

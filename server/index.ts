@@ -27,7 +27,7 @@ import { downloadMissingRoomImages, registerRoomImageRoutes, syncRoomImages } fr
 import { syncRegionalRooms } from './regional.js';
 import { checkPaypal, registerQuillRoutes } from './quill.js';
 import { runInactivityCleanup } from './cleanup.js';
-import { rooms, setupRealtime, type IO } from './realtime.js';
+import { rooms, setupRealtime, startOnlineClock, type IO } from './realtime.js';
 import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
 import { registerTrophyRoutes, startTrophies } from './trophies.js';
@@ -158,6 +158,7 @@ const housekeeping = setInterval(async () => {
 const shutdown = async () => {
   clearInterval(housekeeping);
   clearInterval(trophyTimer);
+  clearInterval(onlineTimer);
   io.close();
   await app.close();
   await db.end();
@@ -172,6 +173,7 @@ app.log.info(await describeDatabase());
 await syncRegionalRooms();
 await syncRoomImages();
 await loadBlocks();
+const onlineTimer = startOnlineClock(io, (e) => app.log.error(e, 'online clock failed'));
 const trophyTimer = startTrophies((userId, ids) => io.to(rooms.user(userId)).emit('trophy', { ids }), (e) => app.log.error(e, 'trophy check failed'));
 await setupPush((m) => app.log.info(m)).catch((e) => app.log.error(e, 'push notifications unavailable'));
 

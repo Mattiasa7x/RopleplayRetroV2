@@ -338,6 +338,8 @@ export interface TrophyPageDTO {
     messages: number;
     /** Likes received on room messages. */
     likes: number;
+    /** Hours spent on the site so far (all visits added together). */
+    onlineHours: number;
     privateMessages: number;
     friends: number;
     /** People who joined with your code and confirmed their email. */
@@ -471,4 +473,6 @@ export interface ClientToServer {
   'room:leave': () => void;
   'msg:send': (p: { slug: string; body: string }, ack: (r: SendResult) => void) => void;
   typing: (p: { slug: string }) => void;
+  /** The tab became visible (true) or went to the background (false); only visible time counts as online. */
+  active: (p: { active: boolean }) => void;
 }
