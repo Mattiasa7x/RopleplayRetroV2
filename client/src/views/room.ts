@@ -76,7 +76,8 @@ export async function viewRoom(slug: string) {
       ? 'Read-only is on: tap Allow to speak to let someone chat. '
       : 'Want to pick who can chat? Turn on Read-only in ',
       readOnly ? h('a', { href: `/room/${slug}/manage` }, 'Room settings') : h('a', { href: `/room/${slug}/manage` }, 'Manage'),
-      readOnly ? '' : '.'));
+      readOnly ? '' : '.'),
+      h('p', { class: 'small' }, 'Add or remove moderators and operators under ', h('a', { href: `/room/${slug}/manage` }, 'Manage › Room team'), '.'));
   }
   let peopleTimer: number | undefined;
   async function loadPeople() {
@@ -197,13 +198,9 @@ export async function viewRoom(slug: string) {
     if (mine === 'operator' && theirs) return false;
     return true;
   }
-  /** Only the owner (or a site admin) builds the room team. */
-  const canAssign = (userId: string) => hist.room.kind === 'member' && hist.room.canManage && hist.room.roles[userId] !== 'owner' && userId !== me.id;
   const sanction = (handle: string, kind: 'kick' | 'mute' | 'ban', minutes?: number) =>
     api('/api/mod/sanctions', { body: { handle, kind, room: slug, ...(minutes ? { minutes } : {}),
       reason: kind === 'kick' ? 'Kicked by the room team' : kind === 'mute' ? 'Muted by the room team' : 'Banned by the room team' } });
-  const setRole = (handle: string, role: 'moderator' | 'operator' | null) =>
-    api(`/api/rooms/${encodeURIComponent(slug)}/roles/${encodeURIComponent(handle)}`, role ? { method: 'PUT', body: { role } } : { method: 'DELETE' });
 
   function openActions(m: MessageDTO, li: HTMLElement) {
     const done = (text: string, err = false) => { actions.hidden = true; toast(text, err); };
@@ -250,11 +247,6 @@ export async function viewRoom(slug: string) {
         modBtn('Mute 1 hour', () => sanction(m.handle, 'mute', 60), `${m.handle} muted for an hour.`),
         modBtn('Ban 1 day', () => sanction(m.handle, 'ban', 24 * 60), `${m.handle} banned from this room for a day.`),
         modBtn('Ban', () => sanction(m.handle, 'ban'), `${m.handle} banned from this room.`, `Ban ${m.handle} from this room until someone lifts it?`),
-      ] : []),
-      ...(canAssign(m.userId) ? [
-        hist.room.roles[m.userId] !== 'moderator' ? modBtn('Make Moderator', () => setRole(m.handle, 'moderator'), `${m.handle} is now a Moderator here.`) : null,
-        hist.room.roles[m.userId] !== 'operator' ? modBtn('Make Operator', () => setRole(m.handle, 'operator'), `${m.handle} is now an Operator here.`) : null,
-        hist.room.roles[m.userId] ? modBtn('Remove from team', () => setRole(m.handle, null), `${m.handle} is off the room team.`) : null,
       ] : []),
       h('button', { type: 'button', class: 'quiet', onclick: (() => { actions.hidden = true; }) as EventListener }, 'Close'),
       reportForm,
