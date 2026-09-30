@@ -830,3 +830,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS like_count BIGINT NOT NULL DEFAULT 0;
 
 -- Time spent on the site with the page showing, added a minute at a time (account trophies).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS online_seconds BIGINT NOT NULL DEFAULT 0;
+
+-- Lifetime totals for the Social trophies. On first run they start from what's already recorded:
+-- gifts each member has sent, and the visitors currently in their Views list.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'gifts_sent') THEN
+    ALTER TABLE users ADD COLUMN gifts_sent BIGINT NOT NULL DEFAULT 0;
+    UPDATE users u SET gifts_sent = g.n FROM (SELECT sender_id, count(*) AS n FROM gifts WHERE hidden_at IS NULL GROUP BY sender_id) g WHERE g.sender_id = u.id;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'views_received') THEN
+    ALTER TABLE users ADD COLUMN views_received BIGINT NOT NULL DEFAULT 0;
+    UPDATE users u SET views_received = v.n FROM (SELECT profile_user_id, count(*) AS n FROM profile_views GROUP BY profile_user_id) v WHERE v.profile_user_id = u.id;
+  END IF;
+END $$;

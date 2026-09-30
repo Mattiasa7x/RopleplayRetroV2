@@ -3,7 +3,8 @@ import { h } from './dom.js';
 
 /**
  * Badge artwork, drawn in SVG so it stays sharp at any size. Each group has its own frame
- * (time: rosette medal, account: shield, chat: hexagon, or a heart for chat likes, friends: diamond, private messages: postage stamp, photos: instant photo) and each trophy its own colour and
+ * (time: rosette medal, account: shield, chat: hexagon, or a heart for chat likes, friends: diamond, private messages: postage stamp, photos: instant photo,
+ * gifts sent: gift tag, profile views: cameo) and each trophy its own colour and
  * emblem. Emblems are white; `D` marks details drawn in the badge's dark shade.
  */
 
@@ -15,6 +16,8 @@ const COLOR: Record<string, string> = {
   fully_realized: '#1f9d8b', diarist: '#c2566f', chronicler: '#b0852a', keeper_of_days: '#2c4f9e', party_leader: '#e2873a',
   shutterbug: '#e0574a', scrapbooker: '#e3a624', curator: '#3c8f68', master_of_light: '#3a5bd6', guild_master: '#2f7fbf', sovereign: '#7a3fb5',
   courier: '#4e9fe0', herald: '#c9412f', emissary: '#7a5fd0', ravens: '#a9b6c8',
+  gift_bearer: '#e0476a', generous_soul: '#26a37a', almsgiver: '#c99a24', grand_benefactor: '#8a4fc9',
+  passing_glance: '#3aa0c8', talk_of_town: '#d9862b', renowned: '#5a6ad6', household_name: '#d23f55',
   lamplighter: '#e3a33a', night_watch: '#3f5fa8', hearthkeeper: '#d9622b', eternal_flame: '#b3321f',
   crowd_pleaser: '#f0567a', beloved_bard: '#c8437e', toast_of_tavern: '#c9432f', living_legend: '#e6a623',
 };
@@ -174,6 +177,56 @@ const EMBLEM: Record<string, (dark: string) => string> = {
     <path d="M24.5 36.5c4.7-.4 9.2 1.4 11.8 4.9M23 40.5c3.2-.2 6.3.8 8.3 2.9" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/>
     <path d="M29.5 46.5v3.5M34 46v3.8M27.5 50h4M32 49.8h4" fill="none" stroke="#161a26" stroke-width="1.8" stroke-linecap="round"/>`;
   },
+  // ----- gifts sent (gift tags) -----
+  // a wrapped present
+  gift_bearer: (d) => `<rect x="21" y="29.5" width="22" height="16" rx="1.5" ${W}/>
+    <rect x="19.5" y="24.5" width="25" height="6" rx="1.2" ${W}/>
+    <path d="M32 24.5v21" stroke="${d}" stroke-width="3.2"/><path d="M19.5 27.5h25" stroke="${d}" stroke-width="1.2" stroke-opacity=".35"/>
+    <path d="M32 24.5c-2.2-4.2-8.6-5.4-8.6-1.6 0 2.6 4.8 2.2 8.6 1.6zM32 24.5c2.2-4.2 8.6-5.4 8.6-1.6 0 2.6-4.8 2.2-8.6 1.6z" ${W} stroke="${d}" stroke-width="1.3"/>`,
+  // a full coin purse
+  generous_soul: (d) => `<path d="M24.5 27.5h15l3.4 11.6c1 4.4-2.2 8.4-6.7 8.4h-8.4c-4.5 0-7.7-4-6.7-8.4z" ${W}/>
+    <path d="M25 26.5l-2.4-4.6 4.4 1.6 2.4-3.3 2.6 3.3 2.6-3.3 2.4 3.3 4.4-1.6-2.4 4.6z" ${W}/>
+    <path d="M24.2 27.8c2.6-1.6 13-1.6 15.6 0" ${D(d)} stroke-width="1.8"/>
+    <circle cx="32" cy="38" r="4.2" fill="${d}"/><circle cx="32" cy="38" r="2.4" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.1"/>`,
+  // stacks of coins
+  almsgiver: (d) => {
+    const coin = (x: number, y: number) => `<path d="M${x - 7} ${y}v3.2a7 2.6 0 0 0 14 0V${y}" ${W} stroke="${d}" stroke-width="1"/><ellipse cx="${x}" cy="${y}" rx="7" ry="2.6" ${W} stroke="${d}" stroke-width="1"/>`;
+    return `${coin(27, 42)}${coin(27, 37.5)}${coin(27, 33)}${coin(27, 28.5)}${coin(39, 42)}${coin(39, 37.5)}
+      <path d="M40.5 24.5l.9 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3z" ${W}/>`;
+  },
+  // an open treasure chest
+  grand_benefactor: (d) => `<path d="M20.5 27.5l4-6.5h15l4 6.5z" ${W}/>
+    <circle cx="27" cy="26" r="2.4" fill="#ffd66b"/><circle cx="32" cy="24.8" r="2.4" fill="#ffd66b"/><circle cx="37" cy="26" r="2.4" fill="#ffd66b"/>
+    <rect x="19" y="28" width="26" height="17" rx="1.8" ${W}/>
+    <path d="M19 33h26M24 28v17M40 28v17" ${D(d)} stroke-width="1.6"/>
+    <rect x="29.5" y="31" width="5" height="6" rx="1" fill="${d}"/>
+    <path d="M23.5 17.5l-1.5-2.5M32 16v-3M40.5 17.5l1.5-2.5" ${S} stroke-width="2"/>`,
+  // ----- profile views (cameos) -----
+  // a curious eye
+  passing_glance: (d) => `<path d="M15 32c4.2-7.2 10.4-10.8 17-10.8S44.8 24.8 49 32c-4.2 7.2-10.4 10.8-17 10.8S19.2 39.2 15 32z" ${W}/>
+    <circle cx="32" cy="32" r="6.6" fill="${d}"/><circle cx="32" cy="32" r="2.8" fill="#10131c"/><circle cx="34.2" cy="29.8" r="1.5" fill="#fff"/>`,
+  // a town bell, ringing
+  talk_of_town: () => `<path d="M32 17a2 2 0 0 1 2 2v1c5 1.1 8 5.3 8 10.7v6.3l3 3.5H19l3-3.5v-6.3c0-5.4 3-9.6 8-10.7v-1a2 2 0 0 1 2-2z" ${W}/>
+    <circle cx="32" cy="43.8" r="2.7" ${W}/>
+    <path d="M15.5 26.5c-1.8 3.3-1.8 6.7 0 10M48.5 26.5c1.8 3.3 1.8 6.7 0 10M12 23.5c-2.8 5-2.8 10.5 0 15.5M52 23.5c2.8 5 2.8 10.5 0 15.5" ${S} stroke-width="2"/>`,
+  // a stage spotlight
+  renowned: (d) => `<path d="M26.5 27.5L15.5 47h24l-5.5-21.5z" fill="#fff" fill-opacity=".38"/>
+    <g transform="rotate(28 33 21.5)"><rect x="25.5" y="16" width="15" height="11" rx="2.2" ${W}/><rect x="23.5" y="17.5" width="3" height="8" rx="1" fill="${d}"/></g>
+    <path d="M38.5 28l5.5 18M40 46h9" ${S} stroke-width="2.6"/>`,
+  // a banner with three stars
+  household_name: (d) => {
+    const star = (x: number, y: number, r: number) => {
+      let p = '';
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (Math.PI * i) / 5, rr = i % 2 ? r * 0.45 : r;
+        p += `${i ? 'L' : 'M'}${(x + rr * Math.cos(a)).toFixed(2)} ${(y + rr * Math.sin(a)).toFixed(2)}`;
+      }
+      return p + 'z';
+    };
+    return `<path d="M13.5 26h37l-3.4 6.5 3.4 6.5h-37l3.4-6.5z" ${W}/>
+      <path d="${star(22.5, 32.5, 3.6)}${star(32, 32.5, 4.4)}${star(41.5, 32.5, 3.6)}" fill="${d}"/>
+      <path d="M32 21v-4M25.5 22l-1.8-3M38.5 22l1.8-3M32 44v4M25.5 43l-1.8 3M38.5 43l1.8 3" ${S} stroke-width="2"/>`;
+  },
   // ----- time online (account shields) -----
   // a lit candle
   lamplighter: (d) => `<path d="M32 13.5c3 3.4 4.4 5.8 4.4 8.2a4.4 4.4 0 0 1-8.8 0c0-2.4 1.4-4.8 4.4-8.2z" ${W}/>
@@ -267,6 +320,23 @@ function rosette(): string {
 const ROSETTE = rosette();
 
 function frame(group: TrophyGroup, fill: string, edge: string, dark: string, heart = false): string {
+  if (group === 'gifts') {
+    // a gift tag on a string
+    return `<path d="M32 2.5l20.5 14.5v39.5a4.5 4.5 0 0 1-4.5 4.5H16a4.5 4.5 0 0 1-4.5-4.5V17z" fill="${dark}"/>
+      <path d="M32 7l16.5 11.8v37.2a1.5 1.5 0 0 1-1.5 1.5H17a1.5 1.5 0 0 1-1.5-1.5V18.8z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/>
+      <circle cx="32" cy="15.5" r="2.6" fill="${dark}"/>`;
+  }
+  if (group === 'views') {
+    // a cameo: an oval with a beaded rim
+    let beads = '';
+    for (let i = 0; i < 28; i++) {
+      const a = (Math.PI * 2 * i) / 28;
+      beads += `<circle cx="${(32 + 26.6 * Math.cos(a)).toFixed(2)}" cy="${(32 + 29.2 * Math.sin(a)).toFixed(2)}" r="1.5"/>`;
+    }
+    return `<ellipse cx="32" cy="32" rx="25" ry="28" fill="${dark}"/>
+      <g fill="${edge}" fill-opacity=".85">${beads}</g>
+      <ellipse cx="32" cy="32" rx="21.5" ry="24.5" fill="${fill}" stroke="${edge}" stroke-width="1.2"/>`;
+  }
   if (heart) {
     return `<path d="M32 60C19 50.5 3 39.5 3 22.5 3 12.5 10.5 5.5 19 5.5c5.8 0 10.4 3.3 13 7.8 2.6-4.5 7.2-7.8 13-7.8 8.5 0 16 7 16 17 0 17-16 28-29 37.5z" fill="${dark}"/>
       <path d="M32 54.5C20.5 46 8 36.5 8 22.8 8 15.2 13.6 10 20 10c5.4 0 9.6 3.4 12 8.4 2.4-5 6.6-8.4 12-8.4 6.4 0 12 5.2 12 12.8 0 13.7-12.5 23.2-24 31.7z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/>`;
@@ -319,6 +389,8 @@ export function trophyBadge(id: string, opts: { size?: number; locked?: boolean 
     ${frame(t?.group ?? 'time', `url(#${g})`, shade(base, 0.55), dark, t?.metric === 'likes')}
     ${t?.group === 'photos' ? `<g transform="translate(32 26.5) scale(.8) translate(-32 -32.5)">${(EMBLEM[id] ?? (() => ''))(dark)}</g>`
       : t?.metric === 'likes' ? `<g transform="translate(32 29) scale(.66) translate(-32 -32)">${(EMBLEM[id] ?? (() => ''))(dark)}</g>`
+      : t?.group === 'gifts' ? `<g transform="translate(32 37.5) scale(.78) translate(-32 -32)">${(EMBLEM[id] ?? (() => ''))(dark)}</g>`
+      : t?.group === 'views' ? `<g transform="translate(32 32) scale(.86) translate(-32 -32)">${(EMBLEM[id] ?? (() => ''))(dark)}</g>`
       : (EMBLEM[id] ?? (() => ''))(dark)}
   </svg>`;
   const el = h('span', { class: `trophy-badge${opts.locked ? ' locked' : ''}` });

@@ -4,7 +4,7 @@
  * badge lives in the browser (client/src/trophyart.ts).
  */
 
-export type TrophyGroup = 'time' | 'account' | 'chat' | 'social' | 'mail' | 'photos';
+export type TrophyGroup = 'time' | 'account' | 'chat' | 'social' | 'mail' | 'photos' | 'gifts' | 'views';
 
 export interface TrophyDef {
   id: string;
@@ -12,20 +12,28 @@ export interface TrophyDef {
   group: TrophyGroup;
   /** How it's earned, shown under the badge. */
   how: string;
-  /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail), people invited or days in a row with a status (account) or photos kept (photos). */
+  /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail), people invited or days in a row with a status (account), photos kept (photos), gifts sent (gifts) or profile views received (views). */
   goal?: number;
   /** likes: chat trophies counted in likes received on room messages instead of messages sent.
    *  online: account trophies counted in hours spent on the site (goal in hours, adds up over time). */
   metric?: 'likes' | 'online';
 }
 
-export const TROPHY_GROUPS: { id: TrophyGroup; title: string; tab: string }[] = [
-  { id: 'time', title: 'Time on RoleplayRetro', tab: 'Time' },
-  { id: 'account', title: 'Account', tab: 'Account' },
-  { id: 'chat', title: 'Room chat', tab: 'Room chat' },
-  { id: 'social', title: 'Friends', tab: 'Friends' },
-  { id: 'mail', title: 'Private messages', tab: 'Messages' },
-  { id: 'photos', title: 'Photos', tab: 'Photos' },
+export const TROPHY_GROUPS: { id: TrophyGroup; title: string }[] = [
+  { id: 'account', title: 'Account' },
+  { id: 'time', title: 'Time on RoleplayRetro' },
+  { id: 'photos', title: 'Photos' },
+  { id: 'social', title: 'Friends' },
+  { id: 'chat', title: 'Room chat' },
+  { id: 'mail', title: 'Private messages' },
+  { id: 'gifts', title: 'Gifts sent' },
+  { id: 'views', title: 'Profile views' },
+];
+
+/** The two tabs on the trophy page, each made of several groups (shown as sections). */
+export const TROPHY_TABS: { id: 'account' | 'social'; title: string; groups: TrophyGroup[] }[] = [
+  { id: 'account', title: 'Account', groups: ['account', 'time', 'photos'] },
+  { id: 'social', title: 'Social', groups: ['social', 'chat', 'mail', 'gifts', 'views'] },
 ];
 
 const DAY = 24;
@@ -75,6 +83,16 @@ export const TROPHIES: TrophyDef[] = [
   { id: 'scrapbooker', name: 'Scrapbooker', group: 'photos', goal: 50, how: 'You uploaded 50 photos to your profile.' },
   { id: 'curator', name: 'Curator', group: 'photos', goal: 100, how: 'You uploaded 100 photos to your profile.' },
   { id: 'master_of_light', name: 'Master of Light', group: 'photos', goal: 300, how: 'You uploaded 300 photos to your profile.' },
+
+  { id: 'gift_bearer', name: 'Gift Bearer', group: 'gifts', goal: 100, how: 'Send 100 gifts.' },
+  { id: 'generous_soul', name: 'Generous Soul', group: 'gifts', goal: 500, how: 'Send 500 gifts.' },
+  { id: 'almsgiver', name: 'Almsgiver', group: 'gifts', goal: 1_000, how: 'Send 1,000 gifts.' },
+  { id: 'grand_benefactor', name: 'Grand Benefactor', group: 'gifts', goal: 10_000, how: 'Send 10,000 gifts.' },
+
+  { id: 'passing_glance', name: 'Passing Glance', group: 'views', goal: 100, how: 'Get 100 views on your profile.' },
+  { id: 'talk_of_town', name: 'Talk of the Town', group: 'views', goal: 1_000, how: 'Get 1,000 views on your profile.' },
+  { id: 'renowned', name: 'Renowned', group: 'views', goal: 10_000, how: 'Get 10,000 views on your profile.' },
+  { id: 'household_name', name: 'Household Name', group: 'views', goal: 1_000_000, how: 'Get 1,000,000 views on your profile.' },
 ];
 
 export const TROPHY_BY_ID = new Map(TROPHIES.map((t) => [t.id, t]));

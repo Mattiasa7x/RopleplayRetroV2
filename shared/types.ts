@@ -340,6 +340,9 @@ export interface TrophyPageDTO {
     likes: number;
     /** Hours spent on the site so far (all visits added together). */
     onlineHours: number;
+    /** Gifts you've sent, and views your profile has received (one per visitor per day). */
+    giftsSent: number;
+    profileViews: number;
     privateMessages: number;
     friends: number;
     /** People who joined with your code and confirmed their email. */

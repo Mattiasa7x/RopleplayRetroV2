@@ -38,6 +38,8 @@ for (const t of TROPHIES) {
   else if (t.group === 'account' && t.goal) RULE[t.id] = `${INVITES} >= ${Number(t.goal)}`;
   if (t.group === 'photos') RULE[t.id] = `${PHOTOS} >= ${Number(t.goal)}`;
   if (t.group === 'mail') RULE[t.id] = `u.dm_count >= ${Number(t.goal)}`;
+  if (t.group === 'gifts') RULE[t.id] = `u.gifts_sent >= ${Number(t.goal)}`;
+  if (t.group === 'views') RULE[t.id] = `u.views_received >= ${Number(t.goal)}`;
 }
 const AWARD_SQL = `
   INSERT INTO user_trophies (user_id, trophy_id)
@@ -92,6 +94,21 @@ const ONLINE_GOALS = ONLINE_TROPHIES.map((t) => t.goal! * 3600);
 export function afterOnlineTime(totals: { id: string; seconds: number }[], added: number): void {
   const crossed = totals.filter((r) => ONLINE_GOALS.some((g) => r.seconds >= g && r.seconds - added < g)).map((r) => r.id);
   if (crossed.length) void awardTrophies(crossed, ONLINE_IDS).catch((e) => console.error(e));
+}
+
+const GIFT_TROPHIES = TROPHIES.filter((t) => t.group === 'gifts');
+const GIFT_GOALS = new Set(GIFT_TROPHIES.map((t) => t.goal!));
+const VIEW_TROPHIES = TROPHIES.filter((t) => t.group === 'views');
+const VIEW_GOALS = new Set(VIEW_TROPHIES.map((t) => t.goal!));
+
+/** After a gift is sent: check when the sender's total lands on a goal. */
+export function afterGiftSent(userId: string, total: number): void {
+  if (GIFT_GOALS.has(total)) void awardTrophies([userId], GIFT_TROPHIES.map((t) => t.id)).catch((e) => console.error(e));
+}
+
+/** After a profile view is counted: check when the owner's total lands on a goal. */
+export function afterViewReceived(userId: string, total: number): void {
+  if (VIEW_GOALS.has(total)) void awardTrophies([userId], VIEW_TROPHIES.map((t) => t.id)).catch((e) => console.error(e));
 }
 
 /** After a security change (email confirmed, phone added, two-factor on). */
@@ -181,9 +198,9 @@ export function registerTrophyRoutes(app: FastifyInstance) {
       earned: rows.map((r) => ({ id: r.trophy_id, earnedAt: r.earned_at.toISOString() })),
     };
     if (self) {
-      const { rows: p } = await db.query<{ hours: number; messages: number; likes: number; online_hours: number; dms: number; friends: number; invites: number; photos: number; streak: number; best_streak: number;
+      const { rows: p } = await db.query<{ hours: number; messages: number; likes: number; online_hours: number; gifts_sent: number; views_received: number; dms: number; friends: number; invites: number; photos: number; streak: number; best_streak: number;
         birthday: boolean; gender: boolean; city: boolean; style: boolean; about: boolean; sheet: CharacterSheet | null; email: boolean; phone: boolean; two_factor: boolean }>(
-        `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages, like_count AS likes, online_seconds / 3600.0 AS online_hours, dm_count AS dms,
+        `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages, like_count AS likes, online_seconds / 3600.0 AS online_hours, gifts_sent, views_received, dm_count AS dms,
                 ${INVITES.replace(/u\.id/g, 'users.id')} AS invites,
                 ${PHOTOS.replace(/u\.id/g, 'users.id')} AS photos,
                 -- a streak is still alive if the last update was yesterday or today in any timezone
@@ -196,7 +213,7 @@ export function registerTrophyRoutes(app: FastifyInstance) {
                 email_verified_at IS NOT NULL AS email, phone IS NOT NULL AS phone, totp_enabled AS two_factor
            FROM users WHERE id = $1`, [u.id]);
       out.progress = {
-        accountHours: Number(p[0].hours), messages: Number(p[0].messages), likes: Number(p[0].likes), onlineHours: Number(p[0].online_hours), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites), photos: Number(p[0].photos), statusStreak: Number(p[0].streak), bestStatusStreak: Number(p[0].best_streak),
+        accountHours: Number(p[0].hours), messages: Number(p[0].messages), likes: Number(p[0].likes), onlineHours: Number(p[0].online_hours), giftsSent: Number(p[0].gifts_sent), profileViews: Number(p[0].views_received), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites), photos: Number(p[0].photos), statusStreak: Number(p[0].streak), bestStatusStreak: Number(p[0].best_streak),
         profile: {
           birthday: p[0].birthday, gender: p[0].gender, city: p[0].city, style: p[0].style, about: p[0].about,
           sheetFilled: SHEET_KEYS.filter((k) => (p[0].sheet?.[k] ?? '').trim() !== '').length, sheetTotal: SHEET_KEYS.length,

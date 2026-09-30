@@ -902,3 +902,7 @@ img.avatar.quill { background-clip: border-box; }
 [data-theme="dark"] .heart.on + .like-count { color: var(--pink); }
 /* Heart on the right-hand side of each chat line */
 .line { grid-template-columns: minmax(0, 1fr) 1.5rem; }
+/* Trophy page: sections inside the Account / Social tabs */
+.trophy-section + .trophy-section { margin-top: 1rem; padding-top: 0.8rem; border-top: 2px solid color-mix(in srgb, var(--red) 35%, transparent); }
+.trophy-section-title { margin: 0 0 0.4rem; font-size: 1rem; }
+[data-theme="dark"] .trophy-section + .trophy-section { border-top-color: color-mix(in srgb, var(--pink) 40%, transparent); }

@@ -1,4 +1,4 @@
-import { TROPHIES, TROPHY_GROUPS, type TrophyDef } from '../../../shared/trophies.js';
+import { TROPHIES, TROPHY_GROUPS, TROPHY_TABS, type TrophyDef } from '../../../shared/trophies.js';
 import type { TrophyPageDTO } from '../../../shared/types.js';
 import { card, page } from '../core.js';
 import { api, h } from '../dom.js';
@@ -53,6 +53,8 @@ function progressFor(t: TrophyDef, p: NonNullable<TrophyPageDTO['progress']>): H
   }
   if (t.group === 'account' && t.goal) return bar(p.invites, t.goal, `${num(Math.min(p.invites, t.goal))} / ${num(t.goal)} people invited`);
   if (t.group === 'mail') return bar(p.privateMessages, t.goal!, `${num(Math.min(p.privateMessages, t.goal!))} / ${num(t.goal!)} private messages`);
+  if (t.group === 'gifts') return bar(p.giftsSent, t.goal!, `${num(Math.min(p.giftsSent, t.goal!))} / ${num(t.goal!)} gifts sent`);
+  if (t.group === 'views') return bar(p.profileViews, t.goal!, `${num(Math.min(p.profileViews, t.goal!))} / ${num(t.goal!)} profile views`);
   if (t.group === 'social') return bar(p.friends, t.goal!, `${num(Math.min(p.friends, t.goal!))} / ${num(t.goal!)} friends`);
   const s = p.security;
   const step = (done: boolean, text: string, href: string) =>
@@ -78,23 +80,33 @@ export async function viewTrophies(handle: string) {
     ? `${earned.size} of ${TROPHIES.length} trophies earned`
     : `${d.handle} has earned ${earned.size} of ${TROPHIES.length} trophies`);
 
-  // One tab per category (like the room themes); only categories with something to show.
-  const tabs = TROPHY_GROUPS.map((g) => {
-    const all = TROPHIES.filter((t) => t.group === g.id);
-    const list = all.filter((t) => d.self || earned.has(t.id));
-    if (!list.length) return null;
+  // Two tabs, Account and Social, each with a section per category (only ones with something to show).
+  const item = (t: TrophyDef) => {
+    const when = earned.get(t.id);
+    return h('li', { class: `trophy-item${when ? ' earned' : ''}` },
+      trophyBadge(t.id, { size: 64, locked: !when }),
+      h('div', { class: 'trophy-text' },
+        h('strong', {}, t.name),
+        h('span', { class: 'small' }, t.how),
+        when ? h('span', { class: 'muted small' }, `Earned ${new Date(when).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`)
+          : d.progress ? progressFor(t, d.progress) : null));
+  };
+  const tabs = TROPHY_TABS.map((tab) => {
+    const all = TROPHIES.filter((t) => tab.groups.includes(t.group));
+    const shown = all.filter((t) => d.self || earned.has(t.id));
+    if (!shown.length) return null;
     const got = all.filter((t) => earned.has(t.id)).length;
-    const pane = card(g.title, h('ul', { class: 'trophy-list' }, ...list.map((t) => {
-      const when = earned.get(t.id);
-      return h('li', { class: `trophy-item${when ? ' earned' : ''}` },
-        trophyBadge(t.id, { size: 64, locked: !when }),
-        h('div', { class: 'trophy-text' },
-          h('strong', {}, t.name),
-          h('span', { class: 'small' }, t.how),
-          when ? h('span', { class: 'muted small' }, `Earned ${new Date(when).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`)
-            : d.progress ? progressFor(t, d.progress) : null));
-    })));
-    return { id: g.id, title: g.tab, meta: d.self ? `${got} of ${all.length} earned` : `${got} earned`, first: ([...list].reverse().find((t) => earned.has(t.id)) ?? list[0]).id, pane };
+    const sections = tab.groups.map((gid) => {
+      const list = shown.filter((t) => t.group === gid);
+      if (!list.length) return null;
+      const title = TROPHY_GROUPS.find((g) => g.id === gid)?.title ?? gid;
+      return h('section', { class: 'trophy-section', id: `ts-${gid}` },
+        h('h3', { class: 'trophy-section-title' }, title),
+        h('ul', { class: 'trophy-list' }, ...list.map(item)));
+    });
+    const pane = card(null, ...sections);
+    return { id: tab.id, groups: tab.groups as string[], title: tab.title, meta: d.self ? `${got} of ${all.length} earned` : `${got} earned`,
+      first: ([...shown].reverse().find((t) => earned.has(t.id)) ?? shown[0]).id, pane };
   }).filter((x) => x != null);
 
   if (!tabs.length) {
@@ -122,6 +134,7 @@ export async function viewTrophies(handle: string) {
   page('Trophies', back, summary,
     h('div', { class: 'theme-list trophy-tabs', role: 'tablist', 'aria-label': 'Trophy categories' }, ...buttons),
     ...panes);
-  const wanted = new URLSearchParams(location.search).get('tab');
-  show(tabs.some((t) => t.id === wanted) ? wanted! : tabs[0].id);
+  // Old links named a single category (?tab=chat): open the tab that holds it.
+  const wanted = new URLSearchParams(location.search).get('tab') ?? '';
+  show((tabs.find((t) => t.id === wanted) ?? tabs.find((t) => t.groups.includes(wanted)) ?? tabs[0]).id);
 }

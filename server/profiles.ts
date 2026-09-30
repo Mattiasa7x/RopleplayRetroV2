@@ -14,7 +14,7 @@ import { maskMature } from './safety/mature.js';
 import { textBlocked } from './safety/pipeline.js';
 import { checkSocialText } from './safety/social-text.js';
 import { audit, db, redis } from './store.js';
-import { afterProfileEdit } from './trophies.js';
+import { afterProfileEdit, afterViewReceived } from './trophies.js';
 import { giftBlockReason } from './gifts.js';
 import { GIFT_BY_ID } from '../shared/gifts.js';
 import { quillActive } from '../shared/quill.js';
@@ -120,11 +120,18 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
     // Remember the visit for the owner's Views list (latest visit per person). The site admin's
     // visits aren't listed, so checking on a report never tips anyone off.
     if (!self && a.visible && u.trust < Trust.Admin) {
-      await db.query(
-        `INSERT INTO profile_views (profile_user_id, viewer_id) VALUES ($1, $2)
-         ON CONFLICT (profile_user_id, viewer_id) DO UPDATE SET viewed_at = now()`,
+      // The lifetime view total (for trophies) counts each visitor at most once a day, so
+      // refreshing can't pump it up.
+      const { rows: vr } = await db.query<{ n: string }>(
+        `WITH prev AS (SELECT viewed_at FROM profile_views WHERE profile_user_id = $1 AND viewer_id = $2),
+              up AS (INSERT INTO profile_views (profile_user_id, viewer_id) VALUES ($1, $2)
+                     ON CONFLICT (profile_user_id, viewer_id) DO UPDATE SET viewed_at = now() RETURNING 1)
+         UPDATE users SET views_received = views_received + 1
+          WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM prev WHERE viewed_at > now() - interval '1 day')
+          RETURNING views_received AS n`,
         [t.id, u.id],
       );
+      if (vr[0]) afterViewReceived(t.id, Number(vr[0].n));
     }
     // Counts show to anyone who can see the profile; who viewed and which gifts stay private.
     const { rows: nv } = a.visible

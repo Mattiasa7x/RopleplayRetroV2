@@ -11,6 +11,7 @@ import { pushTo } from './push.js';
 import { rooms, type IO } from './realtime.js';
 import { maskMature } from './safety/mature.js';
 import { checkSocialText } from './safety/social-text.js';
+import { afterGiftSent } from './trophies.js';
 import { db, tx } from './store.js';
 
 /**
@@ -74,6 +75,7 @@ export function registerGiftRoutes(app: FastifyInstance, io: IO) {
       shadow = v.shadow;
     }
 
+    let sentTotal = 0;
     const id = await tx(async (q) => {
       // Lock this sender's row so two quick taps can't both slip under the daily limit.
       await q.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [u.id]);
@@ -87,8 +89,13 @@ export function registerGiftRoutes(app: FastifyInstance, io: IO) {
          VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() END) RETURNING id::text AS id`,
         [b.gift, u.id, a.target.id, message, shadow],
       );
+      if (!shadow) {
+        const { rows: n } = await q.query<{ n: string }>('UPDATE users SET gifts_sent = gifts_sent + 1 WHERE id = $1 RETURNING gifts_sent AS n', [u.id]);
+        sentTotal = Number(n[0].n);
+      }
       return rows[0].id;
     });
+    if (sentTotal) afterGiftSent(u.id, sentTotal);
     if (!shadow) {
       io.to(rooms.user(a.target.id)).emit('social', { kind: 'gift', from: u.handle });
       pushTo(a.target.id, 'friend', { title: `${u.handle} sent you a gift`, url: '/gifts', tag: `gift-${id}` });
