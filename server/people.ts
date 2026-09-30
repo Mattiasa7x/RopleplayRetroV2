@@ -3,7 +3,7 @@ import { Trust } from '../shared/config.js';
 import type { OnlineUserDTO, OnlineUsersDTO, RoomPeopleDTO } from '../shared/types.js';
 import { characterAgeText, prefsOf, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, requireUser } from './http.js';
-import { assertRoomAccess, roomBySlug } from './rooms.js';
+import { assertRoomAccess, roomBySlug, roomRoles } from './rooms.js';
 import { maskMature } from './safety/mature.js';
 import { db, redis } from './store.js';
 
@@ -22,6 +22,7 @@ export function registerPeopleRoutes(app: FastifyInstance) {
     if (!ids.length) return { people: [], hidden: 0, readOnly: room.read_only };
     const { rows: vr } = await db.query<{ user_id: string }>('SELECT user_id::text AS user_id FROM room_voices WHERE room_id = $1', [room.id]);
     const voiced = new Set(vr.map((r) => r.user_id));
+    const roles = await roomRoles(room);
     const { rows } = await db.query<UserRow & { is_friend: boolean; hide: boolean }>(
       `SELECT ${USER_COLS},
               EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
@@ -46,13 +47,15 @@ export function registerPeopleRoutes(app: FastifyInstance) {
         isFriend: r.is_friend,
         self,
         isOwner: r.id === room.owner_id,
-        voice: !room.read_only || r.id === room.owner_id || voiced.has(r.id),
+        role: roles[r.id] ?? null,
+        voice: !room.read_only || r.id === room.owner_id || !!roles[r.id] || voiced.has(r.id),
       };
     });
     // You first, then friends, then everyone else by name.
     people.sort((a, b) => Number(b.self) - Number(a.self) || Number(b.isFriend) - Number(a.isFriend));
-    // The owner always first, then you, then friends, then everyone else by name.
-    people.sort((a, b) => Number(b.isOwner) - Number(a.isOwner));
+    // The room team first (owner, moderators, operators), then you, then friends, then everyone else.
+    const rank = (p: { role: string | null }) => (p.role === 'owner' ? 3 : p.role === 'moderator' ? 2 : p.role === 'operator' ? 1 : 0);
+    people.sort((a, b) => rank(b) - rank(a));
     return { people, hidden: rows.length - people.length, readOnly: room.read_only };
   });
 }

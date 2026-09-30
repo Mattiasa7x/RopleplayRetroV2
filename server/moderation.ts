@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { MOD, SAFETY, SITE_ROOMS, Trust } from '../shared/config.js';
-import { canView, roomBySlug } from './rooms.js';
+import { assertRoomAccess, canView, roomBySlug, roomRoleOf } from './rooms.js';
+import type { RoomSanctionDTO } from '../shared/types.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
 import { disconnectUser, removeFromRoom, rooms, type IO } from './realtime.js';
 import { reloadBlocklist } from './safety/pipeline.js';
@@ -12,18 +13,28 @@ async function moderatedRoomIds(userId: string): Promise<number[]> {
   return rows.map((r) => r.room_id);
 }
 
-type ModRole = 'admin' | 'moderator' | 'owner';
+/** Site staff ('admin', 'moderator') or a member room's own team ('owner', 'room_moderator', 'room_operator'). */
+type ModRole = 'admin' | 'moderator' | 'owner' | 'room_moderator' | 'room_operator';
+const ROOM_TEAM: ModRole[] = ['owner', 'room_moderator', 'room_operator'];
 
 /**
- * Admins moderate everywhere; site moderators only in rooms they're assigned to;
- * a member room's owner moderates their own room. Site-wide actions need an admin.
+ * Admins moderate everywhere. Site moderators moderate their assigned site rooms and every
+ * member room (staff outrank room owners). In a member room, its owner, moderators and
+ * operators moderate it. Site-wide actions need an admin.
  */
 async function assertCanModerate(u: SessionUser, roomId: number | null): Promise<ModRole> {
   if (u.trust >= Trust.Admin) return 'admin';
   if (roomId != null) {
-    if (u.trust >= Trust.RoomModerator && (await moderatedRoomIds(u.id)).includes(roomId)) return 'moderator';
-    const { rowCount } = await db.query("SELECT 1 FROM rooms WHERE id = $1 AND kind = 'member' AND owner_id = $2", [roomId, u.id]);
-    if (rowCount) return 'owner';
+    const { rows } = await db.query<{ kind: string; owner_id: string | null; role: 'moderator' | 'operator' | null }>(
+      `SELECT r.kind, r.owner_id::text AS owner_id, rr.role FROM rooms r
+         LEFT JOIN room_roles rr ON rr.room_id = r.id AND rr.user_id = $2 WHERE r.id = $1`, [roomId, u.id]);
+    const room = rows[0];
+    if (u.trust >= Trust.RoomModerator && (room?.kind === 'member' || (await moderatedRoomIds(u.id)).includes(roomId))) return 'moderator';
+    if (room?.kind === 'member') {
+      if (room.owner_id === u.id) return 'owner';
+      if (room.role === 'moderator') return 'room_moderator';
+      if (room.role === 'operator') return 'room_operator';
+    }
   }
   throw new HttpError(403, 'not_mod', roomId == null ? 'Only admins can take site-wide action.' : "You don't moderate this room.");
 }
@@ -218,10 +229,16 @@ export function registerModerationRoutes(app: FastifyInstance, io: IO) {
     const role = await assertCanModerate(u, room?.id ?? null);
     const target = await userByHandle(b.handle);
     if (target.id === u.id) throw new HttpError(400, 'self', "You can't sanction yourself.");
-    if (role === 'owner') {
-      // Room owners: kick, mute or ban from their own room only; never staff; no shadow-mutes.
-      if (b.kind === 'shadow_mute') throw new HttpError(403, 'owner_kind', 'Room owners can kick, mute or ban from their room.');
-      if (target.trust_level >= Trust.RoomModerator) throw new HttpError(403, 'rank', "Room owners can't act on site staff.");
+    const team = ROOM_TEAM.includes(role);
+    if (team && room) {
+      // The room's own team: kick, mute or ban from this room only; never site staff; no shadow-mutes.
+      // Owner > moderators > operators: the owner can't be touched by their team, and operators
+      // can only act on regular members.
+      if (b.kind === 'shadow_mute') throw new HttpError(403, 'owner_kind', 'The room team can kick, mute or ban from this room.');
+      if (target.trust_level >= Trust.RoomModerator) throw new HttpError(403, 'rank', "The room team can't act on RoleplayRetro staff.");
+      const targetRole = await roomRoleOf(room, target.id);
+      if (targetRole === 'owner') throw new HttpError(403, 'rank', "The room's owner can't be kicked, muted or banned from their own room.");
+      if (role === 'room_operator' && targetRole) throw new HttpError(403, 'rank', 'Operators can only act on regular members.');
     } else if (target.trust_level >= u.trust) {
       throw new HttpError(403, 'rank', 'You can only act on members below your own level.');
     }
@@ -238,7 +255,7 @@ export function registerModerationRoutes(app: FastifyInstance, io: IO) {
          RETURNING id`,
         [target.id, b.kind, room?.id ?? null, b.reason, u.id, minutes],
       );
-      if (b.kind !== 'kick' && role !== 'owner') {
+      if (b.kind !== 'kick' && !team) {
         // Trust is lost on staff sanctions (a room owner's decision about their own room doesn't affect site trust): back to Verified at most (staff excluded above).
         await q.query('UPDATE users SET trust_level = LEAST(trust_level, $2) WHERE id = $1', [target.id, Trust.Verified]);
       }
@@ -256,17 +273,36 @@ export function registerModerationRoutes(app: FastifyInstance, io: IO) {
 
   app.post<{ Params: { id: string } }>('/api/mod/sanctions/:id/revoke', async (req) => {
     const u = requireUser(req, Trust.Verified);
-    const { rows } = await db.query<{ room_id: number | null; user_id: string }>(
-      'SELECT room_id, user_id FROM sanctions WHERE id = $1 AND revoked_at IS NULL',
+    const { rows } = await db.query<{ room_id: number | null; user_id: string; issued_by: string | null }>(
+      'SELECT room_id, user_id, issued_by::text AS issued_by FROM sanctions WHERE id = $1 AND revoked_at IS NULL',
       [req.params.id],
     );
     if (!rows[0]) throw new HttpError(404, 'no_sanction', 'No active sanction with that id.');
-    await assertCanModerate(u, rows[0].room_id);
+    const role = await assertCanModerate(u, rows[0].room_id);
+    if (role === 'room_operator' && rows[0].issued_by !== u.id) {
+      throw new HttpError(403, 'not_yours', 'Operators can only lift the bans and mutes they gave.');
+    }
     await tx(async (q) => {
       await q.query('UPDATE sanctions SET revoked_at = now(), revoked_by = $2 WHERE id = $1', [req.params.id, u.id]);
       await audit(q, u.id, 'revoke_sanction', 'sanction', req.params.id, { userId: rows[0].user_id });
     });
     return { ok: true };
+  });
+
+  /** A room's active kicks, mutes and bans, for its team (and staff). */
+  app.get<{ Params: { slug: string } }>('/api/rooms/:slug/sanctions', async (req): Promise<RoomSanctionDTO[]> => {
+    const u = requireUser(req, Trust.Verified);
+    const room = await roomBySlug(req.params.slug);
+    await assertRoomAccess(u, room);
+    await assertCanModerate(u, room.id);
+    const { rows } = await db.query<{ id: string; handle: string; kind: 'mute' | 'kick' | 'ban'; reason: string; issued_by: string | null; created_at: Date; expires_at: Date | null }>(
+      `SELECT s.id::text AS id, t.handle, s.kind, s.reason, iu.handle AS issued_by, s.created_at, s.expires_at
+         FROM sanctions s JOIN users t ON t.id = s.user_id LEFT JOIN users iu ON iu.id = s.issued_by
+        WHERE s.room_id = $1 AND s.revoked_at IS NULL AND s.kind IN ('mute', 'kick', 'ban')
+          AND (s.expires_at IS NULL OR s.expires_at > now())
+        ORDER BY s.created_at DESC LIMIT 100`, [room.id]);
+    return rows.map((r) => ({ id: r.id, handle: r.handle, kind: r.kind, reason: r.reason, issuedBy: r.issued_by,
+      createdAt: r.created_at.toISOString(), expiresAt: r.expires_at?.toISOString() ?? null }));
   });
 
   app.get<{ Params: { handle: string } }>('/api/mod/users/:handle', async (req) => {

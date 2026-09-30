@@ -1,9 +1,15 @@
 import { CHAT, Trust } from '../../../shared/config.js';
 import { containsBlocked, type BlockEntry } from '../../../shared/filter.js';
 import { cleanBody, visibleLength } from '../../../shared/text.js';
-import type { HistoryPage, MessageDTO, RoomPeopleDTO, SendResult } from '../../../shared/types.js';
+import type { HistoryPage, MessageDTO, RoomPeopleDTO, RoomRole, SendResult } from '../../../shared/types.js';
 import { avatar, navigate, page, state, toast } from '../core.js';
 import { api, h, timeShort } from '../dom.js';
+
+const ROLE_LABEL: Record<RoomRole, string> = { owner: 'Owner', moderator: 'Mod', operator: 'Op' };
+const ROLE_TITLE: Record<RoomRole, string> = { owner: 'Room owner', moderator: 'Room moderator', operator: 'Room operator' };
+/** The room-team badge shown beside a name, only inside that room. */
+const roleBadge = (role: RoomRole | null | undefined) =>
+  role ? h('span', { class: `role-badge ${role}`, title: ROLE_TITLE[role], 'aria-label': ROLE_TITLE[role] }, ROLE_LABEL[role]) : null;
 
 function getLastSeen(slug: string): string | null { try { return localStorage.getItem(`seen:${slug}`); } catch { return null; } }
 function setLastSeen(slug: string, id: string) { try { localStorage.setItem(`seen:${slug}`, id); } catch {} }
@@ -59,7 +65,12 @@ export async function viewRoom(slug: string) {
   const isRoomOwner = () => !!hist && hist.room.kind === 'member' && hist.room.canManage;
   /** Owner: a short line about read-only at the top of the People panel (the switch lives in Manage). */
   function paintOwnerControls() {
-    ownerControls.hidden = !isRoomOwner();
+    const team = !isRoomOwner() && !!hist && hist.room.kind === 'member' && hist.room.canModerate;
+    ownerControls.hidden = !isRoomOwner() && !team;
+    if (team) {
+      ownerControls.replaceChildren(h('p', { class: 'small' }, 'You moderate this room: ', h('a', { href: `/room/${slug}/manage` }, 'Bans and mutes'), '.'));
+      return;
+    }
     if (!isRoomOwner()) return;
     ownerControls.replaceChildren(h('p', { class: 'small' }, readOnly
       ? 'Read-only is on: tap Allow to speak to let someone chat. '
@@ -77,7 +88,7 @@ export async function viewRoom(slug: string) {
         const details = [p.characterCity, p.characterAge != null ? `Age ${p.characterAge}` : null].filter(Boolean).join(' · ');
         // Owner of a read-only room: a switch per person to let them speak.
         let voiceBtn: HTMLElement | null = null;
-        if (r.readOnly && isRoomOwner() && !p.self && !p.isOwner) {
+        if (r.readOnly && isRoomOwner() && !p.self && !p.isOwner && !p.role) {
           const on = p.voice;
           voiceBtn = h('button', { type: 'button', class: `voice-btn${on ? ' on' : ''}`, 'aria-pressed': String(on), 'aria-label': on ? `${p.handle} can speak. Tap to make read-only.` : `Allow ${p.handle} to speak` },
             on ? '🎙 Can speak' : 'Allow to speak');
@@ -91,9 +102,9 @@ export async function viewRoom(slug: string) {
             avatar(p.avatar, p.handle, 'md'),
             h('span', { class: 'person-text' },
               h('strong', {}, p.handle, p.self ? ' (you)' : '',
-                p.isOwner ? h('span', { class: 'tag owner-tag' }, 'owner') : null,
+                roleBadge(p.role),
                 p.isFriend ? h('span', { class: 'tag friend-tag' }, 'friend') : null,
-                r.readOnly && p.voice && !p.isOwner && !voiceBtn ? h('span', { class: 'tag voice-tag', 'aria-label': 'can speak' }, '🎙') : null),
+                r.readOnly && p.voice && !p.role && !voiceBtn ? h('span', { class: 'tag voice-tag', 'aria-label': 'can speak' }, '🎙') : null),
               h('span', { class: 'muted small block' }, details || 'No character details'))),
           voiceBtn);
       }));
@@ -128,7 +139,7 @@ export async function viewRoom(slug: string) {
     const mentioned = m.mentions.includes(me.id);
     const who = h('button', { type: 'button', class: 'who', 'aria-label': `Options for ${m.handle}` }, m.handle);
     const li = h('li', { class: `line${mine ? ' mine' : ''}${mentioned ? ' mention' : ''}`, 'data-id': m.id },
-      who, h('span', { class: 'sep' }, ': '), h('span', { class: 'body' }, m.body),
+      roleBadge(hist?.room.roles?.[m.userId]), who, h('span', { class: 'sep' }, ': '), h('span', { class: 'body' }, m.body),
       me.prefs.showTimestamps ? h('time', { datetime: m.createdAt }, ' ' + timeShort(m.createdAt)) : null);
     who.addEventListener('click', () => openActions(m, li));
     return li;
@@ -173,6 +184,27 @@ export async function viewRoom(slug: string) {
     render();
   }
 
+  /**
+   * Room team: owner > moderators > operators. Staff (checked on the server too) can act on anyone.
+   * The owner can't be acted on by their own team; operators only act on regular members.
+   */
+  function canActOn(userId: string): boolean {
+    if (!hist.room.canModerate || userId === me.id) return false;
+    if (me.trust >= Trust.RoomModerator) return true;
+    const mine = hist.room.myRole;
+    const theirs = hist.room.roles[userId];
+    if (theirs === 'owner') return false;
+    if (mine === 'operator' && theirs) return false;
+    return true;
+  }
+  /** Only the owner (or a site admin) builds the room team. */
+  const canAssign = (userId: string) => hist.room.kind === 'member' && hist.room.canManage && hist.room.roles[userId] !== 'owner' && userId !== me.id;
+  const sanction = (handle: string, kind: 'kick' | 'mute' | 'ban', minutes?: number) =>
+    api('/api/mod/sanctions', { body: { handle, kind, room: slug, ...(minutes ? { minutes } : {}),
+      reason: kind === 'kick' ? 'Kicked by the room team' : kind === 'mute' ? 'Muted by the room team' : 'Banned by the room team' } });
+  const setRole = (handle: string, role: 'moderator' | 'operator' | null) =>
+    api(`/api/rooms/${encodeURIComponent(slug)}/roles/${encodeURIComponent(handle)}`, role ? { method: 'PUT', body: { role } } : { method: 'DELETE' });
+
   function openActions(m: MessageDTO, li: HTMLElement) {
     const done = (text: string, err = false) => { actions.hidden = true; toast(text, err); };
     const profileLink = h('a', { href: `/profile/${m.handle}`, class: 'button quiet' }, 'View profile');
@@ -196,8 +228,11 @@ export async function viewRoom(slug: string) {
         done(mode === 'block' ? `${m.handle} is blocked. Manage in Settings.` : `${m.handle} is ignored. Manage in Settings.`);
       } catch (x) { done((x as Error).message, true); }
     };
-    const modBtn = (label: string, fn: () => Promise<unknown>, ok: string) =>
-      h('button', { type: 'button', class: 'mod', onclick: (async () => { try { await fn(); done(ok); } catch (x) { done((x as Error).message, true); } }) as EventListener }, label);
+    const modBtn = (label: string, fn: () => Promise<unknown>, ok: string, ask?: string) =>
+      h('button', { type: 'button', class: 'mod', onclick: (async () => {
+        if (ask && !confirm(ask)) return;
+        try { await fn(); done(ok); } catch (x) { done((x as Error).message, true); }
+      }) as EventListener }, label);
     const items: (Node | null)[] = [
       h('strong', {}, m.handle),
       profileLink,
@@ -208,10 +243,18 @@ export async function viewRoom(slug: string) {
       ...(me.trust >= Trust.Admin ? [
         modBtn('Delete line', () => api('/api/admin/delete', { body: { kind: 'message', id: m.id } }), 'Line deleted.'),
       ] : []),
-      ...(hist.room.canModerate ? [
+      ...(canActOn(m.userId) ? [
         modBtn('Hide line', () => api(`/api/mod/messages/${m.id}/hide`, { body: { reason: 'Hidden by a room moderator' } }), 'Line hidden.'),
-        modBtn('Kick', () => api('/api/mod/sanctions', { body: { handle: m.handle, kind: 'kick', room: slug, reason: 'Kicked by a room moderator' } }), `${m.handle} kicked for 15 minutes.`),
-        modBtn('Mute', () => api('/api/mod/sanctions', { body: { handle: m.handle, kind: 'mute', room: slug, minutes: 15, reason: 'Muted by a room moderator' } }), `${m.handle} muted for 15 minutes.`),
+        modBtn('Kick', () => sanction(m.handle, 'kick'), `${m.handle} kicked for 15 minutes.`),
+        modBtn('Mute 15 min', () => sanction(m.handle, 'mute', 15), `${m.handle} muted for 15 minutes.`),
+        modBtn('Mute 1 hour', () => sanction(m.handle, 'mute', 60), `${m.handle} muted for an hour.`),
+        modBtn('Ban 1 day', () => sanction(m.handle, 'ban', 24 * 60), `${m.handle} banned from this room for a day.`),
+        modBtn('Ban', () => sanction(m.handle, 'ban'), `${m.handle} banned from this room.`, `Ban ${m.handle} from this room until someone lifts it?`),
+      ] : []),
+      ...(canAssign(m.userId) ? [
+        hist.room.roles[m.userId] !== 'moderator' ? modBtn('Make Moderator', () => setRole(m.handle, 'moderator'), `${m.handle} is now a Moderator here.`) : null,
+        hist.room.roles[m.userId] !== 'operator' ? modBtn('Make Operator', () => setRole(m.handle, 'operator'), `${m.handle} is now an Operator here.`) : null,
+        hist.room.roles[m.userId] ? modBtn('Remove from team', () => setRole(m.handle, null), `${m.handle} is off the room team.`) : null,
       ] : []),
       h('button', { type: 'button', class: 'quiet', onclick: (() => { actions.hidden = true; }) as EventListener }, 'Close'),
       reportForm,
@@ -262,9 +305,18 @@ export async function viewRoom(slug: string) {
   const onVoice = (p: { roomId: number; readOnly: boolean; voices: string[] }) => {
     if (p.roomId !== state.currentRoomId) return;
     readOnly = p.readOnly;
-    canSpeak = !readOnly || (hist?.room.canManage ?? false) || p.voices.includes(me.id);
+    canSpeak = !readOnly || (hist?.room.canManage ?? false) || !!hist?.room.myRole || me.trust >= Trust.RoomModerator || p.voices.includes(me.id);
     paintVoice();
     if (sheet.open) void loadPeople(); else paintOwnerControls();
+  };
+  const onRoles = (p: { roomId: number; roles: Record<string, RoomRole> }) => {
+    if (p.roomId !== state.currentRoomId || !hist) return;
+    const wasOnTeam = !!hist.room.myRole;
+    hist.room.roles = p.roles;
+    hist.room.myRole = p.roles[me.id] ?? null;
+    if (!!hist.room.myRole !== wasOnTeam) { void load(); return; } // your own powers changed
+    render();
+    if (sheet.open) void loadPeople();
   };
   const onReconnect = () => {
     s.emit('room:join', { slug }, () => {});
@@ -275,6 +327,7 @@ export async function viewRoom(slug: string) {
   s.on('typing', onTyping);
   s.on('presence', onPresence);
   s.on('room:voice', onVoice);
+  s.on('room:roles', onRoles);
   s.io.on('reconnect', onReconnect);
   state.cleanup = () => {
     s.off('msg:new', onNew);
@@ -282,6 +335,7 @@ export async function viewRoom(slug: string) {
     s.off('typing', onTyping);
     s.off('presence', onPresence);
     s.off('room:voice', onVoice);
+    s.off('room:roles', onRoles);
     s.io.off('reconnect', onReconnect);
     s.emit('room:leave');
     state.currentRoomId = null;

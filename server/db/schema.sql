@@ -730,3 +730,14 @@ CREATE TABLE IF NOT EXISTS room_voices (
 -- Which version of the Terms each member agreed to at signup, and when (NULL: joined before the Terms).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
+
+-- ================= Member-room team: moderators and operators, appointed by the owner =================
+CREATE TABLE IF NOT EXISTS room_roles (
+  room_id     INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  user_id     BIGINT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role        TEXT    NOT NULL CHECK (role IN ('moderator', 'operator')),
+  assigned_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (room_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS room_roles_user ON room_roles (user_id);

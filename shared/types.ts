@@ -41,7 +41,29 @@ export interface RoomDetail {
   readOnly: boolean;
   /** Whether this viewer may post right now. */
   canSpeak: boolean;
+  /** Member rooms: your place on the room team, if any. */
+  myRole: RoomRole | null;
+  /** Member rooms: everyone on the room team, by user id (owner, moderators, operators). */
+  roles: Record<string, RoomRole>;
+  /** Moderators and operators by name; only sent to people who can manage the room. */
+  team?: RoomTeamMemberDTO[];
 }
+
+/** A member room's team: the owner, then moderators, then operators. */
+export type RoomRole = 'owner' | 'moderator' | 'operator';
+
+/** A room ban or mute, for the owner's Bans and mutes list. */
+export interface RoomSanctionDTO {
+  id: string;
+  handle: string;
+  kind: 'mute' | 'kick' | 'ban';
+  reason: string;
+  issuedBy: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface RoomTeamMemberDTO { handle: string; role: 'moderator' | 'operator' }
 
 export interface RoomImageDTO {
   id: number;
@@ -55,6 +77,8 @@ export interface RoomImageDTO {
 export interface RoomPersonDTO {
   id: string;
   handle: string;
+  /** Place on the room team (member rooms), or null. */
+  role: RoomRole | null;
   avatar: string | null;
   /** Roleplay character's city and age as the member wrote them. Never the real age. */
   characterCity: string | null;
@@ -401,6 +425,8 @@ export interface ServerToClient {
   dm: (p: { from: string; id: string }) => void;
   /** Read-only changed in a room: whether it's on and who has a voice (user ids). */
   'room:voice': (p: { roomId: number; readOnly: boolean; voices: string[] }) => void;
+  /** The room team changed: everyone's role by user id. */
+  'room:roles': (p: { roomId: number; roles: Record<string, RoomRole> }) => void;
   /** Newly earned trophies (ids from shared/trophies.ts). */
   trophy: (p: { ids: string[] }) => void;
 }

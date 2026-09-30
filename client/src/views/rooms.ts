@@ -1,5 +1,5 @@
 import { MEMBER_ROOMS, Trust } from '../../../shared/config.js';
-import type { RoomDetail, RoomImageDTO, RoomSummary } from '../../../shared/types.js';
+import type { RoomDetail, RoomImageDTO, RoomSanctionDTO, RoomSummary } from '../../../shared/types.js';
 import { card, field, form, navigate, page, state, toast } from '../core.js';
 import { api, h } from '../dom.js';
 import { pagedGrid } from './pagedgrid.js';
@@ -126,6 +126,23 @@ export async function viewRooms() {
   show(start);
 }
 
+/** The room's active kicks, mutes and bans, with a Lift button (the server decides who may lift which). */
+async function bansCard(path: string, reload: () => void): Promise<HTMLElement> {
+  let list: RoomSanctionDTO[] = [];
+  try { list = await api<RoomSanctionDTO[]>(`${path}/sanctions`); } catch (e) { return card('Bans and mutes', h('p', { class: 'muted' }, (e as Error).message)); }
+  const until = (s: RoomSanctionDTO) => s.expiresAt ? `until ${new Date(s.expiresAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'until lifted';
+  const label = { ban: 'Banned', mute: 'Muted', kick: 'Kicked' } as const;
+  return card(`Bans and mutes (${list.length})`,
+    h('ul', { class: 'people' }, ...(list.length
+      ? list.map((s) => h('li', { class: 'team-row' },
+          h('span', {}, h('a', { href: `/profile/${s.handle}` }, s.handle),
+            h('span', { class: 'muted small block' }, `${label[s.kind]} ${until(s)}${s.issuedBy ? ` · by ${s.issuedBy}` : ''}`)),
+          h('button', { type: 'button', class: 'quiet', onclick: (async () => {
+            try { await api(`/api/mod/sanctions/${s.id}/revoke`, { body: {} }); toast('Lifted.'); reload(); } catch (x) { toast((x as Error).message, true); }
+          }) as EventListener }, 'Lift')))
+      : [h('li', { class: 'muted' }, 'Nobody is banned or muted here.')])));
+}
+
 /** Pick a picture for a member room from the shared pool. Value is the chosen id, or '' for none. */
 async function imagePicker(current: number | null): Promise<{ el: HTMLElement; value: () => number | null }> {
   let pool: RoomImageDTO[] = [];
@@ -187,9 +204,14 @@ export async function viewManage(slug: string) {
     state.flash = (e as Error).message;
     return navigate('/rooms', true);
   }
-  if (!room.canManage) return navigate(`/room/${slug}`, true);
   const reload = () => void viewManage(slug);
   const path = `/api/rooms/${encodeURIComponent(slug)}`;
+  // Moderators and operators (and staff) get just the Bans and mutes list; settings are the owner's.
+  if (!room.canManage) {
+    if (!room.canModerate) return navigate(`/room/${slug}`, true);
+    page(`Manage ${room.name}`, h('a', { href: `/room/${slug}`, class: 'back' }, '‹ Back to room'), await bansCard(path, reload));
+    return;
+  }
   const site = room.kind === 'site';
   const picker = await imagePicker(room.imageId);
 
@@ -230,9 +252,41 @@ export async function viewManage(slug: string) {
     catch (x) { err((x as Error).message); }
   });
 
+  // ----- room team: moderators and operators -----
+  const team = room.team ?? [];
+  const teamList = h('ul', { class: 'people' }, ...(team.length
+    ? team.map((t) => h('li', { class: 'team-row' },
+        h('a', { href: `/profile/${t.handle}` }, t.handle),
+        h('select', { 'aria-label': `Role for ${t.handle}`, onchange: (async (e: Event) => {
+          try { await api(`${path}/roles/${encodeURIComponent(t.handle)}`, { method: 'PUT', body: { role: (e.target as HTMLSelectElement).value } }); toast('Role changed.'); reload(); }
+          catch (x) { toast((x as Error).message, true); }
+        }) as EventListener },
+          h('option', { value: 'moderator', selected: t.role === 'moderator' }, 'Moderator'),
+          h('option', { value: 'operator', selected: t.role === 'operator' }, 'Operator')),
+        h('button', { type: 'button', class: 'quiet', onclick: (async () => {
+          try { await api(`${path}/roles/${encodeURIComponent(t.handle)}`, { method: 'DELETE' }); reload(); } catch (x) { toast((x as Error).message, true); }
+        }) as EventListener }, 'Remove')))
+    : [h('li', { class: 'muted' }, 'No moderators or operators yet.')]));
+  const addTeam = form([
+    field('Add someone by name', 'handle', 'text', { maxlength: 16, autocapitalize: 'off' }),
+    h('label', { class: 'field' }, h('span', {}, 'As'),
+      h('select', { name: 'role' }, h('option', { value: 'moderator' }, 'Moderator'), h('option', { value: 'operator', selected: true }, 'Operator'))),
+  ], 'Add to team', async (d, err) => {
+    try { await api(`${path}/roles/${encodeURIComponent(String(d.get('handle')).trim())}`, { method: 'PUT', body: { role: d.get('role') } }); reload(); }
+    catch (x) { err((x as Error).message); }
+  });
+
   page(`Manage ${room.name}`,
     h('a', { href: `/room/${slug}`, class: 'back' }, '‹ Back to room'),
     card('Room settings', settings),
+    site ? null : card(`Room team (${team.length})`,
+      h('ul', { class: 'team-help' },
+        h('li', {}, h('span', { class: 'role-badge owner' }, 'Owner'), ' You. Nobody on your team can kick, mute or ban you here.'),
+        h('li', {}, h('span', { class: 'role-badge moderator' }, 'Mod'), ' Can kick, mute and ban anyone here except you.'),
+        h('li', {}, h('span', { class: 'role-badge operator' }, 'Op'), ' Can kick, mute and ban regular members only.')),
+      h('p', { class: 'muted small' }, 'Badges show beside their names in this room only. Only you can change the team. RoleplayRetro staff can step in anywhere.'),
+      teamList, addTeam),
+    site ? null : await bansCard(path, reload),
     site ? null : card(`Invite list (${room.whitelist?.length ?? 0})`,
       h('p', { class: 'muted small' }, room.whitelistOnly ? 'Only these members (and you) can see and enter this room.' : 'The room is open to all verified members; the list applies once invite-only is on.'),
       list, add),

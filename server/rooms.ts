@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { MEMBER_ROOMS, Trust } from '../shared/config.js';
-import type { RoomDetail } from '../shared/types.js';
+import type { RoomDetail, RoomRole, RoomTeamMemberDTO } from '../shared/types.js';
 import { HttpError, parse, requireUser } from './http.js';
 import { removeFromRoom, rooms as sockRooms, type IO } from './realtime.js';
 import { accessBlock, activeSanctions, textBlocked } from './safety/pipeline.js';
@@ -42,11 +42,37 @@ export interface Viewer {
 
 const NOT_FOUND = 'That room does not exist or is invite-only.';
 
-/** May this person post in the room right now? (Read-only rooms: owner, site admin, or given a voice.) */
+/** May this person post in the room right now? (Read-only rooms: owner, room team, site staff, or given a voice.) */
 export async function canSpeakIn(v: Viewer, room: RoomRow): Promise<boolean> {
-  if (!room.read_only || room.owner_id === v.id || v.trust >= Trust.Admin) return true;
-  const { rowCount } = await db.query('SELECT 1 FROM room_voices WHERE room_id = $1 AND user_id = $2', [room.id, v.id]);
+  if (!room.read_only || room.owner_id === v.id || v.trust >= Trust.RoomModerator) return true;
+  const { rowCount } = await db.query(
+    `SELECT 1 FROM room_voices WHERE room_id = $1 AND user_id = $2
+     UNION ALL SELECT 1 FROM room_roles WHERE room_id = $1 AND user_id = $2`, [room.id, v.id]);
   return !!rowCount;
+}
+
+/** A member room's team by user id: the owner, moderators and operators. Site rooms have none. */
+export async function roomRoles(room: RoomRow): Promise<Record<string, RoomRole>> {
+  if (room.kind !== 'member') return {};
+  const { rows } = await db.query<{ user_id: string; role: 'moderator' | 'operator' }>(
+    'SELECT user_id::text AS user_id, role FROM room_roles WHERE room_id = $1', [room.id]);
+  const out: Record<string, RoomRole> = {};
+  for (const r of rows) out[r.user_id] = r.role;
+  if (room.owner_id) out[String(room.owner_id)] = 'owner';
+  return out;
+}
+
+/** One person's place on a member room's team, or null. */
+export async function roomRoleOf(room: RoomRow, userId: string): Promise<RoomRole | null> {
+  if (room.kind !== 'member') return null;
+  if (String(room.owner_id) === String(userId)) return 'owner';
+  const { rows } = await db.query<{ role: 'moderator' | 'operator' }>('SELECT role FROM room_roles WHERE room_id = $1 AND user_id = $2', [room.id, userId]);
+  return rows[0]?.role ?? null;
+}
+
+/** Tell everyone in the room who's on the team now (for the badges). */
+export async function broadcastRoles(io: IO, room: RoomRow): Promise<void> {
+  io.to(sockRooms.chat(room.id)).emit('room:roles', { roomId: room.id, roles: await roomRoles(room) });
 }
 
 /** Tell everyone in the room who may speak now. */
@@ -72,7 +98,10 @@ export async function canView(v: Viewer, room: RoomRow): Promise<boolean> {
   if (v.trust >= Trust.Admin) return true;
   if (v.trust < Trust.Verified) return false;
   if (!room.whitelist_only || room.owner_id === v.id) return true;
-  const { rowCount } = await db.query('SELECT 1 FROM room_whitelist WHERE room_id = $1 AND user_id = $2', [room.id, v.id]);
+  // Invite-only: people on the invite list, and the room's own team.
+  const { rowCount } = await db.query(
+    `SELECT 1 FROM room_whitelist WHERE room_id = $1 AND user_id = $2
+     UNION ALL SELECT 1 FROM room_roles WHERE room_id = $1 AND user_id = $2`, [room.id, v.id]);
   return !!rowCount;
 }
 
@@ -100,6 +129,8 @@ function assertCanManage(v: Viewer, room: RoomRow) {
 
 export async function canModerateRoom(v: Viewer, room: RoomRow): Promise<boolean> {
   if (v.trust >= Trust.Admin || isOwner(v, room)) return true;
+  // Site staff outrank every member room's owner; the room's own moderators and operators moderate it too.
+  if (room.kind === 'member' && (v.trust >= Trust.RoomModerator || (await roomRoleOf(room, v.id)))) return true;
   if (v.trust < Trust.RoomModerator) return false;
   const { rowCount } = await db.query('SELECT 1 FROM room_moderators WHERE room_id = $1 AND user_id = $2', [room.id, v.id]);
   return !!rowCount;
@@ -152,7 +183,7 @@ const PatchBody = z.object({
 
 async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
   const manage = isOwner(v, room) || v.trust >= Trust.Admin;
-  const [{ rows: owner }, whitelist, { rows: img }, online] = await Promise.all([
+  const [{ rows: owner }, whitelist, { rows: img }, online, roles, team] = await Promise.all([
     room.owner_id ? db.query<{ handle: string }>('SELECT handle FROM users WHERE id = $1', [room.owner_id]) : Promise.resolve({ rows: [] as { handle: string }[] }),
     manage
       ? db.query<{ handle: string }>(
@@ -164,6 +195,12 @@ async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
       ? db.query<{ credit: string | null; credit_url: string | null }>('SELECT credit, credit_url FROM room_images WHERE id = $1', [room.image_id])
       : Promise.resolve({ rows: [] as { credit: string | null; credit_url: string | null }[] }),
     redis.hlen(`presence:${room.id}`),
+    roomRoles(room),
+    manage && room.kind === 'member'
+      ? db.query<RoomTeamMemberDTO>(
+          `SELECT u.handle, rr.role FROM room_roles rr JOIN users u ON u.id = rr.user_id
+            WHERE rr.room_id = $1 ORDER BY rr.role, lower(u.handle)`, [room.id]).then((r) => r.rows)
+      : Promise.resolve(undefined),
   ]);
   return {
     id: room.id, slug: room.slug, name: room.name, kind: room.kind, description: room.description,
@@ -177,6 +214,9 @@ async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
     chatFilter: room.kind === 'site' || room.chat_filter, // always on in site rooms
     readOnly: room.read_only,
     canSpeak: await canSpeakIn(v, room),
+    myRole: roles[v.id] ?? null,
+    roles,
+    ...(team ? { team } : {}),
   };
 }
 
@@ -288,6 +328,45 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
     return { ok: true };
   };
   app.put<{ Params: { slug: string; handle: string } }>('/api/rooms/:slug/voice/:handle', voice(true));
+
+  /**
+   * The room team: the owner (or a site admin) makes someone a moderator or operator (PUT), or
+   * takes the role away (DELETE). Member rooms only.
+   */
+  const RoleBody = z.object({ role: z.enum(['moderator', 'operator']) });
+  const teamChange = (give: boolean) => async (req: FastifyRequest) => {
+    const params = req.params as { slug: string; handle: string };
+    const u = requireUser(req, Trust.Verified);
+    const room = await roomBySlug(params.slug);
+    if (!(await canView(u, room))) throw new HttpError(404, 'no_room', NOT_FOUND);
+    assertCanManage(u, room);
+    if (room.kind !== 'member') throw new HttpError(400, 'site_room', 'Site rooms are run by RoleplayRetro staff.');
+    const { rows: t } = await db.query<{ id: string; handle: string; trust_level: number }>(
+      'SELECT id::text AS id, handle, trust_level FROM users WHERE lower(handle) = lower($1)', [params.handle]);
+    if (!t[0]) throw new HttpError(404, 'no_user', 'No one has that name.');
+    if (t[0].id === String(room.owner_id)) throw new HttpError(400, 'owner', 'You already own this room.');
+    if (give) {
+      const { role } = parse(RoleBody, req.body);
+      if (t[0].trust_level < Trust.Verified) throw new HttpError(400, 'unverified', `${t[0].handle} needs to confirm their email first.`);
+      const { rows: c } = await db.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM room_roles WHERE room_id = $1 AND role = $2 AND user_id <> $3', [room.id, role, t[0].id]);
+      const max = role === 'moderator' ? MEMBER_ROOMS.maxModerators : MEMBER_ROOMS.maxOperators;
+      if (Number(c[0].n) >= max) throw new HttpError(400, 'team_full', `A room can have up to ${max} ${role}s.`);
+      await db.query(
+        `INSERT INTO room_roles (room_id, user_id, role, assigned_by) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (room_id, user_id) DO UPDATE SET role = EXCLUDED.role, assigned_by = EXCLUDED.assigned_by, created_at = now()`,
+        [room.id, t[0].id, role, u.id]);
+      await audit(db, u.id, 'room_role_set', 'user', t[0].id, { room: room.slug, role });
+      io.to(sockRooms.user(t[0].id)).emit('notice', { message: `You're now ${role === 'moderator' ? 'a Moderator' : 'an Operator'} of ${room.name}.` });
+    } else {
+      const { rowCount } = await db.query('DELETE FROM room_roles WHERE room_id = $1 AND user_id = $2', [room.id, t[0].id]);
+      if (rowCount) await audit(db, u.id, 'room_role_removed', 'user', t[0].id, { room: room.slug });
+    }
+    await broadcastRoles(io, room);
+    return { ok: true };
+  };
+  app.put<{ Params: { slug: string; handle: string } }>('/api/rooms/:slug/roles/:handle', teamChange(true));
+  app.delete<{ Params: { slug: string; handle: string } }>('/api/rooms/:slug/roles/:handle', teamChange(false));
   app.delete<{ Params: { slug: string; handle: string } }>('/api/rooms/:slug/voice/:handle', voice(false));
 
   app.delete<{ Params: { slug: string } }>('/api/rooms/:slug', async (req) => {

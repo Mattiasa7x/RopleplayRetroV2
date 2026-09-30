@@ -98,6 +98,9 @@ export const SITE_ROOMS = {
 /** Member rooms: created by verified members; optionally invite-only (whitelist). */
 export const MEMBER_ROOMS = {
   maxOwnedPerUser: 3,
+  /** Room team a member-room owner can appoint. */
+  maxModerators: 10,
+  maxOperators: 20,
   maxWhitelist: 200,
   nameMin: 3,
   nameMax: 32,
