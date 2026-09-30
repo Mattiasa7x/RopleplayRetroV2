@@ -3,7 +3,7 @@ import { h } from './dom.js';
 
 /**
  * Badge artwork, drawn in SVG so it stays sharp at any size. Each group has its own frame
- * (time: rosette medal, account: shield, chat: hexagon, friends: diamond, private messages: postage stamp, photos: instant photo) and each trophy its own colour and
+ * (time: rosette medal, account: shield, chat: hexagon, or a heart for chat likes, friends: diamond, private messages: postage stamp, photos: instant photo) and each trophy its own colour and
  * emblem. Emblems are white; `D` marks details drawn in the badge's dark shade.
  */
 
@@ -15,6 +15,7 @@ const COLOR: Record<string, string> = {
   fully_realized: '#1f9d8b', diarist: '#c2566f', chronicler: '#b0852a', keeper_of_days: '#2c4f9e', party_leader: '#e2873a',
   shutterbug: '#e0574a', scrapbooker: '#e3a624', curator: '#3c8f68', master_of_light: '#3a5bd6', guild_master: '#2f7fbf', sovereign: '#7a3fb5',
   courier: '#4e9fe0', herald: '#c9412f', emissary: '#7a5fd0', ravens: '#a9b6c8',
+  crowd_pleaser: '#f0567a', beloved_bard: '#c8437e', toast_of_tavern: '#c9432f', living_legend: '#e6a623',
 };
 
 /** Six little heads in a ring. */
@@ -172,6 +173,40 @@ const EMBLEM: Record<string, (dark: string) => string> = {
     <path d="M24.5 36.5c4.7-.4 9.2 1.4 11.8 4.9M23 40.5c3.2-.2 6.3.8 8.3 2.9" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/>
     <path d="M29.5 46.5v3.5M34 46v3.8M27.5 50h4M32 49.8h4" fill="none" stroke="#161a26" stroke-width="1.8" stroke-linecap="round"/>`;
   },
+  // ----- chat likes (drawn inside a heart) -----
+  // a thrown rose
+  crowd_pleaser: (d) => `<path d="M32 46.5V31" ${S} stroke-width="2.6"/>
+    <path d="M32 40.5c-3.8-2.6-8-2.2-9.8.6 3.4 2.2 7.2 1.8 9.8-.6zM32 37c3.2-2.4 7-2.2 8.8.4-3 2-6.6 1.8-8.8-.4z" ${W}/>
+    <path d="M32 31.5c-5.8 0-9.2-3.6-9.2-8.2 0-3 1.8-5.4 4.4-6.6 1 2.2 2.8 3.4 4.8 3.4s3.8-1.2 4.8-3.4c2.6 1.2 4.4 3.6 4.4 6.6 0 4.6-3.4 8.2-9.2 8.2z" ${W}/>
+    <path d="M27.8 23.2c1.4 2.4 6.8 2.6 8.4-.2M29.5 27.2c1.6 1 3.6 1 5 0" ${D(d)} stroke-width="1.6"/>`,
+  // a lute
+  beloved_bard: (d) => `<g transform="rotate(-38 32 32)">
+    <rect x="30.3" y="12.5" width="3.4" height="19" rx="1" ${W}/><rect x="29" y="9.5" width="6" height="4.5" rx="1.2" ${W}/>
+    <ellipse cx="32" cy="39.5" rx="9.5" ry="10.5" ${W}/>
+    <circle cx="32" cy="37.5" r="3" fill="${d}"/>
+    <path d="M31 16v29M33 16v29" ${D(d)} stroke-width=".8"/>
+    <rect x="28.3" y="44" width="7.4" height="2" rx=".7" fill="${d}"/></g>`,
+  // two goblets raised in a toast
+  toast_of_tavern: (d) => {
+    const goblet = (x: number, a: number) => `<g transform="translate(${x} 22) rotate(${a})">
+      <path d="M-7 0h14c0 8-3.4 11.5-7 11.5S-7 8-7 0z" ${W}/><path d="M-5.2 3.2h10.4c-.6 4.4-2.6 6.4-5.2 6.4s-4.6-2-5.2-6.4z" fill="${d}"/>
+      <path d="M0 11.5v8M-4.5 19.5h9" ${S} stroke-width="2.4"/></g>`;
+    return `${goblet(25, -16)}${goblet(39, 16)}<path d="M32 16.5v-4.5M27.5 17.5l-2.4-3.4M36.5 17.5l2.4-3.4" ${S} stroke-width="2"/>`;
+  },
+  // a laurel wreath around a star
+  living_legend: (d) => {
+    let leaves = '';
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 6; i++) {
+        const deg = 100 + i * 26, a = (deg * Math.PI) / 180;
+        const x = 32 + side * -13 * Math.cos(a), y = 34 - 13 * Math.sin(a) * -1;
+        const rot = side < 0 ? deg - 90 + 180 : 90 - deg;
+        leaves += `<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="3.6" ry="1.7" transform="rotate(${rot.toFixed(1)} ${x.toFixed(2)} ${y.toFixed(2)})" ${W}/>`;
+      }
+    }
+    return `${leaves}
+      <path d="M32 24.5l2.5 5.1 5.6.8-4 4 .9 5.6-5-2.6-5 2.6.9-5.6-4-4 5.6-.8z" ${W} stroke="${d}" stroke-width=".8"/>`;
+  },
   // a radiant star
   luminary: (d) => `${rays()}
     <path d="M32 21.5l3.2 6.6 7.2 1-5.2 5.1 1.2 7.2-6.4-3.4-6.4 3.4 1.2-7.2-5.2-5.1 7.2-1z" ${W} stroke="${d}" stroke-width="1"/>
@@ -206,7 +241,11 @@ function rosette(): string {
 }
 const ROSETTE = rosette();
 
-function frame(group: TrophyGroup, fill: string, edge: string, dark: string): string {
+function frame(group: TrophyGroup, fill: string, edge: string, dark: string, heart = false): string {
+  if (heart) {
+    return `<path d="M32 60C19 50.5 3 39.5 3 22.5 3 12.5 10.5 5.5 19 5.5c5.8 0 10.4 3.3 13 7.8 2.6-4.5 7.2-7.8 13-7.8 8.5 0 16 7 16 17 0 17-16 28-29 37.5z" fill="${dark}"/>
+      <path d="M32 54.5C20.5 46 8 36.5 8 22.8 8 15.2 13.6 10 20 10c5.4 0 9.6 3.4 12 8.4 2.4-5 6.6-8.4 12-8.4 6.4 0 12 5.2 12 12.8 0 13.7-12.5 23.2-24 31.7z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/>`;
+  }
   if (group === 'account') {
     return `<path d="M32 3.5l24 8.5v17.5c0 15.5-10.5 26-24 31-13.5-5-24-15.5-24-31V12z" fill="${dark}"/>
       <path d="M32 7.5l20 7v15c0 13-8.8 22-20 26.5-11.2-4.5-20-13.5-20-26.5v-15z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/>`;
@@ -252,8 +291,10 @@ export function trophyBadge(id: string, opts: { size?: number; locked?: boolean 
     <defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${shade(base, 0.35)}"/><stop offset=".55" stop-color="${base}"/><stop offset="1" stop-color="${shade(base, -0.25)}"/>
     </linearGradient></defs>
-    ${frame(t?.group ?? 'time', `url(#${g})`, shade(base, 0.55), dark)}
-    ${t?.group === 'photos' ? `<g transform="translate(32 26.5) scale(.8) translate(-32 -32.5)">${(EMBLEM[id] ?? (() => ''))(dark)}</g>` : (EMBLEM[id] ?? (() => ''))(dark)}
+    ${frame(t?.group ?? 'time', `url(#${g})`, shade(base, 0.55), dark, t?.metric === 'likes')}
+    ${t?.group === 'photos' ? `<g transform="translate(32 26.5) scale(.8) translate(-32 -32.5)">${(EMBLEM[id] ?? (() => ''))(dark)}</g>`
+      : t?.metric === 'likes' ? `<g transform="translate(32 29) scale(.66) translate(-32 -32)">${(EMBLEM[id] ?? (() => ''))(dark)}</g>`
+      : (EMBLEM[id] ?? (() => ''))(dark)}
   </svg>`;
   const el = h('span', { class: `trophy-badge${opts.locked ? ' locked' : ''}` });
   el.innerHTML = svg; // built only from the fixed strings above

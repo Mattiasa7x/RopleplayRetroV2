@@ -31,7 +31,7 @@ const RULE: Record<string, string> = {
 };
 for (const t of TROPHIES) {
   if (t.group === 'time') RULE[t.id] = `u.created_at <= now() - interval '${Number(t.goal)} hours'`;
-  if (t.group === 'chat') RULE[t.id] = `u.message_count >= ${Number(t.goal)}`;
+  if (t.group === 'chat') RULE[t.id] = t.metric === 'likes' ? `u.like_count >= ${Number(t.goal)}` : `u.message_count >= ${Number(t.goal)}`;
   if (t.group === 'social') RULE[t.id] = `${FRIENDS} >= ${Number(t.goal)}`;
   if (STREAK_IDS.includes(t.id)) RULE[t.id] = `u.status_best_streak >= ${Number(t.goal)}`;
   else if (t.group === 'account' && t.goal) RULE[t.id] = `${INVITES} >= ${Number(t.goal)}`;
@@ -49,7 +49,10 @@ const AWARD_SQL = `
   RETURNING user_id::text AS user_id`;
 
 /** Counts at which a chat trophy is earned, so sending a message only checks when it matters. */
-const CHAT_GOALS = new Set(TROPHIES.filter((t) => t.group === 'chat').map((t) => t.goal!));
+const CHAT_GOALS = new Set(TROPHIES.filter((t) => t.group === 'chat' && !t.metric).map((t) => t.goal!));
+const LIKE_TROPHIES = TROPHIES.filter((t) => t.metric === 'likes');
+const LIKE_GOALS = new Set(LIKE_TROPHIES.map((t) => t.goal!));
+const LIKE_IDS = LIKE_TROPHIES.map((t) => t.id);
 
 type Notify = (userId: string, trophyIds: string[]) => void;
 let notify: Notify = () => {};
@@ -73,6 +76,11 @@ export async function awardTrophies(userIds: string[] | null, only: string[] | n
 /** After a room message: only worth checking when the count lands on a goal. */
 export function afterRoomMessage(userId: string, count: number): void {
   if (CHAT_GOALS.has(count)) void awardTrophies([userId]).catch((e) => console.error(e));
+}
+
+/** After someone likes a member's room message: check when their likes-received lands on a goal. */
+export function afterLikeReceived(userId: string, received: number): void {
+  if (LIKE_GOALS.has(received)) void awardTrophies([userId], LIKE_IDS).catch((e) => console.error(e));
 }
 
 /** After a security change (email confirmed, phone added, two-factor on). */
@@ -162,9 +170,9 @@ export function registerTrophyRoutes(app: FastifyInstance) {
       earned: rows.map((r) => ({ id: r.trophy_id, earnedAt: r.earned_at.toISOString() })),
     };
     if (self) {
-      const { rows: p } = await db.query<{ hours: number; messages: number; dms: number; friends: number; invites: number; photos: number; streak: number; best_streak: number;
+      const { rows: p } = await db.query<{ hours: number; messages: number; likes: number; dms: number; friends: number; invites: number; photos: number; streak: number; best_streak: number;
         birthday: boolean; gender: boolean; city: boolean; style: boolean; about: boolean; sheet: CharacterSheet | null; email: boolean; phone: boolean; two_factor: boolean }>(
-        `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages, dm_count AS dms,
+        `SELECT extract(epoch FROM now() - created_at) / 3600 AS hours, message_count AS messages, like_count AS likes, dm_count AS dms,
                 ${INVITES.replace(/u\.id/g, 'users.id')} AS invites,
                 ${PHOTOS.replace(/u\.id/g, 'users.id')} AS photos,
                 -- a streak is still alive if the last update was yesterday or today in any timezone
@@ -177,7 +185,7 @@ export function registerTrophyRoutes(app: FastifyInstance) {
                 email_verified_at IS NOT NULL AS email, phone IS NOT NULL AS phone, totp_enabled AS two_factor
            FROM users WHERE id = $1`, [u.id]);
       out.progress = {
-        accountHours: Number(p[0].hours), messages: Number(p[0].messages), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites), photos: Number(p[0].photos), statusStreak: Number(p[0].streak), bestStatusStreak: Number(p[0].best_streak),
+        accountHours: Number(p[0].hours), messages: Number(p[0].messages), likes: Number(p[0].likes), privateMessages: Number(p[0].dms), friends: Number(p[0].friends), invites: Number(p[0].invites), photos: Number(p[0].photos), statusStreak: Number(p[0].streak), bestStatusStreak: Number(p[0].best_streak),
         profile: {
           birthday: p[0].birthday, gender: p[0].gender, city: p[0].city, style: p[0].style, about: p[0].about,
           sheetFilled: SHEET_KEYS.filter((k) => (p[0].sheet?.[k] ?? '').trim() !== '').length, sheetTotal: SHEET_KEYS.length,

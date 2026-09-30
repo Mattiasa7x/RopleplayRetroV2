@@ -883,3 +883,22 @@ img.avatar.quill { background-clip: border-box; }
 .photo-owner-tools > .primary, .photo-owner-tools > .is-main { flex-grow: 1.6; }
 .photo-owner-tools .is-main { cursor: default; opacity: 0.85; }
 .photo-owner-tools > .primary, .photo-owner-tools > .is-main { flex: 0 0 auto; padding: 0.15rem 0.65rem; }
+/* ----- Likes: a small outline heart on the left of each chat line, count under the point ----- */
+.line { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr); column-gap: 0.45rem; align-items: start; }
+.line-text { min-width: 0; }
+.like { display: flex; flex-direction: column; align-items: center; padding-top: 0.12rem; }
+.heart { all: unset; display: grid; place-items: center; width: 1.5rem; height: 1.3rem; cursor: pointer; color: color-mix(in srgb, var(--fg) 45%, transparent); border-radius: 6px; }
+.heart svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; transition: transform 0.12s ease, fill 0.12s ease; }
+.heart:hover:not(:disabled) { color: var(--red); }
+.heart:focus-visible { outline: 2px solid var(--red); outline-offset: 1px; }
+.heart:active:not(:disabled) svg { transform: scale(0.85); }
+.heart.on { color: var(--red); }
+.heart.on svg { fill: var(--red); }
+.heart:disabled { cursor: default; opacity: 0.35; }
+.like-count { font-size: 0.66rem; font-weight: 700; line-height: 1; min-height: 0.66rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.heart.on + .like-count { color: var(--red); }
+[data-theme="dark"] .heart.on, [data-theme="dark"] .heart:hover:not(:disabled) { color: var(--pink); }
+[data-theme="dark"] .heart.on svg { fill: var(--pink); }
+[data-theme="dark"] .heart.on + .like-count { color: var(--pink); }
+/* Heart on the right-hand side of each chat line */
+.line { grid-template-columns: minmax(0, 1fr) 1.5rem; }

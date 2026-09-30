@@ -815,3 +815,15 @@ DO $$ BEGIN
   END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS profile_photos_pending ON profile_photos (created_at) WHERE review = 'pending' AND NOT is_private;
+
+-- Hearts on room messages. You can't like your own line. users.like_count is likes received
+-- (for the chat trophies); it stays when old messages roll off or rooms close.
+CREATE TABLE IF NOT EXISTS message_likes (
+  message_id BIGINT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (message_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS message_likes_user ON message_likes (user_id);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS like_count BIGINT NOT NULL DEFAULT 0;

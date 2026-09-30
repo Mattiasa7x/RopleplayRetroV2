@@ -5,6 +5,9 @@ import type { HistoryPage, MessageDTO, RoomPeopleDTO, RoomRole, SendResult } fro
 import { avatar, navigate, page, state, toast } from '../core.js';
 import { api, h, timeShort } from '../dom.js';
 
+/** A plain outline heart; the point is at the bottom centre so the count sits right under it. */
+const HEART_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M12 20.3S3.8 15.4 3.8 9.4A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 8.2 2.1c0 6-8.2 10.9-8.2 10.9z"/></svg>';
+
 const ROLE_LABEL: Record<RoomRole, string> = { owner: 'Owner', moderator: 'Mod', operator: 'Op' };
 const ROLE_TITLE: Record<RoomRole, string> = { owner: 'Room owner', moderator: 'Room moderator', operator: 'Room operator' };
 /** The room-team badge shown beside a name, only inside that room. */
@@ -135,13 +138,52 @@ export async function viewRoom(slug: string) {
     sendBtn.disabled = left < 0 || left === CHAT.MAX_CHARS || flagged || !canSpeak;
   }
 
+  /** The heart on the right of a line, with its count under the point. Your own lines can't be liked. */
+  function likeBox(m: MessageDTO): HTMLElement {
+    const mine = m.userId === me.id;
+    const canLike = !mine && me.trust >= Trust.Verified;
+    const btn = h('button', {
+      type: 'button', class: `heart${m.liked ? ' on' : ''}`, disabled: !canLike,
+      'aria-pressed': String(!!m.liked),
+      'aria-label': mine ? "Your message (you can't like your own)" : m.liked ? `Unlike ${m.handle}'s message` : `Like ${m.handle}'s message`,
+    });
+    btn.innerHTML = HEART_SVG; // fixed markup
+    const count = h('span', { class: 'like-count', 'aria-hidden': 'true' }, m.likes ? String(m.likes) : '');
+    const paint = () => {
+      btn.classList.toggle('on', !!m.liked);
+      btn.setAttribute('aria-pressed', String(!!m.liked));
+      if (!mine) btn.setAttribute('aria-label', m.liked ? `Unlike ${m.handle}'s message` : `Like ${m.handle}'s message`);
+      count.textContent = m.likes ? String(m.likes) : '';
+    };
+    if (canLike) {
+      btn.addEventListener('click', async () => {
+        const was = { liked: m.liked, likes: m.likes };
+        m.liked = !was.liked;
+        m.likes = Math.max(0, was.likes + (m.liked ? 1 : -1));
+        paint();
+        try {
+          const r = await api<{ likes: number }>(`/api/messages/${m.id}/like`, { method: m.liked ? 'PUT' : 'DELETE', body: {} });
+          if (typeof r.likes === 'number') m.likes = r.likes;
+          paint();
+        } catch (e) {
+          Object.assign(m, was);
+          paint();
+          toast((e as Error).message, true);
+        }
+      });
+    }
+    return h('span', { class: `like${mine ? ' own' : ''}` }, btn, count);
+  }
+
   function line(m: MessageDTO): HTMLElement {
     const mine = m.userId === me.id;
     const mentioned = m.mentions.includes(me.id);
     const who = h('button', { type: 'button', class: 'who', 'aria-label': `Options for ${m.handle}` }, m.handle);
     const li = h('li', { class: `line${mine ? ' mine' : ''}${mentioned ? ' mention' : ''}`, 'data-id': m.id },
-      roleBadge(hist?.room.roles?.[m.userId]), who, h('span', { class: 'sep' }, ': '), h('span', { class: 'body' }, m.body),
-      me.prefs.showTimestamps ? h('time', { datetime: m.createdAt }, ' ' + timeShort(m.createdAt)) : null);
+      h('span', { class: 'line-text' },
+        roleBadge(hist?.room.roles?.[m.userId]), who, h('span', { class: 'sep' }, ': '), h('span', { class: 'body' }, m.body),
+        me.prefs.showTimestamps ? h('time', { datetime: m.createdAt }, ' ' + timeShort(m.createdAt)) : null),
+      likeBox(m));
     who.addEventListener('click', () => openActions(m, li));
     return li;
   }
@@ -279,6 +321,14 @@ export async function viewRoom(slug: string) {
     list.querySelector(`li[data-id="${CSS.escape(p.id)}"]`)?.remove();
     hist.messages = hist.messages.filter((m) => m.id !== p.id);
   };
+  // Someone liked or unliked a line: update its count (your own heart state stays as you set it).
+  const onLikes = (p: { id: string; roomId: number; likes: number }) => {
+    if (p.roomId !== state.currentRoomId || !hist) return;
+    const m = hist.messages.find((x) => x.id === p.id);
+    if (m) m.likes = p.likes;
+    const c = list.querySelector<HTMLElement>(`li[data-id="${CSS.escape(p.id)}"] .like-count`);
+    if (c) c.textContent = p.likes ? String(p.likes) : '';
+  };
   const onTyping = (p: { roomId: number; handle: string }) => {
     if (p.roomId !== state.currentRoomId) return;
     typing.textContent = `${p.handle} is typing…`;
@@ -316,6 +366,7 @@ export async function viewRoom(slug: string) {
   };
   s.on('msg:new', onNew);
   s.on('msg:hidden', onHidden);
+  s.on('msg:likes', onLikes);
   s.on('typing', onTyping);
   s.on('presence', onPresence);
   s.on('room:voice', onVoice);
@@ -324,6 +375,7 @@ export async function viewRoom(slug: string) {
   state.cleanup = () => {
     s.off('msg:new', onNew);
     s.off('msg:hidden', onHidden);
+    s.off('msg:likes', onLikes);
     s.off('typing', onTyping);
     s.off('presence', onPresence);
     s.off('room:voice', onVoice);

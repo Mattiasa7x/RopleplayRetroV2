@@ -14,6 +14,8 @@ export interface TrophyDef {
   how: string;
   /** Account age in hours (time), messages sent in rooms (chat), friends (social), private messages sent (mail), people invited or days in a row with a status (account) or photos kept (photos). */
   goal?: number;
+  /** Chat trophies counted in likes received on room messages instead of messages sent. */
+  metric?: 'likes';
 }
 
 export const TROPHY_GROUPS: { id: TrophyGroup; title: string; tab: string }[] = [
@@ -48,6 +50,10 @@ export const TROPHIES: TrophyDef[] = [
   { id: 'wordsmith', name: 'Wordsmith', group: 'chat', goal: 1_000, how: 'Send 1,000 messages in rooms.' },
   { id: 'storyteller', name: 'Storyteller', group: 'chat', goal: 10_000, how: 'Send 10,000 messages in rooms.' },
   { id: 'loremaster', name: 'Loremaster', group: 'chat', goal: 1_000_000, how: 'Send 1,000,000 messages in rooms.' },
+  { id: 'crowd_pleaser', name: 'Crowd Pleaser', group: 'chat', metric: 'likes', goal: 100, how: 'Get 100 likes on your room messages.' },
+  { id: 'beloved_bard', name: 'Beloved Bard', group: 'chat', metric: 'likes', goal: 1_000, how: 'Get 1,000 likes on your room messages.' },
+  { id: 'toast_of_tavern', name: 'Toast of the Tavern', group: 'chat', metric: 'likes', goal: 10_000, how: 'Get 10,000 likes on your room messages.' },
+  { id: 'living_legend', name: 'Living Legend', group: 'chat', metric: 'likes', goal: 500_000, how: 'Get 500,000 likes on your room messages.' },
 
   { id: 'good_company', name: 'Good Company', group: 'social', goal: 5, how: 'Have 5 friends.' },
   { id: 'circle', name: 'Circle of Friends', group: 'social', goal: 25, how: 'Have 25 friends.' },

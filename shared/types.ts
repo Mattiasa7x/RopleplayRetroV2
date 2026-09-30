@@ -11,6 +11,10 @@ export interface MessageDTO {
   body: string;
   mentions: string[]; // user ids
   createdAt: string; // ISO
+  /** Hearts from other members. */
+  likes: number;
+  /** The viewer has liked it (always false for your own lines, which you can't like). */
+  liked: boolean;
 }
 
 export type RoomKind = 'site' | 'member';
@@ -332,6 +336,8 @@ export interface TrophyPageDTO {
   progress?: {
     accountHours: number;
     messages: number;
+    /** Likes received on room messages. */
+    likes: number;
     privateMessages: number;
     friends: number;
     /** People who joined with your code and confirmed their email. */
@@ -444,6 +450,7 @@ export type SendResult = { ok: true; message: MessageDTO } | ({ ok: false } & Ap
 export interface ServerToClient {
   'msg:new': (m: MessageDTO) => void;
   'msg:hidden': (p: { id: string; roomId: number }) => void;
+  'msg:likes': (p: { id: string; roomId: number; likes: number }) => void;
   presence: (p: { roomId: number; online: number }) => void;
   typing: (p: { roomId: number; handle: string }) => void;
   mention: (p: { roomId: number; roomSlug: string; from: string; messageId: string }) => void;

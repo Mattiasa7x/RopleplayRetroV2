@@ -2,7 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { RETAINED_PER_ROOM, SAFETY, Trust } from '../shared/config.js';
 import type { HistoryPage, MessageDTO, RoomDetail, RoomSummary } from '../shared/types.js';
-import { parse, requireUser, type SessionUser } from './http.js';
+import { HttpError, parse, requireUser, type SessionUser } from './http.js';
+import { rooms as sockRooms, type IO } from './realtime.js';
+import { slidingWindow } from './safety/limits.js';
+import { afterLikeReceived } from './trophies.js';
 import { paginate } from './paging.js';
 import { roomImageUrl } from './room-images.js';
 import { ROOM_COLS, assertRoomAccess, canSpeakIn, roomBySlug, roomDetail, type RoomRow } from './rooms.js';
@@ -19,12 +22,15 @@ interface MsgRow {
   mentions: string[];
   created_at: Date;
   is_shadow: boolean;
+  like_count?: number;
+  liked?: boolean;
 }
 
 export function toDTO(r: MsgRow): MessageDTO {
   return {
     id: r.id, roomId: r.room_id, userId: r.user_id, handle: r.handle, body: r.body,
     mentions: r.mentions ?? [], createdAt: r.created_at.toISOString(),
+    likes: Number(r.like_count ?? 0), liked: !!r.liked,
     // is_shadow is deliberately never sent: a shadow-muted user must not be able to tell.
   };
 }
@@ -36,7 +42,8 @@ export function toDTO(r: MsgRow): MessageDTO {
  */
 export async function visibleNewestFirst(roomId: number, viewerId: string): Promise<MessageDTO[]> {
   const { rows } = await db.query<MsgRow>(
-    `SELECT m.id, m.room_id, m.user_id, u.handle, m.body, m.mentions, m.created_at, m.is_shadow
+    `SELECT m.id, m.room_id, m.user_id, u.handle, m.body, m.mentions, m.created_at, m.is_shadow, m.like_count,
+            EXISTS (SELECT 1 FROM message_likes l WHERE l.message_id = m.id AND l.user_id = $2) AS liked
        FROM messages m JOIN users u ON u.id = m.user_id
       WHERE m.room_id = $1
         AND m.hidden_at IS NULL
@@ -88,7 +95,7 @@ export async function sendMessage(userId: string, slug: string, raw: string): Pr
     const { rows } = await q.query<MsgRow>(
       `INSERT INTO messages (room_id, user_id, body, mentions, is_shadow)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, room_id, user_id, $6::text AS handle, body, mentions, created_at, is_shadow`,
+       RETURNING id, room_id, user_id, $6::text AS handle, body, mentions, created_at, is_shadow, like_count, false AS liked`,
       [room.id, user.id, verdict.body, mentionedIds, verdict.shadow, user.handle],
     );
 
@@ -154,8 +161,53 @@ export async function roomList(user: SessionUser): Promise<RoomSummary[]> {
   }));
 }
 
-export function registerChatRoutes(app: FastifyInstance) {
+const LikeParams = z.object({ id: z.string().regex(/^\d{1,19}$/) });
+
+export function registerChatRoutes(app: FastifyInstance, io: IO) {
   app.get('/api/rooms', async (req) => roomList(requireUser(req)));
+
+  /**
+   * Like (PUT) or unlike (DELETE) a room message. Only lines you can actually see, never your
+   * own, and each person counts once. The author's likes-received total drives the chat trophies.
+   */
+  const setLike = async (req: { params: unknown; user?: SessionUser | null }, like: boolean) => {
+    const u = requireUser(req as never, Trust.Verified);
+    const { id } = parse(LikeParams, req.params);
+    if (!(await slidingWindow(redis, `rl:like:${u.id}`, 90, 60_000))) {
+      throw new HttpError(429, 'rate', 'Slow down a little with the likes.');
+    }
+    const { rows: mr } = await db.query<{ id: string; room_id: number; user_id: string; slug: string }>(
+      `SELECT m.id::text AS id, m.room_id, m.user_id::text AS user_id, r.slug
+         FROM messages m JOIN rooms r ON r.id = m.room_id
+        WHERE m.id = $1 AND m.hidden_at IS NULL AND NOT m.is_shadow
+          AND NOT EXISTS (SELECT 1 FROM ignores i WHERE i.user_id = $2 AND i.ignored_user_id = m.user_id)`, [id, u.id]);
+    const m = mr[0];
+    if (!m) throw new HttpError(404, 'no_message', 'That message is gone.');
+    if (m.user_id === u.id) throw new HttpError(403, 'own_message', "You can't like your own messages.");
+    await assertRoomAccess(u, await roomBySlug(m.slug));
+    const out = await tx(async (q) => {
+      const changed = like
+        ? await q.query('INSERT INTO message_likes (message_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING 1', [m.id, u.id])
+        : await q.query('DELETE FROM message_likes WHERE message_id = $1 AND user_id = $2 RETURNING 1', [m.id, u.id]);
+      const d = changed.rowCount ? (like ? 1 : -1) : 0;
+      const { rows: c } = await q.query<{ n: number }>(
+        'UPDATE messages SET like_count = GREATEST(like_count + $2, 0) WHERE id = $1 RETURNING like_count AS n', [m.id, d]);
+      let received = 0;
+      if (d) {
+        const { rows: r } = await q.query<{ n: number }>(
+          'UPDATE users SET like_count = GREATEST(like_count + $2, 0) WHERE id = $1 RETURNING like_count AS n', [m.user_id, d]);
+        received = Number(r[0]?.n ?? 0);
+      }
+      return { likes: Number(c[0]?.n ?? 0), changed: d, received };
+    });
+    if (out.changed) {
+      io.to(sockRooms.chat(Number(m.room_id))).emit('msg:likes', { id: m.id, roomId: Number(m.room_id), likes: out.likes });
+      if (out.changed > 0) afterLikeReceived(m.user_id, out.received);
+    }
+    return { likes: out.likes, liked: like };
+  };
+  app.put<{ Params: { id: string } }>('/api/messages/:id/like', async (req) => setLike(req, true));
+  app.delete<{ Params: { id: string } }>('/api/messages/:id/like', async (req) => setLike(req, false));
 
   /** Swear-word list (normalised) so a filtered room can stop them as they're typed; the server checks again on send. */
   app.get('/api/filter/room-words', async (req, reply) => {

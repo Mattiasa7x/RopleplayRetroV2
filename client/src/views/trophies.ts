@@ -28,6 +28,7 @@ function bar(value: number, goal: number, label: string): HTMLElement {
 
 function progressFor(t: TrophyDef, p: NonNullable<TrophyPageDTO['progress']>): HTMLElement | null {
   if (t.group === 'time') return bar(p.accountHours, t.goal!, `Earned ${timeLeft(t.goal! - p.accountHours)}`);
+  if (t.group === 'chat' && t.metric === 'likes') return bar(p.likes, t.goal!, `${num(Math.min(p.likes, t.goal!))} / ${num(t.goal!)} likes`);
   if (t.group === 'chat') return bar(p.messages, t.goal!, `${num(Math.min(p.messages, t.goal!))} / ${num(t.goal!)} messages`);
   if (t.group === 'photos') return bar(p.photos, t.goal!, `${num(Math.min(p.photos, t.goal!))} / ${num(t.goal!)} photos`);
   if (t.id === 'fully_realized') {

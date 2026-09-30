@@ -120,7 +120,7 @@ registerProfileRoutes(app, io);
 registerMessageRoutes(app, io);
 registerFriendRoutes(app, io);
 registerFeedRoutes(app);
-registerChatRoutes(app);
+registerChatRoutes(app, io);
 registerRoomRoutes(app, io);
 registerRoomImageRoutes(app);
 registerPeopleRoutes(app);
