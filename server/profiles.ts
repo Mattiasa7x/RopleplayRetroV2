@@ -123,14 +123,14 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
         [t.id, u.id],
       );
     }
-    const { rows: nv } = self
+    // Counts show to anyone who can see the profile; who viewed and which gifts stay private.
+    const { rows: nv } = a.visible
       ? await db.query<{ n: number; total: number }>(
           `SELECT count(*) FILTER (WHERE me.views_seen_at IS NULL OR v.viewed_at > me.views_seen_at)::int AS n, count(*)::int AS total
              FROM profile_views v, users me
             WHERE me.id = $1 AND v.profile_user_id = $1 AND v.viewed_at > now() - make_interval(days => ${PROFILE.viewsKeptDays})`, [t.id])
       : { rows: [] as { n: number; total: number }[] };
-    // Gifts received: counted on your own profile, and on others' when they share their gifts.
-    const { rows: gc } = self || a.canViewGifts
+    const { rows: gc } = a.visible
       ? await db.query<{ n: number }>('SELECT count(*)::int AS n FROM gifts WHERE recipient_id = $1 AND hidden_at IS NULL', [t.id])
       : { rows: [] as { n: number }[] };
     const { rows: ban } = a.visible
@@ -182,7 +182,8 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       canViewGifts: a.canViewGifts,
       profileGift: a.canViewGifts ? await shownGift(t.id) : null,
       canSendGift: !self && a.visible && !(await giftBlockReason(u, t)),
-      ...(self ? { newViews: Number(nv[0]?.n ?? 0), viewCount: Number(nv[0]?.total ?? 0) } : {}),
+      ...(self ? { newViews: Number(nv[0]?.n ?? 0) } : {}),
+      ...(nv[0] ? { viewCount: Number(nv[0].total) } : {}),
       ...(gc[0] ? { giftCount: Number(gc[0].n) } : {}),
       trophy: shown,
       trophyCount: earned.length,

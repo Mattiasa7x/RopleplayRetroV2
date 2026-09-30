@@ -50,16 +50,19 @@ export async function viewProfile(handle: string) {
   // "3 friends" opens the friends list when the owner allows it; "Views" is only ever on your own profile.
   const friendsText = `${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`;
   const friendsBit = p.canViewFriends ? h('a', { href: `/profile/${p.handle}/friends` }, friendsText) : h('span', {}, friendsText);
-  const viewsLink = self
-    ? h('a', { href: meIsQuill() ? '/profile-views' : '/gold-quill?from=views', class: 'views-link' }, `${p.viewCount ?? 0} view${p.viewCount === 1 ? '' : 's'}`, meIsQuill() ? null : h('span', { class: 'quill-lock', 'aria-label': 'Gold Quill' }, '🪶'), p.newViews ? h('span', { class: 'badge views-new', 'aria-label': `${p.newViews} new` }, String(p.newViews)) : null)
-    : null;
+  const viewsText = `${p.viewCount ?? 0} view${p.viewCount === 1 ? '' : 's'}`;
+  // Others see the count only; who viewed is always private.
+  const viewsLink = !self
+    ? (p.viewCount !== undefined ? h('span', {}, viewsText) : null)
+    : h('a', { href: meIsQuill() ? '/profile-views' : '/gold-quill?from=views', class: 'views-link' }, viewsText, meIsQuill() ? null : h('span', { class: 'quill-lock', 'aria-label': 'Gold Quill' }, '🪶'), p.newViews ? h('span', { class: 'badge views-new', 'aria-label': `${p.newViews} new` }, String(p.newViews)) : null);
   // Your own gifts, or "Send a gift" on someone else's profile.
   const giftsText = `${p.giftCount ?? 0} gift${p.giftCount === 1 ? '' : 's'}`;
   const giftLink = self
     ? h('a', { href: '/gifts' }, giftsText)
     : p.canSendGift ? h('a', { href: `/profile/${p.handle}/gift` }, 'Send a gift') : null;
-  // Someone else's gifts, counted, when they share them.
-  const theirGifts = !self && p.giftCount !== undefined ? h('a', { href: `/profile/${p.handle}/gifts` }, giftsText) : null;
+  // Someone else's gift count: always shown; a link only when they share their gifts.
+  const theirGifts = self || p.giftCount === undefined ? null
+    : p.canViewGifts ? h('a', { href: `/profile/${p.handle}/gifts` }, giftsText) : h('span', {}, giftsText);
   const head = h('section', { class: 'profile-top' },
     h('div', { class: `profile-banner${p.banner ? '' : ' art-member'}` }, p.banner ? h('img', { src: p.banner, alt: '' }) : null),
     h('div', { class: 'profile-id' },
