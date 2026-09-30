@@ -6,7 +6,7 @@ import { api, h } from '../dom.js';
 export function onlineUserRow(u: OnlineUserDTO): HTMLElement {
   return h('li', {},
     h('a', { href: `/profile/${u.handle}`, class: 'person-link online-person' },
-      h('span', { class: 'avatar-wrap' }, avatar(u.avatar, u.handle, 'md'), h('span', { class: 'dot', 'aria-hidden': 'true' })),
+      h('span', { class: 'avatar-wrap' }, avatar(u.avatar, u.handle, 'md', u.quill), h('span', { class: 'dot', 'aria-hidden': 'true' })),
       h('span', { class: 'person-text' },
         h('strong', {}, u.handle, u.isFriend ? h('span', { class: 'tag friend-tag' }, 'friend') : null),
         u.rpStyle ? h('span', { class: 'nameplate small-plate' }, u.rpStyle) : null,

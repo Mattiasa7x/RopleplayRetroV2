@@ -1,3 +1,5 @@
+import { meIsQuill } from './quill.js';
+import { QUILL_NAME } from '../../../shared/quill.js';
 import { GIFT_BY_ID, GIFT_RULES, GIFT_THEMES, GIFTS } from '../../../shared/gifts.js';
 import type { GiftAllowanceDTO, MyGiftsDTO, ProfileDTO, ProfileGiftsDTO } from '../../../shared/types.js';
 import { card, navigate, page, state, timeAgo, toast } from '../core.js';
@@ -55,10 +57,15 @@ export async function viewSendGift(handle: string) {
 
   // themes as a two-column list (like the rooms page), each opening its 10 gifts
   const giftBtns = new Map<string, HTMLButtonElement>();
+  const member = meIsQuill();
   const grids = GIFT_THEMES.map((t) => {
     const grid = h('div', { class: 'gift-grid', role: 'tabpanel', id: `gp-${t.id}` },
+      t.quill ? h('p', { class: `quill-note${member ? '' : ' locked'}` }, '🪶 ', member ? `A ${QUILL_NAME} collection.` : `${QUILL_NAME} members only. `,
+        member ? null : h('a', { href: '/gold-quill' }, 'Get a pass')) : null,
       ...GIFTS.filter((g) => g.theme === t.id).map((g) => {
-        const b = h('button', { type: 'button', class: 'gift-choice', 'aria-pressed': 'false', 'aria-label': g.name }, giftTile(g.id, 'md'), h('span', { class: 'gift-choice-name' }, g.name));
+        const locked = !!g.quill && !member;
+        const b = h('button', { type: 'button', class: `gift-choice${g.quill ? ' quill-gift' : ''}`, 'aria-pressed': 'false', 'aria-label': locked ? `${g.name} (Gold Quill members only)` : g.name, disabled: locked },
+          giftTile(g.id, 'md'), h('span', { class: 'gift-choice-name' }, g.name));
         b.addEventListener('click', () => {
           chosen = g.id;
           giftBtns.forEach((x, id) => x.setAttribute('aria-pressed', String(id === chosen)));
@@ -72,8 +79,8 @@ export async function viewSendGift(handle: string) {
   });
   const tabBtns = GIFT_THEMES.map((t, i) => {
     const first = GIFTS.find((g) => g.theme === t.id)!;
-    const b = h('button', { type: 'button', role: 'tab', class: 'theme-btn gift-theme-btn', 'aria-controls': `gp-${t.id}` },
-      h('span', { class: 'gift-theme-emoji', 'aria-hidden': 'true' }, first.emoji), h('span', { class: 'theme-btn-name' }, t.name));
+    const b = h('button', { type: 'button', role: 'tab', class: `theme-btn gift-theme-btn${t.quill ? ' quill-theme' : ''}`, 'aria-controls': `gp-${t.id}` },
+      h('span', { class: 'gift-theme-emoji', 'aria-hidden': 'true' }, first.emoji), h('span', { class: 'theme-btn-name' }, t.name, t.quill ? h('span', { class: 'quill-mini', 'aria-label': 'Gold Quill' }, ' 🪶') : null));
     b.addEventListener('click', () => show(i));
     return b;
   });

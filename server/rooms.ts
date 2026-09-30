@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { MEMBER_ROOMS, Trust } from '../shared/config.js';
+import { quillActive } from '../shared/quill.js';
 import type { RoomDetail, RoomRole, RoomTeamMemberDTO } from '../shared/types.js';
 import { HttpError, parse, requireUser } from './http.js';
 import { removeFromRoom, rooms as sockRooms, type IO } from './realtime.js';
@@ -224,8 +225,11 @@ export async function roomDetail(v: Viewer, room: RoomRow): Promise<RoomDetail> 
   return detail(v, room);
 }
 
-async function assertPoolImage(id: number | null | undefined) {
-  if (id != null && !(await isPoolImage(id))) throw new HttpError(400, 'bad_image', 'Pick one of the pictures shown.');
+/** A picture from the pool; Gold Quill pictures only for members with an active pass. */
+async function assertPoolImage(id: number | null | undefined, quill = false) {
+  if (id != null && !(await isPoolImage(id, quill))) {
+    throw new HttpError(400, 'bad_image', quill ? 'Pick one of the pictures shown.' : 'That picture is for Gold Quill members. Pick another, or get a pass.');
+  }
 }
 
 export function registerRoomRoutes(app: FastifyInstance, io: IO) {
@@ -249,7 +253,7 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
     if (Number(owned[0].n) >= MEMBER_ROOMS.maxOwnedPerUser) {
       throw new HttpError(409, 'room_limit', `You can own up to ${MEMBER_ROOMS.maxOwnedPerUser} rooms. Delete one to make another.`);
     }
-    await assertPoolImage(b.imageId);
+    await assertPoolImage(b.imageId, quillActive(u.quillUntil));
     const slug = await tx(async (q) => {
       const { rows } = await q.query<{ id: number; slug: string }>(
         `INSERT INTO rooms (slug, name, category, sort_order, min_trust_to_post, kind, owner_id, whitelist_only, description, image_id, chat_filter)
@@ -275,7 +279,7 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
     if (room.kind === 'member' && b.name !== undefined && b.name !== room.name) {
       throw new HttpError(400, 'name_locked', "A room's name can't be changed after it's made.");
     }
-    await assertPoolImage(b.imageId);
+    await assertPoolImage(b.imageId, quillActive(u.quillUntil));
     const { rows } = await db.query<RoomRow>(
       `UPDATE rooms r SET name = COALESCE($2, name), description = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF($3, '') END,
               whitelist_only = COALESCE($4, whitelist_only), slow_mode_seconds = COALESCE($5, slow_mode_seconds),

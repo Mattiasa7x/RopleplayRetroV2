@@ -22,6 +22,8 @@ export interface SessionUser {
   prefs: Prefs;
   twoFactor: boolean;
   sessionId: string;
+  /** Gold Quill pass end (ISO), or null. */
+  quillUntil: string | null;
 }
 
 declare module 'fastify' {

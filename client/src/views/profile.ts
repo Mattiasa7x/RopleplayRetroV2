@@ -1,8 +1,9 @@
+import { meIsQuill } from './quill.js';
 import { CHARACTER_SHEET, PROFILE, Trust } from '../../../shared/config.js';
 import type { PhotoPageDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO } from '../../../shared/types.js';
 import { person } from './friends.js';
 import { giftName, giftTile } from '../giftart.js';
-import { avatar, card, page, state, timeAgo, toast } from '../core.js';
+import { avatar, card, navigate, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
 import { commentThread } from './comments.js';
 import { reportContent } from './home.js';
@@ -50,7 +51,7 @@ export async function viewProfile(handle: string) {
   const friendsText = `${p.friendCount} friend${p.friendCount === 1 ? '' : 's'}`;
   const friendsBit = p.canViewFriends ? h('a', { href: `/profile/${p.handle}/friends` }, friendsText) : h('span', {}, friendsText);
   const viewsLink = self
-    ? h('a', { href: '/profile-views', class: 'views-link' }, 'Views', p.newViews ? h('span', { class: 'badge views-new', 'aria-label': `${p.newViews} new` }, String(p.newViews)) : null)
+    ? h('a', { href: meIsQuill() ? '/profile-views' : '/gold-quill?from=views', class: 'views-link' }, 'Views', meIsQuill() ? null : h('span', { class: 'quill-lock', 'aria-label': 'Gold Quill' }, '🪶'), p.newViews ? h('span', { class: 'badge views-new', 'aria-label': `${p.newViews} new` }, String(p.newViews)) : null)
     : null;
   // Your own gifts, or "Send a gift" on someone else's profile.
   const giftLink = self
@@ -59,7 +60,7 @@ export async function viewProfile(handle: string) {
   const head = h('section', { class: 'profile-top' },
     h('div', { class: `profile-banner${p.banner ? '' : ' art-member'}` }, p.banner ? h('img', { src: p.banner, alt: '' }) : null),
     h('div', { class: 'profile-id' },
-      avatar(p.avatar, p.handle, 'lg'),
+      avatar(p.avatar, p.handle, 'lg', p.quill),
       h('h1', { class: 'handle' }, p.handle),
       p.rpStyle || self
         ? h('div', { class: 'nameplate-row' },
@@ -162,8 +163,11 @@ export async function viewProfileFriends(handle: string) {
 
 /** Who viewed your profile and when: only ever your own. */
 export async function viewProfileViews(pageNo = 1) {
+  if (!meIsQuill()) return navigate('/gold-quill?from=views', true);
   page('Profile views', h('p', { class: 'muted' }, 'Loading…'));
-  const d = await api<ProfileViewsDTO>(`/api/me/profile-views?page=${pageNo}`);
+  let d: ProfileViewsDTO;
+  try { d = await api<ProfileViewsDTO>(`/api/me/profile-views?page=${pageNo}`); }
+  catch (e) { if ((e as { code?: string }).code === 'quill_required') return navigate('/gold-quill?from=views', true); throw e; }
   const me = state.me!;
   const when = (iso: string) => {
     const t = new Date(iso);
@@ -233,7 +237,7 @@ export async function viewPhoto(id: string) {
       h('button', { type: 'button', class: 'photo-full', 'aria-label': 'View full screen', onclick: (() => lightbox(d.photo.url)) as EventListener },
         h('img', { src: d.photo.url, alt: `Photo by ${d.owner.handle}` })),
       h('figcaption', { class: 'row' },
-        h('a', { href: `/profile/${d.owner.handle}`, class: 'post-head' }, avatar(d.owner.avatar, d.owner.handle), h('strong', {}, d.owner.handle)),
+        h('a', { href: `/profile/${d.owner.handle}`, class: 'post-head' }, avatar(d.owner.avatar, d.owner.handle, 'sm', d.owner.quill), h('strong', {}, d.owner.handle)),
         d.photo.private ? h('span', { class: 'tag' }, 'Private') : null,
         d.mine ? null : h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('photo', d.photo.id)) as EventListener }, 'Report'))),
     commentThread({

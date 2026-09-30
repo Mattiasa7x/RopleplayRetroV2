@@ -63,7 +63,7 @@ export async function createSession(q: Tx | typeof db, userId: string, ip: strin
 export async function userFromToken(token: string | undefined): Promise<SessionUser | null> {
   if (!token) return null;
   const { rows } = await db.query(
-    `SELECT u.id, u.handle, u.trust_level, u.email, u.email_verified_at, u.prefs, u.birthdate, u.totp_enabled, s.id AS sid
+    `SELECT u.id, u.handle, u.trust_level, u.email, u.email_verified_at, u.prefs, u.birthdate, u.totp_enabled, u.quill_until, s.id AS sid
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.id = $1 AND s.expires_at > now()`,
     [sha256(token)],
@@ -74,6 +74,7 @@ export async function userFromToken(token: string | undefined): Promise<SessionU
     id: r.id, handle: r.handle, trust: r.trust_level, email: r.email,
     emailVerified: !!r.email_verified_at, prefs: effectivePrefs(r.prefs),
     twoFactor: r.totp_enabled, sessionId: r.sid,
+    quillUntil: r.quill_until ? new Date(r.quill_until).toISOString() : null,
   };
 }
 
@@ -137,6 +138,7 @@ export async function meDTO(u: SessionUser): Promise<MeDTO> {
     id: u.id, handle: u.handle, trust: u.trust, email: u.email, emailVerified: u.emailVerified, prefs: u.prefs,
     twoFactor: u.twoFactor,
     moderates: rows.map((r) => r.room_id),
+    quillUntil: u.quillUntil,
   };
 }
 

@@ -55,7 +55,7 @@ export async function photoSection(p: ProfileDTO, opts: { manage: boolean; reloa
         parts.push(
           h('h3', {}, `Who can see my private album (${access.length})`),
           h('ul', { class: 'people' }, ...(access.length ? access.map((a) => h('li', {},
-            h('a', { href: `/profile/${a.handle}`, class: 'person-link' }, avatar(a.avatar, a.handle), h('span', {}, a.handle)),
+            h('a', { href: `/profile/${a.handle}`, class: 'person-link' }, avatar(a.avatar, a.handle, 'sm', a.quill), h('span', {}, a.handle)),
             btn('Remove', 'quiet', call(() => api(`/api/me/album-access/${a.handle}`, { method: 'DELETE' }), `${a.handle} can no longer see your private album.`))))
             : [h('li', { class: 'muted' }, 'Nobody yet.')])),
           friends.friends.length

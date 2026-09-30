@@ -5,7 +5,7 @@ import { api, h } from '../dom.js';
 export function person(u: PublicUser, ...buttons: (Element | null)[]): HTMLElement {
   return h('li', { class: 'person' },
     h('a', { href: `/profile/${u.handle}`, class: 'person-link' },
-      h('span', { class: 'avatar-wrap' }, avatar(u.avatar, u.handle, 'md'), u.online ? h('span', { class: 'dot', 'aria-label': 'online' }) : null),
+      h('span', { class: 'avatar-wrap' }, avatar(u.avatar, u.handle, 'md', u.quill), u.online ? h('span', { class: 'dot', 'aria-label': 'online' }) : null),
       h('span', {}, h('strong', {}, u.handle), u.online !== undefined ? h('span', { class: 'muted small block' }, u.online ? 'Online' : 'Offline') : null)),
     h('span', { class: 'row' }, ...(buttons.filter(Boolean) as Element[])));
 }

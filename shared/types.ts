@@ -69,6 +69,8 @@ export interface RoomImageDTO {
   id: number;
   title: string;
   thumb: string;
+  /** Gold Quill members only. */
+  quill?: boolean;
   credit: string | null;
   creditUrl: string | null;
 }
@@ -77,6 +79,7 @@ export interface RoomImageDTO {
 export interface RoomPersonDTO {
   id: string;
   handle: string;
+  quill?: boolean;
   /** Place on the room team (member rooms), or null. */
   role: RoomRole | null;
   avatar: string | null;
@@ -96,6 +99,7 @@ export interface OnlineUserDTO {
   id: string;
   handle: string;
   avatar: string | null;
+  quill?: boolean;
   rpStyle: string | null;
   /** "33, M, Hyrule": character age, gender and city. */
   characterLine: string | null;
@@ -159,6 +163,8 @@ export interface MeDTO {
   prefs: Prefs;
   twoFactor: boolean;
   moderates: number[]; // room ids
+  /** Gold Quill pass end (ISO), or null. */
+  quillUntil: string | null;
 }
 
 export interface LoginResult {
@@ -179,6 +185,20 @@ export interface PublicUser {
   handle: string;
   avatar: string | null; // URL
   online?: boolean;
+  /** Gold Quill member showing the gold ring around their picture. */
+  quill?: boolean;
+}
+
+/** Settings › Subscriptions: your Gold Quill pass and purchases. */
+export interface QuillStatusDTO {
+  active: boolean;
+  /** When the current pass ends (ISO), if you've ever had one. */
+  until: string | null;
+  /** PayPal is set up, so passes can be bought. */
+  available: boolean;
+  /** Test mode: PayPal sandbox money, not real. */
+  sandbox: boolean;
+  history: { orderId: string; pass: 'day' | 'week' | 'month'; amount: string; status: 'completed' | 'pending'; date: string; until: string | null }[];
 }
 
 export type FriendState = 'none' | 'friends' | 'request_sent' | 'request_received' | 'self';

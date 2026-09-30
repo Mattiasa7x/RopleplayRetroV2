@@ -48,7 +48,7 @@ export function composer(placeholder: string, max: number, submitLabel: string, 
 
 /** One line of friend activity. */
 function activityItem(a: ActivityDTO): HTMLElement {
-  const who = h('a', { href: `/profile/${a.actor.handle}`, class: 'post-head' }, avatar(a.actor.avatar, a.actor.handle), h('strong', {}, a.actor.handle));
+  const who = h('a', { href: `/profile/${a.actor.handle}`, class: 'post-head' }, avatar(a.actor.avatar, a.actor.handle, 'sm', a.actor.quill), h('strong', {}, a.actor.handle));
   const when = h('span', { class: 'muted' }, timeAgo(a.at));
   switch (a.kind) {
     case 'status':

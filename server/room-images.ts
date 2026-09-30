@@ -25,6 +25,8 @@ interface Entry {
   page: string;
   /** Offered to members for their own rooms (regional place photos aren't). */
   pool?: boolean;
+  /** Gold Quill members only. */
+  quill?: boolean;
 }
 
 const FULL_EDGE = 1600;
@@ -40,21 +42,22 @@ function entries(): Entry[] {
     slug: `place-${r.slug}`, title: r.photo!.title, room: r.slug, url: r.photo!.url,
     credit: r.photo!.credit, creditUrl: r.photo!.creditUrl, page: r.photo!.page, pool: false,
   }));
-  return [...themed, ...regional];
+  const quill = (JSON.parse(readFileSync('server/db/quill-themes.json', 'utf8')) as Entry[]).map((e) => ({ ...e, pool: true, quill: true }));
+  return [...themed, ...regional, ...quill];
 }
 
 /** Runs on start (fast): make sure every listed picture has a row, and give site rooms theirs. */
 export async function syncRoomImages(): Promise<void> {
   for (const e of entries()) {
     await db.query(
-      `INSERT INTO room_images (slug, title, source_url, credit, credit_url, in_pool)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO room_images (slug, title, source_url, credit, credit_url, in_pool, quill_only)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, credit = EXCLUDED.credit, credit_url = EXCLUDED.credit_url,
-         in_pool = EXCLUDED.in_pool,
+         in_pool = EXCLUDED.in_pool, quill_only = EXCLUDED.quill_only,
          full_data = CASE WHEN room_images.source_url IS DISTINCT FROM EXCLUDED.source_url THEN NULL ELSE room_images.full_data END,
          thumb_data = CASE WHEN room_images.source_url IS DISTINCT FROM EXCLUDED.source_url THEN NULL ELSE room_images.thumb_data END,
          source_url = EXCLUDED.source_url`,
-      [e.slug, e.title, e.page, e.credit, e.creditUrl, e.pool !== false],
+      [e.slug, e.title, e.page, e.credit, e.creditUrl, e.pool !== false, e.quill === true],
     );
     if (e.room) {
       await db.query(
@@ -132,15 +135,16 @@ export function registerRoomImageRoutes(app: FastifyInstance) {
   /** The pool members choose from for their rooms. */
   app.get('/api/room-images', async (req): Promise<RoomImageDTO[]> => {
     requireUser(req);
-    const { rows } = await db.query<{ id: number; title: string; credit: string | null; credit_url: string | null }>(
-      'SELECT id, title, credit, credit_url FROM room_images WHERE in_pool AND thumb_data IS NOT NULL ORDER BY title',
+    const { rows } = await db.query<{ id: number; title: string; credit: string | null; credit_url: string | null; quill_only: boolean }>(
+      'SELECT id, title, credit, credit_url, quill_only FROM room_images WHERE in_pool AND thumb_data IS NOT NULL ORDER BY quill_only DESC, title',
     );
-    return rows.map((r) => ({ id: r.id, title: r.title, thumb: `/room-img/${r.id}/thumb`, credit: r.credit, creditUrl: r.credit_url }));
+    return rows.map((r) => ({ id: r.id, title: r.title, thumb: `/room-img/${r.id}/thumb`, credit: r.credit, creditUrl: r.credit_url, quill: r.quill_only }));
   });
 }
 
-/** True if the id is a pool picture that's ready to use. */
-export async function isPoolImage(id: number): Promise<boolean> {
-  const { rowCount } = await db.query('SELECT 1 FROM room_images WHERE id = $1 AND in_pool AND thumb_data IS NOT NULL', [id]);
+/** True if the id is a pool picture that's ready to use (Gold Quill pictures only with an active pass). */
+export async function isPoolImage(id: number, quill = false): Promise<boolean> {
+  const { rowCount } = await db.query(
+    'SELECT 1 FROM room_images WHERE id = $1 AND in_pool AND thumb_data IS NOT NULL AND (NOT quill_only OR $2)', [id, quill]);
   return !!rowCount;
 }

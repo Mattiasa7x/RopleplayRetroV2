@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Trust } from '../shared/config.js';
 import type { OnlineUserDTO, OnlineUsersDTO, RoomPeopleDTO } from '../shared/types.js';
-import { characterAgeText, prefsOf, USER_COLS, type UserRow } from './friends.js';
+import { characterAgeText, prefsOf, showsQuill, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, requireUser } from './http.js';
 import { assertRoomAccess, roomBySlug, roomRoles } from './rooms.js';
 import { maskMature } from './safety/mature.js';
@@ -42,6 +42,7 @@ export function registerPeopleRoutes(app: FastifyInstance) {
         id: r.id,
         handle: r.handle,
         avatar: visible && r.avatar_id ? `/media/${r.avatar_id}/thumb` : null,
+        ...(showsQuill(r) ? { quill: true } : {}),
         characterCity: visible ? show(r.character_city) : null,
         characterAge: visible ? show(characterAgeText(r)) : null,
         isFriend: r.is_friend,
@@ -95,6 +96,7 @@ export function registerOnlineRoutes(app: FastifyInstance) {
       return {
         id: r.id, handle: r.handle,
         avatar: visible && r.avatar_id ? `/media/${r.avatar_id}/thumb` : null,
+        ...(showsQuill(r) ? { quill: true } : {}),
         rpStyle: visible ? r.rp_style : null,
         characterLine: visible && line ? (u.prefs.chatFilter ? maskMature(line) : line) : null,
         isFriend: r.is_friend,

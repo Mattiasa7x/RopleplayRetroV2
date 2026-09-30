@@ -100,7 +100,7 @@ export async function viewRoom(slug: string) {
         }
         return h('li', { class: 'room-person' },
           h('a', { href: `/profile/${p.handle}`, class: 'person-link', onclick: (() => sheet.close()) as EventListener },
-            avatar(p.avatar, p.handle, 'md'),
+            avatar(p.avatar, p.handle, 'md', p.quill),
             h('span', { class: 'person-text' },
               h('strong', {}, p.handle, p.self ? ' (you)' : '',
                 roleBadge(p.role),

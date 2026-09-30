@@ -162,10 +162,12 @@ export function card(title: string | null, ...children: (Node | string | null | 
   return h('section', { class: 'card' }, title ? h('h2', {}, title) : null, ...children);
 }
 
-export function avatar(url: string | null, handle: string, size: 'sm' | 'md' | 'lg' = 'sm'): HTMLElement {
+/** A member's picture. Gold Quill members (who haven't hidden it) get the gold ring. */
+export function avatar(url: string | null, handle: string, size: 'sm' | 'md' | 'lg' = 'sm', quill = false): HTMLElement {
+  const ring = quill ? ' quill' : '';
   return url
-    ? h('img', { class: `avatar ${size}`, src: url, alt: '', loading: 'lazy' })
-    : h('span', { class: `avatar ${size} placeholder`, 'aria-hidden': 'true' }, handle.slice(0, 1).toUpperCase());
+    ? h('img', { class: `avatar ${size}${ring}`, src: url, alt: '', loading: 'lazy', ...(quill ? { title: 'Gold Quill member' } : {}) })
+    : h('span', { class: `avatar ${size} placeholder${ring}`, 'aria-hidden': 'true' }, handle.slice(0, 1).toUpperCase());
 }
 
 export function timeAgo(iso: string): string {

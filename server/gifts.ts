@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { Trust } from '../shared/config.js';
 import { GIFT_BY_ID, GIFT_RULES } from '../shared/gifts.js';
+import { QUILL_GIFTS_PER_DAY, quillActive } from '../shared/quill.js';
 import type { GiftAllowanceDTO, MyGiftsDTO, ProfileGiftsDTO } from '../shared/types.js';
 import { publicUser, relation, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
@@ -32,25 +33,31 @@ export async function giftBlockReason(me: SessionUser, target: UserRow): Promise
   return null;
 }
 
-async function allowance(userId: string): Promise<GiftAllowanceDTO> {
+/** Gifts a day: 5, or 10 with Gold Quill. */
+const perDay = (u: SessionUser) => (quillActive(u.quillUntil) ? QUILL_GIFTS_PER_DAY : GIFT_RULES.perDay);
+
+async function allowance(u: SessionUser): Promise<GiftAllowanceDTO> {
+  const userId = u.id;
+  const limit = perDay(u);
   const { rows } = await db.query<{ n: number; oldest: Date | null }>(
     `SELECT count(*)::int AS n, min(created_at) AS oldest FROM gifts
       WHERE sender_id = $1 AND created_at > now() - interval '24 hours'`,
     [userId],
   );
   const used = Number(rows[0].n);
-  const left = Math.max(0, GIFT_RULES.perDay - used);
+  const left = Math.max(0, limit - used);
   const nextAt = left === 0 && rows[0].oldest ? new Date(rows[0].oldest.getTime() + 24 * 3600_000).toISOString() : null;
-  return { left, limit: GIFT_RULES.perDay, nextAt };
+  return { left, limit, nextAt };
 }
 
 export function registerGiftRoutes(app: FastifyInstance, io: IO) {
-  app.get('/api/gifts/allowance', async (req): Promise<GiftAllowanceDTO> => allowance(requireUser(req).id));
+  app.get('/api/gifts/allowance', async (req): Promise<GiftAllowanceDTO> => allowance(requireUser(req)));
 
   app.post<{ Params: { handle: string } }>('/api/profiles/:handle/gifts', async (req, reply) => {
     const u = requireUser(req);
     const b = parse(SendBody, req.body);
     if (!GIFT_BY_ID.has(b.gift)) throw new HttpError(400, 'bad_gift', 'Pick one of the gifts shown.');
+    if (GIFT_BY_ID.get(b.gift)!.quill && !quillActive(u.quillUntil)) throw new HttpError(402, 'quill_required', 'That gift is for Gold Quill members.');
     const a = await profileAccess(u, req.params.handle);
     if (!a.visible) throw new HttpError(403, 'no_gift', "You can't send gifts to this member.");
     const why = await giftBlockReason(u, a.target);
@@ -72,8 +79,8 @@ export function registerGiftRoutes(app: FastifyInstance, io: IO) {
       await q.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [u.id]);
       const { rows: c } = await q.query<{ n: number }>(
         "SELECT count(*)::int AS n FROM gifts WHERE sender_id = $1 AND created_at > now() - interval '24 hours'", [u.id]);
-      if (Number(c[0].n) >= GIFT_RULES.perDay) {
-        throw new HttpError(429, 'gift_limit', `You can send ${GIFT_RULES.perDay} gifts a day. Try again later.`);
+      if (Number(c[0].n) >= perDay(u)) {
+        throw new HttpError(429, 'gift_limit', `You can send ${perDay(u)} gifts a day. Try again later.`);
       }
       const { rows } = await q.query<{ id: string }>(
         `INSERT INTO gifts (gift_key, sender_id, recipient_id, message, hidden_at)
@@ -86,7 +93,7 @@ export function registerGiftRoutes(app: FastifyInstance, io: IO) {
       io.to(rooms.user(a.target.id)).emit('social', { kind: 'gift', from: u.handle });
       pushTo(a.target.id, 'friend', { title: `${u.handle} sent you a gift`, url: '/gifts', tag: `gift-${id}` });
     }
-    return reply.status(201).send({ id, ...(await allowance(u.id)) });
+    return reply.status(201).send({ id, ...(await allowance(u)) });
   });
 
   /** Your gifts, newest first, with who sent them and their messages. Only ever your own. */

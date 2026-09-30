@@ -1,3 +1,4 @@
+import { quillActive } from '../shared/quill.js';
 import type { FastifyInstance } from 'fastify';
 import { characterAgeFrom, HANDLE_PATTERN, Trust, type Prefs } from '../shared/config.js';
 import type { FriendState, FriendsDTO, PublicUser } from '../shared/types.js';
@@ -28,6 +29,13 @@ export interface UserRow {
   profile_theme_id: number | null;
   /** Trophy shown on the profile: an id, 'none', or null for the newest earned. */
   profile_trophy: string | null;
+  /** Gold Quill pass end, if any. */
+  quill_until: Date | string | null;
+}
+
+/** Show the gold ring: an active Gold Quill pass, unless they've hidden it in Privacy. */
+export function showsQuill(u: Pick<UserRow, 'quill_until' | 'prefs'>): boolean {
+  return quillActive(u.quill_until) && (u.prefs ?? {}).showQuillBadge !== false;
 }
 
 /** The character's age to show: from their character birthday, else what they typed before birthdays existed. */
@@ -37,7 +45,7 @@ export function characterAgeText(u: Pick<UserRow, 'character_birthday' | 'charac
 }
 
 export const USER_COLS = `u.id, u.handle, u.trust_level, u.created_at, u.bio, u.prefs, u.birthdate, u.character_age, u.character_city,
-  to_char(u.character_birthday, 'YYYY-MM-DD') AS character_birthday, u.character_gender, u.rp_style, u.character_sheet, u.profile_theme_id, u.profile_trophy,
+  to_char(u.character_birthday, 'YYYY-MM-DD') AS character_birthday, u.character_gender, u.rp_style, u.character_sheet, u.profile_theme_id, u.profile_trophy, u.quill_until,
   (SELECT p.id FROM profile_photos p WHERE p.user_id = u.id AND NOT p.is_private ORDER BY p.position, p.id LIMIT 1) AS avatar_id`;
 
 export function prefsOf(u: UserRow): Prefs {
@@ -57,6 +65,7 @@ export function publicUser(u: UserRow, opts: { showAvatar?: boolean; online?: bo
     handle: u.handle,
     avatar: opts.showAvatar !== false && u.avatar_id ? `/media/${u.avatar_id}/thumb` : null,
     ...(opts.online !== undefined ? { online: opts.online } : {}),
+    ...(showsQuill(u) ? { quill: true } : {}),
   };
 }
 

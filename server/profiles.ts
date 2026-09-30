@@ -17,6 +17,7 @@ import { audit, db, redis } from './store.js';
 import { afterProfileEdit } from './trophies.js';
 import { giftBlockReason } from './gifts.js';
 import { GIFT_BY_ID } from '../shared/gifts.js';
+import { quillActive } from '../shared/quill.js';
 
 // ---------------- profile visibility ----------------
 
@@ -186,6 +187,8 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
   app.get<{ Querystring: { page?: string } }>('/api/me/profile-views', async (req, reply): Promise<ProfileViewsDTO> => {
     const u = requireUser(req);
     reply.header('Cache-Control', 'no-store, private');
+    // A Gold Quill perk. (Visits are still recorded, so a new member sees the last 90 days.)
+    if (!quillActive(u.quillUntil)) throw new HttpError(402, 'quill_required', 'Profile Views are a Gold Quill perk.');
     const size = PROFILE.viewsPerPage;
     // Leave out anyone either side has blocked or you ignore.
     const where = `v.profile_user_id = $1 AND v.viewed_at > now() - make_interval(days => ${PROFILE.viewsKeptDays})
@@ -235,7 +238,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       await db.query('UPDATE users SET profile_gift_id = $2 WHERE id = $1', [u.id, b.profileGift]);
     }
     if (b.profileThemeId !== undefined) {
-      if (b.profileThemeId !== null && !(await isPoolImage(b.profileThemeId))) throw new HttpError(400, 'bad_theme', 'Pick one of the themes shown.');
+      if (b.profileThemeId !== null && !(await isPoolImage(b.profileThemeId, quillActive(u.quillUntil)))) throw new HttpError(400, 'bad_theme', 'That theme is for Gold Quill members, or no longer offered. Pick another.');
       await db.query('UPDATE users SET profile_theme_id = $2 WHERE id = $1', [u.id, b.profileThemeId]);
     }
     if (b.profileTrophy !== undefined) {

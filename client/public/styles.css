@@ -752,3 +752,50 @@ button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 .team-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
 .team-row select { width: auto; }
 .team-help { list-style: none; padding: 0; margin: 0 0 0.4rem; display: grid; gap: 0.35rem; font-size: 0.92rem; }
+
+/* ----- Gold Quill ----- */
+:root { --gold-a: #fbe7a1; --gold-b: #d4a017; --gold-c: #8a6a10; }
+.avatar.quill { border: 3px solid transparent; background: linear-gradient(135deg, var(--gold-a), var(--gold-b) 45%, var(--gold-c) 70%, var(--gold-a)) border-box;
+  box-shadow: 0 0 0 1px rgba(138, 106, 16, 0.35), 0 0 10px rgba(212, 160, 23, 0.45); background-origin: border-box; }
+img.avatar.quill { background-clip: border-box; }
+.avatar.placeholder.quill { background: linear-gradient(var(--card-bg, #fff), var(--card-bg, #fff)) padding-box,
+  linear-gradient(135deg, var(--gold-a), var(--gold-b) 45%, var(--gold-c) 70%, var(--gold-a)) border-box; }
+.avatar.lg.quill { border-width: 5px; box-shadow: 0 0 0 1px rgba(138, 106, 16, 0.4), 0 0 18px rgba(212, 160, 23, 0.55); }
+[data-theme="dark"] .avatar.placeholder.quill { background: linear-gradient(var(--surface), var(--surface)) padding-box,
+  linear-gradient(135deg, var(--gold-a), var(--gold-b) 45%, var(--gold-c) 70%, var(--gold-a)) border-box; }
+.quill-hero { text-align: center; }
+.quill-hero h1 { margin: 0.3rem 0; background: linear-gradient(90deg, var(--gold-c), var(--gold-b), var(--gold-c)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+[data-theme="dark"] .quill-hero h1 { background: linear-gradient(90deg, var(--gold-a), var(--gold-b), var(--gold-a)); -webkit-background-clip: text; background-clip: text; }
+.quill-ring-demo { width: 4.2rem; height: 4.2rem; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; font-size: 2rem;
+  border: 4px solid transparent; background: linear-gradient(#fff8e1, #fff8e1) padding-box, linear-gradient(135deg, var(--gold-a), var(--gold-b), var(--gold-c), var(--gold-a)) border-box;
+  box-shadow: 0 0 16px rgba(212, 160, 23, 0.5); }
+.quill-ring-demo.small { width: 2.4rem; height: 2.4rem; font-size: 1.1rem; border-width: 3px; margin: 0; }
+.quill-sub-head { display: flex; align-items: center; gap: 0.6rem; font-size: 1.1rem; }
+.quill-status { margin: 0.5rem 0; }
+.quill-status.on { color: #6b5208; }
+[data-theme="dark"] .quill-status.on { color: var(--gold-a); }
+.quill-perks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.quill-perks li { display: flex; gap: 0.7rem; align-items: flex-start; }
+.quill-perk-icon { font-size: 1.4rem; line-height: 1.2; }
+.quill-passes { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); margin-bottom: 0.6rem; }
+.quill-pass { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; padding: 0.9rem 0.7rem 0.8rem;
+  border: 2px solid var(--gold-b); border-radius: 14px; text-align: center; background: linear-gradient(180deg, rgba(251, 231, 161, 0.25), transparent); }
+.quill-pass.best { border-width: 3px; box-shadow: 0 0 14px rgba(212, 160, 23, 0.4); }
+.quill-best { position: absolute; top: -0.7rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  background: var(--gold-b); color: #2b1d00; padding: 0.15rem 0.5rem; border-radius: 999px; }
+.quill-pass-name { font-weight: 800; }
+.quill-price { font-size: 1.6rem; font-weight: 900; }
+.paypal-btn { margin-top: 0.3rem; width: 100%; background: #ffc439; color: #111; border: 1px solid #e0a800; font-weight: 800; border-radius: 999px; min-height: 2.6rem; }
+.paypal-btn:disabled { opacity: 0.55; }
+.quill-lock { margin-left: 0.2rem; font-size: 0.85em; }
+.quill-note { margin: 0 0 0.5rem; font-size: 0.9rem; color: #6b5208; grid-column: 1 / -1; }
+[data-theme="dark"] .quill-note { color: var(--gold-a); }
+.gift-choice.quill-gift .gift-tile { box-shadow: 0 0 0 2px var(--gold-b), 0 0 8px rgba(212, 160, 23, 0.5); }
+.gift-choice:disabled { opacity: 0.5; }
+.gift-theme-btn.quill-theme { border-color: var(--gold-b); }
+.quill-pick { position: relative; }
+.quill-tag { position: absolute; top: 0.3rem; left: 0.3rem; font-size: 0.68rem; font-weight: 800; background: rgba(43, 29, 0, 0.8); color: var(--gold-a);
+  border: 1px solid var(--gold-b); padding: 0.1rem 0.35rem; border-radius: 6px; }
+.receipt { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.profile-id .avatar.lg.quill, [data-theme="dark"] .profile-id .avatar.lg.quill, .content.themed .profile-id .avatar.lg.quill {
+  border: 5px solid transparent; box-shadow: 0 0 0 3px var(--bg), 0 0 20px rgba(212, 160, 23, 0.65); }

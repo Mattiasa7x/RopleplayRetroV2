@@ -741,3 +741,48 @@ CREATE TABLE IF NOT EXISTS room_roles (
   PRIMARY KEY (room_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS room_roles_user ON room_roles (user_id);
+
+-- ================= Gold Quill (paid passes through PayPal) =================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS quill_until TIMESTAMPTZ;
+ALTER TABLE room_images ADD COLUMN IF NOT EXISTS quill_only BOOLEAN NOT NULL DEFAULT false;
+
+-- One row per PayPal order. Only a completed (captured, amount-checked) order grants time.
+CREATE TABLE IF NOT EXISTS quill_orders (
+  id            TEXT PRIMARY KEY CHECK (id ~ '^[A-Z0-9]{5,40}$'),  -- PayPal order id
+  user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pass          TEXT NOT NULL CHECK (pass IN ('day', 'week', 'month')),
+  amount        NUMERIC(8, 2) NOT NULL,
+  currency      TEXT NOT NULL DEFAULT 'USD',
+  status        TEXT NOT NULL DEFAULT 'created' CHECK (status IN ('created', 'pending', 'completed', 'failed')),
+  capture_id    TEXT,
+  granted_until TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS quill_orders_user ON quill_orders (user_id, created_at DESC);
+
+-- Gold Quill can only come from a purchase: quill_until may only be set to exactly what a
+-- completed order for that same account granted (or cleared / moved into the past).
+CREATE OR REPLACE FUNCTION users_quill_paid() RETURNS trigger AS $$
+BEGIN
+  IF NEW.quill_until IS DISTINCT FROM OLD.quill_until
+     AND NEW.quill_until IS NOT NULL AND NEW.quill_until > now()
+     AND NOT EXISTS (SELECT 1 FROM quill_orders o WHERE o.user_id = NEW.id AND o.status = 'completed'
+                       AND o.granted_until = NEW.quill_until) THEN
+    RAISE EXCEPTION 'Gold Quill can only be granted by a completed purchase' USING ERRCODE = '23514', CONSTRAINT = 'quill_paid_only';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS users_quill_paid ON users;
+CREATE TRIGGER users_quill_paid BEFORE UPDATE OF quill_until ON users
+  FOR EACH ROW EXECUTE FUNCTION users_quill_paid();
+CREATE OR REPLACE FUNCTION users_quill_insert() RETURNS trigger AS $$
+BEGIN
+  NEW.quill_until := NULL; -- a brand-new account never starts with a pass
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS users_quill_insert ON users;
+CREATE TRIGGER users_quill_insert BEFORE INSERT ON users
+  FOR EACH ROW WHEN (NEW.quill_until IS NOT NULL) EXECUTE FUNCTION users_quill_insert();

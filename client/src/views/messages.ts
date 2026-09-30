@@ -15,7 +15,7 @@ export async function viewInbox() {
       list.length
         ? h('ul', { class: 'people inbox' }, ...list.map((c) => h('li', { class: c.unread ? 'unread' : '' },
             h('a', { href: `/messages/${c.with.handle}`, class: 'person-link' },
-              avatar(c.with.avatar, c.with.handle, 'md'),
+              avatar(c.with.avatar, c.with.handle, 'md', c.with.quill),
               h('span', { class: 'inbox-text' },
                 h('strong', {}, c.with.handle),
                 h('span', { class: 'muted small block preview' }, (c.lastFromMe ? 'You: ' : '') + c.preview))),
@@ -169,7 +169,7 @@ export async function viewThread(handle: string) {
   page(other,
     h('div', { class: 'thread-head' },
       h('a', { href: '/messages', class: 'back' }, '‹ Messages'),
-      h('a', { href: `/profile/${other}`, class: 'person-link' }, avatar(t.with.avatar, other), h('strong', {}, other))),
+      h('a', { href: `/profile/${other}`, class: 'person-link' }, avatar(t.with.avatar, other, 'sm', t.with.quill), h('strong', {}, other))),
     older, list, errBox,
     t.canSend ? composer : h('p', { class: 'notice' }, t.reason ?? "You can't message this member."));
   requestAnimationFrame(() => window.scrollTo(0, document.documentElement.scrollHeight));

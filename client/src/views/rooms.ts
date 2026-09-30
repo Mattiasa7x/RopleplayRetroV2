@@ -1,3 +1,4 @@
+import { meIsQuill } from './quill.js';
 import { MEMBER_ROOMS, Trust } from '../../../shared/config.js';
 import type { RoomDetail, RoomImageDTO, RoomSanctionDTO, RoomSummary } from '../../../shared/types.js';
 import { card, field, form, navigate, page, state, toast } from '../core.js';
@@ -154,10 +155,13 @@ async function imagePicker(current: number | null): Promise<{ el: HTMLElement; v
   const none = h('button', { type: 'button', class: 'pick none', 'data-id': '0', 'aria-label': 'No picture' }, 'None');
   none.addEventListener('click', () => pick(null));
   buttons.push(none);
+  const member = meIsQuill();
   for (const img of pool) {
-    const b = h('button', { type: 'button', class: 'pick', 'data-id': String(img.id), 'aria-label': img.title, title: img.credit ? `${img.title} · photo by ${img.credit}` : img.title },
-      h('img', { src: img.thumb, alt: '', loading: 'lazy' }));
-    b.addEventListener('click', () => pick(img.id));
+    const locked = !!img.quill && !member;
+    const b = h('button', { type: 'button', class: `pick${img.quill ? ' quill-pick' : ''}`, 'data-id': String(img.id), 'aria-label': locked ? `${img.title} (Gold Quill members only)` : img.title, title: img.credit ? `${img.title} · photo by ${img.credit}` : img.title },
+      h('img', { src: img.thumb, alt: '', loading: 'lazy' }),
+      img.quill ? h('span', { class: 'quill-tag' }, locked ? '🔒' : '🪶') : null);
+    b.addEventListener('click', () => { if (locked) { toast('That picture is for Gold Quill members.', true); return; } pick(img.id); });
     buttons.push(b);
   }
   paint();

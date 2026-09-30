@@ -18,7 +18,7 @@ interface Opts {
 function commentItem(c: CommentDTO, o: Opts, onGone: () => void): HTMLElement {
   const me = state.me!;
   const li = h('li', { class: 'post' },
-    h('a', { href: `/profile/${c.author.handle}`, class: 'post-head' }, avatar(c.author.avatar, c.author.handle), h('strong', {}, c.author.handle)),
+    h('a', { href: `/profile/${c.author.handle}`, class: 'post-head' }, avatar(c.author.avatar, c.author.handle, 'sm', c.author.quill), h('strong', {}, c.author.handle)),
     h('p', { class: 'post-body' }, c.body),
     h('div', { class: 'post-meta' },
       h('span', { class: 'muted' }, timeAgo(c.createdAt)),

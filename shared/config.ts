@@ -235,6 +235,8 @@ export interface Prefs {
   pushAlerts: boolean;
   enterToSend: boolean;
   showTimestamps: boolean;
+  /** Gold Quill members: show the gold ring around your picture. */
+  showQuillBadge: boolean;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -252,6 +254,7 @@ export const DEFAULT_PREFS: Prefs = {
   pushAlerts: false,
   enterToSend: true,
   showTimestamps: true,
+  showQuillBadge: true,
 };
 
 

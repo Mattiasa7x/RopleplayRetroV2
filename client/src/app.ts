@@ -1,3 +1,4 @@
+import { viewGoldQuill, viewQuillReturn } from './views/quill.js';
 import { viewTrophies } from './views/trophies.js';
 import { viewMyGifts, viewProfileGifts, viewSendGift } from './views/gifts.js';
 import { connect, navigate, page, refreshMe, refreshUnread, setRouter, state } from './core.js';
@@ -60,6 +61,7 @@ async function route() {
       case 'people': return await viewPeople();
       case 'admin': return await viewAdmin();
       case 'settings': return await viewSettings();
+      case 'gold-quill': return parts[1] === 'return' ? await viewQuillReturn() : await viewGoldQuill();
       default: return page('Not found', h('p', { class: 'notice' }, 'That page does not exist. '), h('a', { href: '/home' }, 'Go home'));
     }
   } catch (e) {

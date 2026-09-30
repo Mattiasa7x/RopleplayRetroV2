@@ -1,8 +1,9 @@
+import { meIsQuill } from './quill.js';
 import { CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, characterAgeFrom, NSFW_CHARACTER_MIN_AGE, PROFILE, RP_STYLES, Trust, type RpStyle } from '../../../shared/config.js';
 import type { AccountDTO, ProfileDTO, RoomImageDTO, TrophyPageDTO } from '../../../shared/types.js';
 import { formatInviteCode, TROPHIES, TROPHY_BY_ID } from '../../../shared/trophies.js';
 import { trophyBadge } from '../trophyart.js';
-import { card, page, state, toast } from '../core.js';
+import { card, navigate, page, state, toast } from '../core.js';
 import { api, apiUpload, h } from '../dom.js';
 import { pagedGrid } from './pagedgrid.js';
 import { photoSection } from './photosection.js';
@@ -217,11 +218,14 @@ export async function viewEditProfile() {
   const noneBtn = h('button', { type: 'button', class: 'theme-tile none', 'data-id': '0', 'aria-label': 'No background' }, h('span', { class: 'theme-name' }, 'None'));
   noneBtn.addEventListener('click', () => void pickTheme(null, 'None'));
   themeBtns.push(noneBtn);
+  const member = meIsQuill();
   for (const img of pool) {
-    const b = h('button', { type: 'button', class: 'theme-tile', 'data-id': String(img.id), 'aria-label': img.title },
+    const locked = !!img.quill && !member;
+    const b = h('button', { type: 'button', class: `theme-tile${img.quill ? ' quill-pick' : ''}`, 'data-id': String(img.id), 'aria-label': locked ? `${img.title} (Gold Quill members only)` : img.title },
       h('img', { src: img.thumb, alt: '', loading: 'lazy' }),
+      img.quill ? h('span', { class: 'quill-tag' }, locked ? '🔒 Gold Quill' : '🪶 Gold Quill') : null,
       h('span', { class: 'theme-name' }, img.title));
-    b.addEventListener('click', () => void pickTheme(img.id, img.title));
+    b.addEventListener('click', () => { if (locked) navigate('/gold-quill'); else void pickTheme(img.id, img.title); });
     themeBtns.push(b);
   }
   paintThemes();

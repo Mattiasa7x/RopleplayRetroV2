@@ -26,6 +26,7 @@ const PrefsBody = z
     pushAlerts: z.boolean(),
     enterToSend: z.boolean(),
     showTimestamps: z.boolean(),
+    showQuillBadge: z.boolean(),
   })
   .partial()
   .strict();

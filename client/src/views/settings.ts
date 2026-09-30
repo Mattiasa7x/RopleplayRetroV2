@@ -2,6 +2,7 @@ import { PASSWORD_MIN, TEXT_SIZES, THEMES, type Prefs } from '../../../shared/co
 import type { MeDTO, SessionInfo } from '../../../shared/types.js';
 import { applyPrefs, card, disconnect, field, form, navigate, page, state, timeAgo, toast } from '../core.js';
 import { api, h } from '../dom.js';
+import { subscriptionsCard } from './quill.js';
 import { deviceSubscribed, disablePush, enablePush, needsHomeScreen, pushSupported } from '../push.js';
 
 const LABELS: Record<string, string> = {
@@ -174,7 +175,7 @@ async function blockedSection(): Promise<HTMLElement> {
 export async function viewSettings() {
   const me = state.me!;
   page('Settings', h('p', { class: 'muted' }, 'Loading…'));
-  const [twoFA, devices, blocked, push] = await Promise.all([twoFactorSection(), devicesSection(), blockedSection(), pushRow()]);
+  const [twoFA, devices, blocked, push, subs] = await Promise.all([twoFactorSection(), devicesSection(), blockedSection(), pushRow(), subscriptionsCard(toggle('showQuillBadge', 'Show my Gold Quill ring', 'Gold Quill members: a gold frame around your picture everywhere on the site. Turn off to hide it.'))]);
 
   const withId = (id: string, el: HTMLElement) => { el.id = id; return el; };
 
@@ -221,7 +222,10 @@ export async function viewSettings() {
       choice('whoCanFriend', 'Who can send me friend requests', ['everyone', 'nobody']),
       choice('friendsList', 'Who can see my friends list', ['me', 'friends', 'everyone']),
       choice('giftsVisibility', 'Who can see my gifts', ['me', 'friends', 'everyone']),
-      toggle('showOnline', 'Show friends when I’m online'))),
+      toggle('showOnline', 'Show friends when I’m online'),
+      toggle('showQuillBadge', 'Show my Gold Quill ring', 'Gold Quill members: a gold frame around your picture everywhere on the site. Turn off to hide it.'))),
+
+    withId('subscriptions', subs),
 
     withId('chat', card('Chat',
       toggle('chatFilter', 'Chat filter', 'Masks mature language in chat, comments and statuses (h***). Slurs are always blocked for everyone.'),
@@ -255,7 +259,7 @@ export async function viewSettings() {
   sections[sections.length - 1].id = 'delete';
 
   // One section at a time, chosen from a single column of tabs down the left side.
-  const TABS: [string, string][] = [['account', 'Account'], ['security', 'Security'], ['privacy', 'Privacy'], ['chat', 'Chat'],
+  const TABS: [string, string][] = [['account', 'Account'], ['subscriptions', 'Subscriptions'], ['security', 'Security'], ['privacy', 'Privacy'], ['chat', 'Chat'],
     ['blocked', 'Blocked'], ['appearance', 'Appearance'], ['notifications', 'Alerts'], ['delete', 'Delete account']];
   const buttons = TABS.map(([id, label]) => {
     const b = h('button', { type: 'button', role: 'tab', id: `st-${id}`, class: `settings-tab${id === 'delete' ? ' danger-tab' : ''}`, 'aria-controls': id }, label);
