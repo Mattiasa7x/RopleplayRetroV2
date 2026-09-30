@@ -241,6 +241,7 @@ export async function viewProfileComments(handle: string) {
           reportKind: 'comment',
           canComment: p.canComment,
           placeholder: self ? 'Write on your own profile…' : `Write something to ${p.handle}…`,
+          composerBelow: true,
         })
       : card(null, h('p', { class: 'muted' }, `${p.handle} shares their profile with friends only.`)));
 }
