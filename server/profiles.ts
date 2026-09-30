@@ -2,8 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { TROPHIES, TROPHY_BY_ID } from '../shared/trophies.js';
 import sharp from 'sharp';
-import { CHARACTER_CITY, characterAgeFrom, NSFW_CHARACTER_MIN_AGE, CHARACTER_GENDER, CHARACTER_SHEET, PROFILE, RP_STYLES, TRUST_LABEL, Trust, type CharacterSheet, type RpStyle } from '../shared/config.js';
-import type { CommentDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO } from '../shared/types.js';
+import { FAMILY_RELATIONS, FAMILY_TREE, CHARACTER_CITY, characterAgeFrom, NSFW_CHARACTER_MIN_AGE, CHARACTER_GENDER, CHARACTER_SHEET, PROFILE, RP_STYLES, TRUST_LABEL, Trust, type CharacterSheet, type RpStyle } from '../shared/config.js';
+import type { CommentDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO, FamilyMemberDTO } from '../shared/types.js';
 import { characterAgeText, publicUser, prefsOf, relation, userByHandle, USER_COLS, type UserRow } from './friends.js';
 import { HttpError, parse, requireUser, type SessionUser } from './http.js';
 import { canViewAlbum, looksLikeImage, photoDTO } from './photos.js';
@@ -64,6 +64,39 @@ const view = (viewer: SessionUser, text: string) => (viewer.prefs.chatFilter ? m
 // ---------------- routes ----------------
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+interface StoredFamilyMember { name: string; relation: string; label?: string; userId?: string; note?: string }
+const RELATION_IDS = new Set(FAMILY_RELATIONS.map((r) => r.id));
+const FamilyBody = z.object({
+  members: z.array(z.object({
+    name: z.string().trim().min(1, 'Every family member needs a name.').max(FAMILY_TREE.nameMax),
+    relation: z.string().refine((r) => RELATION_IDS.has(r), 'Pick a relation from the list.'),
+    label: z.string().trim().max(FAMILY_TREE.labelMax).optional(),
+    handle: z.string().trim().max(16).optional().nullable(),
+    note: z.string().trim().max(FAMILY_TREE.noteMax).optional(),
+  })).max(FAMILY_TREE.maxMembers, `A family tree can have up to ${FAMILY_TREE.maxMembers} people.`),
+});
+
+/** A family tree for this viewer: linked members by their current name (left out if gone or blocking). */
+async function familyTreeFor(viewer: SessionUser, ownerId: string): Promise<FamilyMemberDTO[]> {
+  const { rows } = await db.query<{ family_tree: StoredFamilyMember[] | null }>('SELECT family_tree FROM users WHERE id = $1', [ownerId]);
+  const tree = Array.isArray(rows[0]?.family_tree) ? rows[0].family_tree! : [];
+  const ids = [...new Set(tree.map((m) => m.userId).filter((x): x is string => !!x && /^\d{1,19}$/.test(x)))];
+  const handles = new Map<string, string>();
+  if (ids.length) {
+    const { rows: us } = await db.query<{ id: string; handle: string }>(
+      `SELECT u.id::text AS id, u.handle FROM users u WHERE u.id = ANY($1::bigint[])
+          AND NOT EXISTS (SELECT 1 FROM ignores i WHERE (i.user_id = u.id AND i.ignored_user_id = $2 AND i.mode = 'block')
+                                                  OR (i.user_id = $2 AND i.ignored_user_id = u.id))`, [ids, viewer.id]);
+    for (const r of us) handles.set(r.id, r.handle);
+  }
+  return tree.map((m) => ({
+    name: view(viewer, m.name), relation: m.relation,
+    ...(m.relation === 'other' && m.label ? { label: view(viewer, m.label) } : {}),
+    handle: m.userId ? handles.get(m.userId) ?? null : null,
+    ...(m.note ? { note: view(viewer, m.note) } : {}),
+  }));
+}
+
 const ProfileBody = z.object({
   bio: z.string().max(PROFILE.bioMax, `About can be up to ${PROFILE.bioMax} characters`).nullable().optional(),
   characterCity: z.string().trim().max(CHARACTER_CITY.maxLength, `City can be up to ${CHARACTER_CITY.maxLength} characters`).nullable().optional(),
@@ -176,6 +209,7 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
       characterCity: a.visible && t.character_city ? view(u, t.character_city) : null,
       rpStyle: a.visible && (RP_STYLES as readonly string[]).includes(t.rp_style ?? '') ? (t.rp_style as RpStyle) : null,
       characterSheet: sheet,
+      familyTree: a.visible ? await familyTreeFor(u, t.id) : [],
       banner: ban[0] ? `/banner/${t.id}?v=${ban[0].v}` : null,
       theme: th[0] ? { id: th[0].id, image: `/room-img/${th[0].id}/full`, title: th[0].title } : null,
       ...(self ? { own: { characterBirthday: t.character_birthday, legacyAge: t.character_birthday ? null : t.character_age, profileTrophy: t.profile_trophy } } : {}),
@@ -246,6 +280,35 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
    * Edit your character profile. Send only what changes; null clears a field.
    * A real change shows up for friends as "updated their profile".
    */
+  /** Replace your character's family tree. Linked members must be your friends. */
+  app.put('/api/me/family-tree', async (req) => {
+    const u = requireUser(req);
+    const b = parse(FamilyBody, req.body);
+    const wanted = [...new Set(b.members.map((m) => m.handle?.trim().toLowerCase()).filter((x): x is string => !!x))];
+    const friendIds = new Map<string, string>();
+    if (wanted.length) {
+      const { rows } = await db.query<{ id: string; handle: string }>(
+        `SELECT u.id::text AS id, lower(u.handle) AS handle FROM users u
+          JOIN friendships f ON f.status = 'accepted' AND f.user_a = LEAST($1::bigint, u.id) AND f.user_b = GREATEST($1::bigint, u.id)
+         WHERE lower(u.handle) = ANY($2)`, [u.id, wanted]);
+      for (const r of rows) friendIds.set(r.handle, r.id);
+      const missing = wanted.filter((w) => !friendIds.has(w));
+      if (missing.length) throw new HttpError(400, 'not_friend', `You can only link friends. ${missing[0]} isn't on your friends list.`);
+    }
+    const stored: StoredFamilyMember[] = b.members.map((m) => {
+      if (m.relation === 'other' && !m.label) throw new HttpError(400, 'label', `Say how ${m.name} is related.`);
+      const userId = m.handle ? friendIds.get(m.handle.trim().toLowerCase()) : undefined;
+      return {
+        name: m.name, relation: m.relation,
+        ...(m.relation === 'other' && m.label ? { label: m.label } : {}),
+        ...(userId ? { userId } : {}),
+        ...(m.note ? { note: m.note } : {}),
+      };
+    });
+    await db.query('UPDATE users SET family_tree = $2::jsonb WHERE id = $1', [u.id, JSON.stringify(stored)]);
+    return { ok: true };
+  });
+
   app.patch('/api/me/profile', async (req) => {
     const u = requireUser(req);
     const b = parse(ProfileBody, req.body);

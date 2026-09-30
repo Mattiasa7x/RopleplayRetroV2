@@ -23,8 +23,9 @@ export function registerPeopleRoutes(app: FastifyInstance) {
     const { rows: vr } = await db.query<{ user_id: string }>('SELECT user_id::text AS user_id FROM room_voices WHERE room_id = $1', [room.id]);
     const voiced = new Set(vr.map((r) => r.user_id));
     const roles = await roomRoles(room);
-    const { rows } = await db.query<UserRow & { is_friend: boolean; hide: boolean }>(
+    const { rows } = await db.query<UserRow & { is_friend: boolean; hide: boolean; is_family: boolean }>(
       `SELECT ${USER_COLS},
+              EXISTS (SELECT 1 FROM family_tags ft WHERE ft.user_id = $1 AND ft.family_id = u.id) AS is_family,
               EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
                         AND f.user_a = LEAST($1::bigint, u.id) AND f.user_b = GREATEST($1::bigint, u.id)) AS is_friend,
               EXISTS (SELECT 1 FROM ignores i WHERE (i.user_id = $1 AND i.ignored_user_id = u.id)
@@ -46,6 +47,7 @@ export function registerPeopleRoutes(app: FastifyInstance) {
         characterCity: visible ? show(r.character_city) : null,
         characterAge: visible ? show(characterAgeText(r)) : null,
         isFriend: r.is_friend,
+        ...(r.is_family ? { isFamily: true } : {}),
         self,
         isOwner: r.id === room.owner_id,
         role: roles[r.id] ?? null,
@@ -73,8 +75,9 @@ export function registerOnlineRoutes(app: FastifyInstance) {
     const ids = ((await redis.hkeys('online')) as string[]).filter((id) => /^\d{1,19}$/.test(id) && id !== u.id);
     if (!ids.length) return { users: [], total: 0, page: 1, pages: 1 };
     const q = (req.query.q ?? '').trim().slice(0, 16);
-    const { rows } = await db.query<UserRow & { is_friend: boolean }>(
+    const { rows } = await db.query<UserRow & { is_friend: boolean; is_family: boolean }>(
       `SELECT ${USER_COLS},
+              EXISTS (SELECT 1 FROM family_tags ft WHERE ft.user_id = $1 AND ft.family_id = u.id) AS is_family,
               EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
                         AND f.user_a = LEAST($1::bigint, u.id) AND f.user_b = GREATEST($1::bigint, u.id)) AS is_friend
          FROM users u
@@ -90,7 +93,7 @@ export function registerOnlineRoutes(app: FastifyInstance) {
       [u.id, ids, q.replace(/[%_\\]/g, '')],
     );
     const staff = u.trust >= Trust.RoomModerator;
-    const toDTO = (r: UserRow & { is_friend: boolean }): OnlineUserDTO => {
+    const toDTO = (r: UserRow & { is_friend: boolean; is_family: boolean }): OnlineUserDTO => {
       const visible = staff || r.is_friend || prefsOf(r).profileVisibility === 'everyone';
       const line = [characterAgeText(r), r.character_gender, r.character_city].filter(Boolean).join(', ');
       return {
@@ -100,6 +103,7 @@ export function registerOnlineRoutes(app: FastifyInstance) {
         rpStyle: visible ? r.rp_style : null,
         characterLine: visible && line ? (u.prefs.chatFilter ? maskMature(line) : line) : null,
         isFriend: r.is_friend,
+        ...(r.is_family ? { isFamily: true } : {}),
       };
     };
     if (req.query.sample) {
@@ -131,7 +135,7 @@ export function registerMemberSearch(app: FastifyInstance) {
     const onlineIds = ((await redis.hkeys('online')) as string[]).filter((id) => /^\d{1,19}$/.test(id));
     const page = Math.max(1, Number.parseInt(req.query.page ?? '1', 10) || 1);
     const staff = u.trust >= Trust.RoomModerator;
-    const { rows } = await db.query<UserRow & { is_friend: boolean; total: string }>(
+    const { rows } = await db.query<UserRow & { is_friend: boolean; is_family: boolean; total: string }>(
       `WITH m AS (
          SELECT u.id,
                 EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
@@ -152,7 +156,8 @@ export function registerMemberSearch(app: FastifyInstance) {
            FROM m JOIN users u ON u.id = m.id
           WHERE m.is_online = ($5 = 'online')
        )
-       SELECT ${USER_COLS}, f.is_friend, count(*) OVER () AS total
+       SELECT ${USER_COLS}, f.is_friend, count(*) OVER () AS total,
+              EXISTS (SELECT 1 FROM family_tags ft WHERE ft.user_id = $1 AND ft.family_id = u.id) AS is_family
          FROM f JOIN users u ON u.id = f.id
         WHERE $6 = 'any' OR f.has_pic = ($6 = 'yes')
         ORDER BY lower(u.handle)
@@ -170,6 +175,7 @@ export function registerMemberSearch(app: FastifyInstance) {
         rpStyle: visible ? r.rp_style : null,
         characterLine: visible && line ? (u.prefs.chatFilter ? maskMature(line) : line) : null,
         isFriend: r.is_friend,
+        ...(r.is_family ? { isFamily: true } : {}),
         online: status === 'online',
       };
     });

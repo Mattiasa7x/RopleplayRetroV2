@@ -915,3 +915,41 @@ img.avatar.quill { background-clip: border-box; }
 .filter-row { flex-wrap: nowrap; }
 .filter-chip { flex: 1 1 0; min-width: 0; padding: 0.1rem 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .filter-chip { font-size: 0.76rem; }
+/* Family: badge (replaces "friend") and the tag toggle on the Friends page */
+.family-tag { border-color: #b8860b; color: #8a5a00; background: #fff6dc; }
+[data-theme="dark"] .family-tag { border-color: #f2c14e; color: #f2c14e; background: rgba(242, 193, 78, 0.12); }
+.family-toggle { min-height: 2.2rem; padding: 0.1rem 0.6rem; font-size: 0.8rem; white-space: nowrap; }
+.family-toggle.on { border-color: #b8860b; color: #8a5a00; background: #fff6dc; }
+[data-theme="dark"] .family-toggle.on { border-color: #f2c14e; color: #f2c14e; background: rgba(242, 193, 78, 0.12); }
+/* Edit profile: five tabs (Family Tree added) */
+.edit-tabs { grid-template-columns: 1fr 0.95fr 1.25fr 1.05fr 0.95fr; gap: 0.25rem; }
+.edit-tabs .tab { font-size: 0.78rem; padding: 0.2rem 0.15rem; }
+/* Family tree editor */
+.family-edit-list { list-style: none; margin: 0 0 0.6rem; padding: 0; display: grid; gap: 0.6rem; }
+.family-edit { display: grid; gap: 0.35rem; padding: 0.6rem; border: 1.5px solid color-mix(in srgb, var(--red) 35%, transparent); border-radius: 12px; }
+.family-edit-top { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 0.35rem; }
+.family-edit input, .family-edit select { width: 100%; min-width: 0; }
+.family-edit-foot { display: flex; justify-content: flex-end; }
+[data-theme="dark"] .family-edit { border-color: color-mix(in srgb, var(--pink) 35%, transparent); }
+/* Profile › Family Tree: generations joined by a line down the middle */
+.profile-tab-bar .tab { padding: 0.2rem 0.65rem; font-size: 0.85rem; }
+.family-view { display: grid; gap: 1rem; }
+.family-tree { display: grid; gap: 1.3rem; }
+.family-gen { position: relative; }
+.family-gen + .family-gen::before { content: ''; position: absolute; left: 50%; top: -1.3rem; height: 1.3rem; border-left: 2px solid var(--red); }
+.family-gen-title { margin: 0 0 0.35rem; text-align: center; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.family-more .family-gen-title { text-align: left; }
+.family-row { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.45rem; }
+.family-more .family-row { justify-content: flex-start; }
+.family-node { display: grid; justify-items: center; text-align: center; gap: 0.05rem; min-width: 6.5rem; max-width: 11rem; padding: 0.45rem 0.6rem; border: 2px solid var(--red); border-radius: 12px; background: color-mix(in srgb, var(--bg) 88%, transparent); }
+.family-node.me { background: var(--red); color: var(--red-ink); }
+.family-node.me .family-rel { color: inherit; opacity: 0.85; }
+.family-name { font-weight: 800; overflow-wrap: anywhere; }
+a.family-name { color: var(--red); }
+.family-rel { font-size: 0.75rem; color: var(--muted); font-weight: 700; }
+.family-note { font-size: 0.75rem; overflow-wrap: anywhere; }
+[data-theme="dark"] .family-gen + .family-gen::before { border-color: var(--pink); }
+[data-theme="dark"] .family-node { border-color: var(--pink); }
+[data-theme="dark"] .family-node.me { background: var(--pink); color: var(--bg); }
+[data-theme="dark"] a.family-name { color: var(--pink); }
+.family-edit-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }

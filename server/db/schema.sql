@@ -843,3 +843,14 @@ DO $$ BEGIN
     UPDATE users u SET views_received = v.n FROM (SELECT profile_user_id, count(*) AS n FROM profile_views GROUP BY profile_user_id) v WHERE v.profile_user_id = u.id;
   END IF;
 END $$;
+
+-- Family: a character's family tree (story people, optionally linked to friends), and the
+-- friends each member has tagged as family (their own label; shown only to them).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS family_tree JSONB NOT NULL DEFAULT '[]'::jsonb;
+CREATE TABLE IF NOT EXISTS family_tags (
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  family_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, family_id),
+  CHECK (user_id <> family_id)
+);

@@ -1,6 +1,6 @@
 import { meIsQuill } from './quill.js';
-import { CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, characterAgeFrom, NSFW_CHARACTER_MIN_AGE, PROFILE, RP_STYLES, Trust, type RpStyle } from '../../../shared/config.js';
-import type { AccountDTO, ProfileDTO, RoomImageDTO, TrophyPageDTO } from '../../../shared/types.js';
+import { FAMILY_GROUPS, FAMILY_RELATIONS, FAMILY_TREE, CHARACTER_CITY, CHARACTER_GENDER, CHARACTER_SHEET, characterAgeFrom, NSFW_CHARACTER_MIN_AGE, PROFILE, RP_STYLES, Trust, type RpStyle } from '../../../shared/config.js';
+import type { AccountDTO, FamilyMemberDTO, FriendsDTO, ProfileDTO, RoomImageDTO, TrophyPageDTO } from '../../../shared/types.js';
 import { formatInviteCode, TROPHIES, TROPHY_BY_ID } from '../../../shared/trophies.js';
 import { trophyBadge } from '../trophyart.js';
 import { card, navigate, page, state, toast } from '../core.js';
@@ -307,12 +307,16 @@ export async function viewEditProfile() {
     h('div', { class: 'sheet-grid' }, ...sheetFields),
     saveSheet);
 
+  // ----- family tree: people in your character's story, optionally linked to friends -----
+  const familyCard = await familyEditor(p.familyTree);
+
   // ----- tabs: one section at a time; the address remembers which (?tab=photos) -----
   const photosPane = h('div', { class: 'stack' }, bannerCard, await photoSection(p, { manage: true, reload }));
   const TABS: [string, string, HTMLElement][] = [
     ['account', 'Account', accountCard],
     ['profile', 'Profile', h('div', { class: 'stack' }, characterCard, trophyCard, themeCard)],
     ['sheet', 'Character Sheet', sheetCard],
+    ['family', 'Family Tree', familyCard],
     ['photos', 'Photos', photosPane],
   ];
   const wanted = new URLSearchParams(location.search).get('tab');
@@ -339,4 +343,72 @@ export async function viewEditProfile() {
     h('a', { href: `/profile/${me.handle}`, class: 'back' }, '‹ View my profile'),
     h('div', { class: 'tabs-row edit-tabs', role: 'tablist', 'aria-label': 'Edit profile sections' }, ...tabButtons),
     ...panes);
+}
+
+/** Edit profile › Family Tree: add, change or remove people, then save the whole tree. */
+async function familyEditor(initial: FamilyMemberDTO[]): Promise<HTMLElement> {
+  const friends = await api<FriendsDTO>('/api/friends').then((d) => d.friends).catch(() => []);
+  const listId = 'family-friends';
+  const datalist = h('datalist', { id: listId }, ...friends.map((f) => h('option', { value: f.handle })));
+  const rows = h('ol', { class: 'family-edit-list' });
+  const count = h('p', { class: 'muted small' });
+  const addBtn = h('button', { type: 'button', class: 'quiet wide' }, '+ Add family member');
+
+  const relationSelect = (value: string) => {
+    const sel = h('select', { 'aria-label': 'Relation' },
+      ...FAMILY_GROUPS.map((g) => h('optgroup', { label: g.title },
+        ...FAMILY_RELATIONS.filter((r) => r.group === g.id).map((r) => h('option', { value: r.id }, r.label)))));
+    sel.value = value;
+    return sel;
+  };
+  function row(m: Partial<FamilyMemberDTO> = {}): HTMLElement {
+    const rel = relationSelect(m.relation ?? 'mother');
+    const label = h('input', { type: 'text', maxlength: FAMILY_TREE.labelMax, placeholder: 'How are they related?', value: m.label ?? '', 'aria-label': 'Relation (your own words)' });
+    const name = h('input', { type: 'text', maxlength: FAMILY_TREE.nameMax, placeholder: 'Name', value: m.name ?? '', 'aria-label': 'Name', required: true });
+    const handle = h('input', { type: 'text', maxlength: 16, placeholder: 'Link a friend (optional)', value: m.handle ?? '', list: listId, autocapitalize: 'off', autocomplete: 'off', 'aria-label': 'Linked friend (optional)' });
+    const note = h('input', { type: 'text', maxlength: FAMILY_TREE.noteMax, placeholder: 'Note (optional)', value: m.note ?? '', 'aria-label': 'Note (optional)' });
+    const labelWrap = h('div', { class: 'family-label' }, label);
+    const syncOther = () => { labelWrap.hidden = rel.value !== 'other'; };
+    rel.addEventListener('change', syncOther);
+    syncOther();
+    const remove = h('button', { type: 'button', class: 'link', 'aria-label': 'Remove this person' }, 'Remove');
+    const li = h('li', { class: 'family-edit' },
+      h('div', { class: 'family-edit-top' }, rel, name),
+      labelWrap, handle, note,
+      h('div', { class: 'family-edit-foot' }, remove));
+    remove.addEventListener('click', () => { li.remove(); paintCount(); });
+    (li as HTMLElement & { read?: () => unknown }).read = () => ({
+      relation: rel.value, name: name.value.trim(), note: note.value.trim() || undefined,
+      label: rel.value === 'other' ? label.value.trim() || undefined : undefined,
+      handle: handle.value.trim() || null,
+    });
+    return li;
+  }
+  function paintCount() {
+    const n = rows.children.length;
+    count.textContent = `${n} of ${FAMILY_TREE.maxMembers} people`;
+    addBtn.disabled = n >= FAMILY_TREE.maxMembers;
+  }
+  for (const m of initial) rows.append(row(m));
+  addBtn.addEventListener('click', () => {
+    const li = row();
+    rows.append(li);
+    paintCount();
+    li.querySelector<HTMLInputElement>('input[aria-label="Name"]')?.focus();
+  });
+  paintCount();
+  const save = h('button', { type: 'button', class: 'primary wide' }, 'Save family tree');
+  save.addEventListener('click', async () => {
+    const members = [...rows.children].map((li) => (li as HTMLElement & { read: () => { name: string } }).read())
+      .filter((m) => m.name); // empty rows are simply dropped
+    save.disabled = true;
+    try {
+      await api('/api/me/family-tree', { method: 'PUT', body: { members } });
+      toast('Family tree saved.');
+    } catch (e) { toast((e as Error).message, true); }
+    save.disabled = false;
+  });
+  return card('Family tree',
+    h('p', { class: 'muted small' }, 'The people in your character\'s story. Link a friend to point to their profile.'),
+    datalist, rows, count, addBtn, save);
 }

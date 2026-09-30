@@ -109,8 +109,9 @@ export async function friendIds(userId: string): Promise<string[]> {
 /** Blocking someone ends any friendship or pending request between you. */
 export async function endFriendship(q: Tx | typeof db, a: string, b: string) {
   await q.query('DELETE FROM friendships WHERE user_a = LEAST($1::bigint, $2::bigint) AND user_b = GREATEST($1::bigint, $2::bigint)', [a, b]);
-  // Album access is for friends only, so it ends with the friendship.
+  // Album access is for friends only, so it ends with the friendship. So do family tags.
   await q.query('DELETE FROM album_access WHERE (owner_id = $1 AND viewer_id = $2) OR (owner_id = $2 AND viewer_id = $1)', [a, b]);
+  await q.query('DELETE FROM family_tags WHERE (user_id = $1 AND family_id = $2) OR (user_id = $2 AND family_id = $1)', [a, b]);
 }
 
 export function registerFriendRoutes(app: FastifyInstance, io: IO) {
@@ -125,12 +126,31 @@ export function registerFriendRoutes(app: FastifyInstance, io: IO) {
     );
     const accepted = rows.filter((r) => r.status === 'accepted');
     const online = await isOnline(accepted.filter((r) => prefsOf(r).showOnline).map((r) => r.id));
+    const { rows: fam } = await db.query<{ id: string }>('SELECT family_id::text AS id FROM family_tags WHERE user_id = $1', [u.id]);
+    const family = new Set(fam.map((r) => r.id));
     return {
-      friends: accepted.map((r) => publicUser(r, { online: online.has(r.id) })).sort((a, b) => Number(b.online) - Number(a.online)),
+      friends: accepted.map((r) => ({ ...publicUser(r, { online: online.has(r.id) }), ...(family.has(r.id) ? { isFamily: true } : {}) }))
+        .sort((a, b) => Number(b.online) - Number(a.online)),
       incoming: rows.filter((r) => r.status === 'pending' && r.requested_by !== u.id).map((r) => publicUser(r)),
       outgoing: rows.filter((r) => r.status === 'pending' && r.requested_by === u.id).map((r) => publicUser(r)),
     };
   });
+
+  /** Tag a friend as family (PUT) or untag them (DELETE). It's your own label; only you see it. */
+  const setFamily = async (req: { user?: unknown; params: { handle: string } }, on: boolean) => {
+    const u = requireUser(req as never);
+    const t = await userByHandle(req.params.handle);
+    if (on) {
+      const rel = await relation(u.id, t.id);
+      if (rel.friendState !== 'friends') throw new HttpError(400, 'not_friend', 'Only friends can be tagged as family.');
+      await db.query('INSERT INTO family_tags (user_id, family_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [u.id, t.id]);
+    } else {
+      await db.query('DELETE FROM family_tags WHERE user_id = $1 AND family_id = $2', [u.id, t.id]);
+    }
+    return { ok: true, family: on };
+  };
+  app.put<{ Params: { handle: string } }>('/api/friends/:handle/family', async (req) => setFamily(req, true));
+  app.delete<{ Params: { handle: string } }>('/api/friends/:handle/family', async (req) => setFamily(req, false));
 
   // Send a request, or accept one they already sent you.
   app.post<{ Params: { handle: string } }>('/api/friends/:handle', async (req) => {

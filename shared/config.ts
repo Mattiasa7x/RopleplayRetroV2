@@ -283,3 +283,56 @@ export const THEMES = ['light', 'dark', 'system'] as const;
 export type Theme = (typeof THEMES)[number];
 export const TEXT_SIZES = ['s', 'm', 'l', 'xl'] as const;
 export type TextSize = (typeof TEXT_SIZES)[number];
+
+/**
+ * Family tree on a character's profile: the people in their story. Each relation belongs to a
+ * generation row of the tree (grandparents at the top, grandchildren at the bottom); extended
+ * family and anything custom ("other") are listed under the tree.
+ */
+export type FamilyGroup = 'grandparents' | 'parents' | 'self' | 'children' | 'grandchildren' | 'extended' | 'other';
+export const FAMILY_GROUPS: { id: FamilyGroup; title: string }[] = [
+  { id: 'grandparents', title: 'Grandparents' },
+  { id: 'parents', title: 'Parents' },
+  { id: 'self', title: 'Siblings & partners' },
+  { id: 'children', title: 'Children' },
+  { id: 'grandchildren', title: 'Grandchildren' },
+  { id: 'extended', title: 'Extended family' },
+  { id: 'other', title: 'Others' },
+];
+export const FAMILY_RELATIONS: { id: string; label: string; group: FamilyGroup }[] = [
+  { id: 'grandmother', label: 'Grandmother', group: 'grandparents' },
+  { id: 'grandfather', label: 'Grandfather', group: 'grandparents' },
+  { id: 'grandparent', label: 'Grandparent', group: 'grandparents' },
+  { id: 'mother', label: 'Mother', group: 'parents' },
+  { id: 'father', label: 'Father', group: 'parents' },
+  { id: 'parent', label: 'Parent', group: 'parents' },
+  { id: 'stepmother', label: 'Stepmother', group: 'parents' },
+  { id: 'stepfather', label: 'Stepfather', group: 'parents' },
+  { id: 'guardian', label: 'Guardian', group: 'parents' },
+  { id: 'spouse', label: 'Spouse', group: 'self' },
+  { id: 'partner', label: 'Partner', group: 'self' },
+  { id: 'sister', label: 'Sister', group: 'self' },
+  { id: 'brother', label: 'Brother', group: 'self' },
+  { id: 'sibling', label: 'Sibling', group: 'self' },
+  { id: 'twin', label: 'Twin', group: 'self' },
+  { id: 'half_sibling', label: 'Half-sibling', group: 'self' },
+  { id: 'step_sibling', label: 'Step-sibling', group: 'self' },
+  { id: 'daughter', label: 'Daughter', group: 'children' },
+  { id: 'son', label: 'Son', group: 'children' },
+  { id: 'child', label: 'Child', group: 'children' },
+  { id: 'stepchild', label: 'Stepchild', group: 'children' },
+  { id: 'adopted_child', label: 'Adopted child', group: 'children' },
+  { id: 'granddaughter', label: 'Granddaughter', group: 'grandchildren' },
+  { id: 'grandson', label: 'Grandson', group: 'grandchildren' },
+  { id: 'grandchild', label: 'Grandchild', group: 'grandchildren' },
+  { id: 'aunt', label: 'Aunt', group: 'extended' },
+  { id: 'uncle', label: 'Uncle', group: 'extended' },
+  { id: 'cousin', label: 'Cousin', group: 'extended' },
+  { id: 'niece', label: 'Niece', group: 'extended' },
+  { id: 'nephew', label: 'Nephew', group: 'extended' },
+  { id: 'in_law', label: 'In-law', group: 'extended' },
+  { id: 'godparent', label: 'Godparent', group: 'extended' },
+  { id: 'godchild', label: 'Godchild', group: 'extended' },
+  { id: 'other', label: 'Other…', group: 'other' },
+];
+export const FAMILY_TREE = { maxMembers: 40, nameMax: 60, labelMax: 30, noteMax: 150 };

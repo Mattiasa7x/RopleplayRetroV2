@@ -1,6 +1,6 @@
 import { meIsQuill } from './quill.js';
-import { CHARACTER_SHEET, PROFILE, Trust } from '../../../shared/config.js';
-import type { PhotoPageDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO } from '../../../shared/types.js';
+import { CHARACTER_SHEET, FAMILY_GROUPS, FAMILY_RELATIONS, PROFILE, Trust } from '../../../shared/config.js';
+import type { FamilyMemberDTO, PhotoPageDTO, ProfileDTO, ProfileFriendsDTO, ProfileViewsDTO, StatusDTO } from '../../../shared/types.js';
 import { person } from './friends.js';
 import { giftName, giftTile } from '../giftart.js';
 import { avatar, card, navigate, page, state, timeAgo, toast } from '../core.js';
@@ -111,20 +111,21 @@ export async function viewProfile(handle: string) {
       ? h('dl', { class: 'sheet-view' }, ...sheetRows.flatMap((f) => [
           h('dt', {}, f.label), h('dd', { class: 'long' in f ? 'long' : '' }, p.characterSheet[f.key]!)]))
       : h('p', { class: 'muted' }, self ? 'Fill it in under Edit profile.' : 'No character sheet yet.'));
+  const familyPane = h('div', { class: 'profile-pane', role: 'tabpanel', hidden: true },
+    familyTreeView(p.familyTree, p.characterSheet.fullName || p.handle, self));
   const tabBtns: HTMLButtonElement[] = [];
   const tabBtn = (label: string, pane: HTMLElement, on: boolean) => {
     const b = h('button', { type: 'button', role: 'tab', class: `tab${on ? ' active' : ''}`, 'aria-selected': String(on) }, label) as HTMLButtonElement;
     b.addEventListener('click', () => {
       for (const x of tabBtns) { const sel = x === b; x.classList.toggle('active', sel); x.setAttribute('aria-selected', String(sel)); }
-      aboutPane.hidden = pane !== aboutPane;
-      sheetPane.hidden = pane !== sheetPane;
+      for (const x of [aboutPane, sheetPane, familyPane]) x.hidden = x !== pane;
     });
     tabBtns.push(b);
     return b;
   };
   const infoTabs = h('section', { class: 'profile-tabs', 'aria-label': 'About and character sheet' },
-    h('div', { class: 'profile-tab-bar', role: 'tablist' }, tabBtn('About', aboutPane, true), tabBtn('Character sheet', sheetPane, false)),
-    aboutPane, sheetPane);
+    h('div', { class: 'profile-tab-bar', role: 'tablist' }, tabBtn('About', aboutPane, true), tabBtn('Character sheet', sheetPane, false), tabBtn('Family Tree', familyPane, false)),
+    aboutPane, sheetPane, familyPane);
 
   // ----- comments: newest 5 here, the rest 10 at a time on their own page -----
   const comments = commentThread({
@@ -145,6 +146,44 @@ export async function viewProfile(handle: string) {
     main.prepend(h('div', { class: 'profile-bg', 'aria-hidden': 'true' }, h('img', { src: p.theme.image, alt: '' })));
   }
   if (location.pathname !== `/profile/${p.handle}`) history.replaceState({}, '', `/profile/${p.handle}`);
+}
+
+const RELATION = new Map(FAMILY_RELATIONS.map((r) => [r.id, r]));
+
+/**
+ * The family tree tab: generations top to bottom (grandparents → grandchildren) with the
+ * character in the middle row beside siblings and partners; extended family and others below.
+ */
+function familyTreeView(tree: FamilyMemberDTO[], characterName: string, self: boolean): HTMLElement {
+  if (!tree.length) return h('p', { class: 'muted' }, self ? 'Add your family in Edit profile › Family Tree.' : 'No family tree yet.');
+  const node = (m: FamilyMemberDTO) => {
+    const rel = m.relation === 'other' ? m.label ?? 'Family' : RELATION.get(m.relation)?.label ?? 'Family';
+    return h('li', { class: 'family-node' },
+      m.handle ? h('a', { href: `/profile/${m.handle}`, class: 'family-name' }, m.name) : h('span', { class: 'family-name' }, m.name),
+      h('span', { class: 'family-rel' }, rel),
+      m.note ? h('span', { class: 'family-note' }, m.note) : null);
+  };
+  const byGroup = (g: string) => tree.filter((m) => (RELATION.get(m.relation)?.group ?? 'other') === g);
+  const generation = (title: string, people: HTMLElement[]) =>
+    h('section', { class: 'family-gen' }, h('h4', { class: 'family-gen-title' }, title), h('ul', { class: 'family-row' }, ...people));
+  const rows: HTMLElement[] = [];
+  for (const g of ['grandparents', 'parents'] as const) {
+    const list = byGroup(g);
+    if (list.length) rows.push(generation(FAMILY_GROUPS.find((x) => x.id === g)!.title, list.map(node)));
+  }
+  rows.push(generation(FAMILY_GROUPS.find((x) => x.id === 'self')!.title, [
+    h('li', { class: 'family-node me' }, h('span', { class: 'family-name' }, characterName), h('span', { class: 'family-rel' }, 'This character')),
+    ...byGroup('self').map(node)]));
+  for (const g of ['children', 'grandchildren'] as const) {
+    const list = byGroup(g);
+    if (list.length) rows.push(generation(FAMILY_GROUPS.find((x) => x.id === g)!.title, list.map(node)));
+  }
+  const others = (['extended', 'other'] as const).map((g) => {
+    const list = byGroup(g);
+    return list.length ? h('section', { class: 'family-more' }, h('h4', { class: 'family-gen-title' }, FAMILY_GROUPS.find((x) => x.id === g)!.title),
+      h('ul', { class: 'family-row' }, ...list.map(node))) : null;
+  });
+  return h('div', { class: 'family-view' }, h('div', { class: 'family-tree' }, ...rows), ...others);
 }
 
 /** The one trophy the member chose to show; tapping it opens everything they've earned. */

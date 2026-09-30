@@ -6,8 +6,52 @@ export function person(u: PublicUser, ...buttons: (Element | null)[]): HTMLEleme
   return h('li', { class: 'person' },
     h('a', { href: `/profile/${u.handle}`, class: 'person-link' },
       h('span', { class: 'avatar-wrap' }, avatar(u.avatar, u.handle, 'md', u.quill), u.online ? h('span', { class: 'dot', 'aria-label': 'online' }) : null),
-      h('span', {}, h('strong', {}, u.handle), u.online !== undefined ? h('span', { class: 'muted small block' }, u.online ? 'Online' : 'Offline') : null)),
+      h('span', {}, h('strong', {}, u.handle, u.isFamily ? h('span', { class: 'tag friend-tag family-tag' }, 'family') : null),
+        u.online !== undefined ? h('span', { class: 'muted small block' }, u.online ? 'Online' : 'Offline') : null)),
     h('span', { class: 'row' }, ...(buttons.filter(Boolean) as Element[])));
+}
+
+/**
+ * Your friends, online first then A to Z, with an All / Family switch. Tagging someone as
+ * family is your own label: it replaces the "friend" badge wherever you see them.
+ */
+function friendsCard(friends: PublicUser[]): HTMLElement {
+  let only: 'all' | 'family' = new URLSearchParams(location.search).get('tab') === 'family' ? 'family' : 'all';
+  const list = h('ul', { class: 'people' });
+  const familyBtn = (u: PublicUser) => {
+    const b = h('button', { type: 'button', class: `quiet family-toggle${u.isFamily ? ' on' : ''}`, 'aria-pressed': String(!!u.isFamily),
+      'aria-label': u.isFamily ? `Untag ${u.handle} as family` : `Tag ${u.handle} as family` }, u.isFamily ? '✓ Family' : '+ Family');
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        await api(`/api/friends/${encodeURIComponent(u.handle)}/family`, { method: u.isFamily ? 'DELETE' : 'PUT', body: {} });
+        u.isFamily = !u.isFamily;
+        toast(u.isFamily ? `${u.handle} is tagged as family.` : `${u.handle} is no longer tagged as family.`);
+        paint();
+      } catch (e) { toast((e as Error).message, true); b.disabled = false; }
+    });
+    return b;
+  };
+  const tabs = (['all', 'family'] as const).map((id) => {
+    const b = h('button', { type: 'button', role: 'tab', class: 'tab' });
+    b.addEventListener('click', () => { only = id; paint(); });
+    return { id, b };
+  });
+  function paint() {
+    const fam = friends.filter((f) => f.isFamily);
+    tabs[0].b.textContent = `All (${friends.length})`;
+    tabs[1].b.textContent = `Family (${fam.length})`;
+    for (const t of tabs) { const on = t.id === only; t.b.classList.toggle('active', on); t.b.setAttribute('aria-selected', String(on)); }
+    const shown = only === 'family' ? fam : friends;
+    list.replaceChildren(...(shown.length
+      ? shown.map((u) => person(u, familyBtn(u), h('a', { href: `/messages/${u.handle}`, class: 'button quiet', 'aria-label': `Message ${u.handle}` }, '✉')))
+      : [h('li', { class: 'muted' }, only === 'family' ? 'Nobody tagged as family yet. Tap + Family next to a friend.' : 'No friends yet. Tap a name in any room to add them.')]));
+    history.replaceState({}, '', only === 'family' ? '/friends?tab=family' : '/friends');
+  }
+  paint();
+  return card('Friends',
+    h('div', { class: 'tabs-row', role: 'tablist', 'aria-label': 'Which friends' }, ...tabs.map((t) => t.b)),
+    list);
 }
 
 export async function viewFriends() {
@@ -33,11 +77,8 @@ export async function viewFriends() {
     d.incoming.length ? card(`Requests (${d.incoming.length})`, h('ul', { class: 'people' }, ...d.incoming.map((u) => person(u,
       act('Accept', 'primary', () => api(`/api/friends/${u.handle}`, { body: {} }), `You and ${u.handle} are now friends.`),
       act('Decline', 'quiet', () => api(`/api/friends/${u.handle}`, { method: 'DELETE' })))))) : null,
-    card(`Friends (${d.friends.length})`,
-      d.friends.length
-        ? h('ul', { class: 'people' }, ...d.friends.map((u) => person(u, h('a', { href: `/messages/${u.handle}`, class: 'button quiet', 'aria-label': `Message ${u.handle}` }, '✉'))))
-        : h('p', { class: 'muted' }, 'No friends yet. Tap a name in any room to add them.'),
-      add),
+    friendsCard(d.friends),
+    card('Add a friend', add),
     d.outgoing.length ? card('Sent requests', h('ul', { class: 'people' }, ...d.outgoing.map((u) => person(u,
       act('Cancel', 'quiet', () => api(`/api/friends/${u.handle}`, { method: 'DELETE' }))))) ) : null);
 }

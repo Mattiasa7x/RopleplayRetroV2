@@ -107,7 +107,7 @@ export async function viewRoom(slug: string) {
             h('span', { class: 'person-text' },
               h('strong', {}, p.handle, p.self ? ' (you)' : '',
                 roleBadge(p.role),
-                p.isFriend ? h('span', { class: 'tag friend-tag' }, 'friend') : null,
+                p.isFamily ? h('span', { class: 'tag friend-tag family-tag' }, 'family') : p.isFriend ? h('span', { class: 'tag friend-tag' }, 'friend') : null,
                 r.readOnly && p.voice && !p.role && !voiceBtn ? h('span', { class: 'tag voice-tag', 'aria-label': 'can speak' }, '🎙') : null),
               h('span', { class: 'muted small block' }, details || 'No character details'))),
           voiceBtn);

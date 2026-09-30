@@ -91,6 +91,7 @@ export interface RoomPersonDTO {
   characterCity: string | null;
   characterAge: string | null;
   isFriend: boolean;
+  isFamily?: boolean;
   self: boolean;
   /** The room's owner. */
   isOwner: boolean;
@@ -108,6 +109,8 @@ export interface OnlineUserDTO {
   /** "33, M, Hyrule": character age, gender and city. */
   characterLine: string | null;
   isFriend: boolean;
+  /** You tagged them as family (shown instead of the friend badge). */
+  isFamily?: boolean;
   /** Shown as online (they're connected and haven't hidden it). */
   online?: boolean;
 }
@@ -193,6 +196,19 @@ export interface PublicUser {
   online?: boolean;
   /** Gold Quill member showing the gold ring around their picture. */
   quill?: boolean;
+  /** (Your friends list) you tagged this friend as family. */
+  isFamily?: boolean;
+}
+
+/** One person in a character's family tree. */
+export interface FamilyMemberDTO {
+  name: string;
+  /** A FAMILY_RELATIONS id, or 'other' with `label` as the relation. */
+  relation: string;
+  label?: string;
+  /** Linked member (one of the owner's friends), by current name. */
+  handle?: string | null;
+  note?: string;
 }
 
 /** Settings › Subscriptions: your Gold Quill pass and purchases. */
@@ -254,6 +270,8 @@ export interface ProfileDTO extends PublicUser {
   /** Only sent on your own profile: the editable values. */
   own?: { characterBirthday: string | null; legacyAge: string | null; profileTrophy: string | null };
   trustLabel: string;
+  /** The character's family tree (empty if none, or if the profile is hidden from you). */
+  familyTree: FamilyMemberDTO[];
   /** Public photos; the first is the profile picture. */
   photos: PhotoDTO[];
   /** Owner, or a friend granted album access. */
