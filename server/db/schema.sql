@@ -786,3 +786,12 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS users_quill_insert ON users;
 CREATE TRIGGER users_quill_insert BEFORE INSERT ON users
   FOR EACH ROW WHEN (NEW.quill_until IS NOT NULL) EXECUTE FUNCTION users_quill_insert();
+
+-- ================= Inactivity clean-up =================
+-- When the member last used the site (updated at most every few hours). Existing accounts start
+-- their clock when this column is added.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ NOT NULL DEFAULT now();
+-- When we emailed "your account will be deleted soon" (cleared when they come back).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_warned_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS users_last_active ON users (last_active_at);
+CREATE INDEX IF NOT EXISTS messages_room_created ON messages (room_id, created_at DESC);

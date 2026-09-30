@@ -1,5 +1,5 @@
 import { meIsQuill } from './quill.js';
-import { MEMBER_ROOMS, Trust } from '../../../shared/config.js';
+import { INACTIVITY, MEMBER_ROOMS, Trust } from '../../../shared/config.js';
 import type { RoomDetail, RoomImageDTO, RoomSanctionDTO, RoomSummary } from '../../../shared/types.js';
 import { card, field, form, navigate, page, state, toast } from '../core.js';
 import { api, h } from '../dom.js';
@@ -183,7 +183,7 @@ export async function viewNewRoom() {
   const picker = await imagePicker(null);
   page('New room',
     card(null,
-      h('p', { class: 'muted small' }, `Up to ${MEMBER_ROOMS.maxOwnedPerUser} rooms. Only verified members can see member rooms.`),
+      h('p', { class: 'muted small' }, `Up to ${MEMBER_ROOMS.maxOwnedPerUser} rooms. Rooms close after ${INACTIVITY.roomDays} days without messages.`),
       form([
         field('Room name', 'name', 'text', { minlength: MEMBER_ROOMS.nameMin, maxlength: MEMBER_ROOMS.nameMax }),
         field('Description (optional)', 'description', 'text', { maxlength: MEMBER_ROOMS.descriptionMax, required: false }),
@@ -282,7 +282,7 @@ export async function viewManage(slug: string) {
 
   page(`Manage ${room.name}`,
     h('a', { href: `/room/${slug}`, class: 'back' }, '‹ Back to room'),
-    card('Room settings', settings),
+    card('Room settings', site ? null : h('p', { class: 'muted small' }, `Closes automatically after ${INACTIVITY.roomDays} days without messages.`), settings),
     site ? null : card(`Room team (${team.length})`,
       h('ul', { class: 'team-help' },
         h('li', {}, h('span', { class: 'role-badge owner' }, 'Owner'), ' You. Your team can\'t act on you.'),

@@ -112,6 +112,7 @@
         <ul>
           <li><strong>Security signals:</strong> your network address and a random device identifier. We turn these into one-way scrambled codes (HMAC hashes) before storing them. We use them to stop spam, limit fake accounts and enforce bans. We never store your raw IP address.</li>
           <li><strong>Sessions:</strong> when you're signed in and on which devices, so you can see and sign out your devices in Settings.</li>
+          <li><strong>Last active:</strong> when you last used the site, to apply the 2-year inactivity rule.</li>
           <li><strong>Activity on the site:</strong> things like whether you're online right now, which rooms you favourited, how many messages you've sent (for trophies), and which profiles you've viewed (shown to that profile's owner).</li>
           <li><strong>Server logs:</strong> our host keeps short-lived technical logs of requests (such as the page requested and the time) to keep the Service running and fix problems.</li>
         </ul>
@@ -181,7 +182,8 @@
       <section id="keep">
         <h2><span class="n">8.</span>How long we keep it</h2>
         <ul>
-          <li><strong>Your account and content:</strong> until you delete them or your account.</li>
+          <li><strong>Your account and content:</strong> until you delete them or your account, or until your account has gone <strong>2 years without a sign-in</strong>. Then it's deleted with all its data, after an email warning 30 days before.</li>
+          <li><strong>Member rooms:</strong> deleted, with their messages, after 7 days without any messages.</li>
           <li><strong>Security signals:</strong> up to 90 days after they were last seen.</li>
           <li><strong>Profile-view records:</strong> 90 days.</li>
           <li><strong>Sign-in sessions:</strong> up to 30 days. Email codes expire within minutes.</li>

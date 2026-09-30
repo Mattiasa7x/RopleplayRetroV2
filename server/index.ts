@@ -26,6 +26,7 @@ import { registerCommentRoutes } from './comments.js';
 import { downloadMissingRoomImages, registerRoomImageRoutes, syncRoomImages } from './room-images.js';
 import { syncRegionalRooms } from './regional.js';
 import { checkPaypal, registerQuillRoutes } from './quill.js';
+import { runInactivityCleanup } from './cleanup.js';
 import { rooms, setupRealtime, type IO } from './realtime.js';
 import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
@@ -148,6 +149,7 @@ const housekeeping = setInterval(async () => {
     await db.query('DELETE FROM verification_codes WHERE expires_at < now()');
     await pruneOldSignals();
     await db.query(`DELETE FROM profile_views WHERE viewed_at < now() - make_interval(days => ${PROFILE.viewsKeptDays})`);
+    await runInactivityCleanup(io, (m) => app.log.info(m));
   } catch (e) {
     app.log.error(e, 'housekeeping failed');
   }

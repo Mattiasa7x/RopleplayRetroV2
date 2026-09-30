@@ -63,13 +63,17 @@ export async function createSession(q: Tx | typeof db, userId: string, ip: strin
 export async function userFromToken(token: string | undefined): Promise<SessionUser | null> {
   if (!token) return null;
   const { rows } = await db.query(
-    `SELECT u.id, u.handle, u.trust_level, u.email, u.email_verified_at, u.prefs, u.birthdate, u.totp_enabled, u.quill_until, s.id AS sid
+    `SELECT u.id, u.handle, u.trust_level, u.email, u.email_verified_at, u.prefs, u.birthdate, u.totp_enabled, u.quill_until, u.last_active_at, s.id AS sid
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.id = $1 AND s.expires_at > now()`,
     [sha256(token)],
   );
   const r = rows[0];
   if (!r || isUnderage(r.birthdate)) return null; // adults only
+  // Remember they're still around (for the 2-year inactivity rule); at most every few hours.
+  if (!r.last_active_at || Date.now() - new Date(r.last_active_at).getTime() > 3 * 3600_000) {
+    void db.query('UPDATE users SET last_active_at = now(), inactivity_warned_at = NULL WHERE id = $1', [r.id]).catch(() => {});
+  }
   return {
     id: r.id, handle: r.handle, trust: r.trust_level, email: r.email,
     emailVerified: !!r.email_verified_at, prefs: effectivePrefs(r.prefs),

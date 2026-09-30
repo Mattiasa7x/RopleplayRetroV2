@@ -96,6 +96,16 @@ export const SITE_ROOMS = {
 } as const;
 
 /** Member rooms: created by verified members; optionally invite-only (whitelist). */
+/** Automatic clean-up of things nobody uses. */
+export const INACTIVITY = {
+  /** A member room with no messages for this long is deleted (site and regional rooms never are). */
+  roomDays: 7,
+  /** An account nobody has signed in to for this long is deleted, with all its data. */
+  accountDays: 730,
+  /** Email a warning this many days before deleting an inactive account. */
+  warnDaysBefore: 30,
+} as const;
+
 export const MEMBER_ROOMS = {
   maxOwnedPerUser: 3,
   /** Room team a member-room owner can appoint. */
