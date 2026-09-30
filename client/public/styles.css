@@ -814,3 +814,26 @@ img.avatar.quill { background-clip: border-box; }
 .banned-card h1 { font-size: 1.4rem; margin: 0.8rem 0 0.6rem; color: var(--red, #c8102e); }
 .banned-reason { font-size: 1.05rem; background: #fff1f2; border-radius: 10px; padding: 0.7rem; margin: 0.6rem 0; }
 .banned-when, .banned-help, .banned-links { font-size: 0.9rem; color: var(--muted, #555); }
+
+/* ----- Profile header: name · nameplate · Edit on one line, then meta, then character line ----- */
+.profile-id { gap: 0.2rem; }
+.name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.55rem; width: 100%; margin-top: 0.2rem; }
+.name-row .handle { margin: 0; }
+.name-row .nameplate { flex: none; }
+.name-row .edit-profile { margin-left: auto; }
+.profile-id .char-line { font-size: 1rem; margin-top: 0.05rem; }
+.showcase-row { margin-top: 0.35rem; }
+/* Newest photos: the gallery link sits small under the first picture, with a rule beneath. */
+.recent-photos { justify-items: stretch; gap: 0.3rem; padding-bottom: 0.7rem; margin-bottom: 0.2rem; border-bottom: 2px solid var(--red); }
+[data-theme="dark"] .recent-photos { border-bottom-color: var(--line); }
+.gallery-btn { justify-self: start; font-size: 0.78rem; font-weight: 700; padding: 0.15rem 0.5rem; border: 1.5px solid var(--red); border-radius: 999px; text-decoration: none; }
+[data-theme="dark"] .gallery-btn { border-color: var(--pink); color: var(--pink); }
+.profile-status { margin-top: 0.2rem; }
+/* Trophy and favourite gift: compact pills side by side, left-aligned. */
+.showcase-row { justify-content: start; gap: 0.4rem; }
+.showcase-row .profile-trophy { max-width: 11.5rem; gap: 0.35rem; padding: 0.15rem 0.6rem 0.15rem 0.2rem; }
+.showcase-row .profile-trophy.empty { padding: 0.2rem 0.6rem; font-size: 0.82rem; }
+.showcase-row .profile-trophy-text { line-height: 1.1; }
+.showcase-row .profile-trophy-text strong { font-size: 0.82rem; }
+.showcase-row .profile-trophy-text .small { font-size: 0.7rem; }
+.showcase-row .profile-gift .gift-tile { width: 30px; height: 30px; font-size: 1.1rem; flex: none; }

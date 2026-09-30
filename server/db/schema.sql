@@ -473,7 +473,7 @@ ALTER TABLE rooms ADD COLUMN IF NOT EXISTS image_id INTEGER REFERENCES room_imag
 -- Where a member's character lives (roleplay, free text), shown in room people lists.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS character_city TEXT;
 DO $$ BEGIN
-  ALTER TABLE users ADD CONSTRAINT users_character_city_len CHECK (character_city IS NULL OR char_length(character_city) BETWEEN 1 AND 40);
+  ALTER TABLE users ADD CONSTRAINT users_character_city_len CHECK (character_city IS NULL OR char_length(character_city) BETWEEN 1 AND 75);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- When a member last edited their profile (bio, character age or city): feeds "updated their profile".
@@ -795,3 +795,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ NOT NULL D
 ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_warned_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS users_last_active ON users (last_active_at);
 CREATE INDEX IF NOT EXISTS messages_room_created ON messages (room_id, created_at DESC);
+
+-- Character city limit raised to 75 (the app limits gender to 10; the database keeps 16 so older entries stay valid).
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_character_city_len' AND pg_get_constraintdef(oid) LIKE '%40%') THEN
+    ALTER TABLE users DROP CONSTRAINT users_character_city_len;
+    ALTER TABLE users ADD CONSTRAINT users_character_city_len CHECK (character_city IS NULL OR char_length(character_city) BETWEEN 1 AND 75);
+  END IF;
+END $$;

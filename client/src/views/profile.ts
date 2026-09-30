@@ -67,15 +67,16 @@ export async function viewProfile(handle: string) {
     h('div', { class: `profile-banner${p.banner ? '' : ' art-member'}` }, p.banner ? h('img', { src: p.banner, alt: '' }) : null),
     h('div', { class: 'profile-id' },
       avatar(p.avatar, p.handle, 'lg', p.quill),
-      h('h1', { class: 'handle' }, p.handle),
-      p.rpStyle || self
-        ? h('div', { class: 'nameplate-row' },
-            p.rpStyle ? h('span', { class: `nameplate${p.rpStyle === 'NSFW' ? ' adult' : ''}` }, p.rpStyle) : h('span', {}),
-            self ? h('a', { href: '/edit-profile', class: 'button primary edit-profile' }, 'Edit profile') : null)
-        : null,
-      charLine ? h('p', { class: 'char-line' }, charLine) : null,
+      // 1. name, roleplay-style nameplate and (yours) Edit profile, on one line
+      h('div', { class: 'name-row' },
+        h('h1', { class: 'handle' }, p.handle),
+        p.rpStyle ? h('span', { class: `nameplate${p.rpStyle === 'NSFW' ? ' adult' : ''}` }, p.rpStyle) : null,
+        self ? h('a', { href: '/edit-profile', class: 'button primary edit-profile' }, 'Edit profile') : null),
+      // 2. Verified · friends · views · gifts
       h('p', { class: 'profile-meta muted small' }, `${p.trustLabel} · `, friendsBit, viewsLink ? ' · ' : null, viewsLink,
         theirGifts ? ' · ' : null, theirGifts, giftLink ? ' · ' : null, giftLink),
+      // 3. character age, gender, city
+      charLine ? h('p', { class: 'char-line' }, charLine) : null,
       h('div', { class: 'showcase-row' }, profileTrophy(p, self), profileGiftPill(p, self)),
       self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,
@@ -93,7 +94,7 @@ export async function viewProfile(handle: string) {
     ? h('section', { class: 'recent-photos', 'aria-label': 'Newest photos' },
         recent.length ? h('ul', { class: 'photo-strip' }, ...recent.map((ph, i) =>
           h('li', {}, h('a', { href: `/photo/${ph.id}`, class: 'photo', 'aria-label': `Photo ${i + 1}` }, h('img', { src: ph.thumb, alt: '', loading: 'lazy' }))))) : null,
-        h('a', { href: `/profile/${p.handle}/photos`, class: 'button quiet small-btn' }, `Photo gallery (${p.photos.length})`))
+        h('a', { href: `/profile/${p.handle}/photos`, class: 'gallery-btn' }, `Gallery (${p.photos.length})`))
     : null;
 
   // ----- status: just the words -----
@@ -139,7 +140,7 @@ function profileTrophy(p: ProfileDTO, self: boolean): HTMLElement | null {
   const name = TROPHY_BY_ID.get(p.trophy)?.name ?? '';
   const others = p.trophyCount - 1;
   return h('a', { href, class: 'profile-trophy', 'aria-label': `${name} trophy. See all ${p.trophyCount} of ${p.handle}'s trophies.` },
-    trophyBadge(p.trophy, { size: 40 }),
+    trophyBadge(p.trophy, { size: 30 }),
     h('span', { class: 'profile-trophy-text' },
       h('strong', {}, name),
       h('span', { class: 'muted small' }, others > 0 ? `+${others} more` : 'Trophy')));

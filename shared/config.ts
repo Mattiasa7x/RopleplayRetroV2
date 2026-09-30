@@ -138,9 +138,9 @@ export const TERMS_VERSION = '2026-09-29';
 /** Character age: public, roleplay-only free text on the profile ("0", "3,000 years"). Never affects safety rules. */
 export const CHARACTER_AGE = { maxLength: 24 } as const;
 /** Where the character lives, free text (a real city, "Gotham", "The Moon"). */
-export const CHARACTER_CITY = { maxLength: 40 } as const;
+export const CHARACTER_CITY = { maxLength: 75 } as const;
 /** Character gender as the member writes it: "M", "F", "NB", "Male"... */
-export const CHARACTER_GENDER = { maxLength: 16 } as const;
+export const CHARACTER_GENDER = { maxLength: 10 } as const;
 
 /** Roleplay styles a member can show on the gold nameplate under their picture (one at a time). */
 export const RP_STYLES = ['Literary', 'Casual', 'Worldbuilding', 'Slice of Life', 'NSFW', 'Chatter'] as const;
