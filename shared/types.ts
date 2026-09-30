@@ -112,6 +112,9 @@ export interface RoomSummary {
   category: string;
   kind: RoomKind;
   description: string | null;
+  /** Regional rooms: listed under this section ("United States"), and this sub-section ("West") if any. */
+  region: string | null;
+  subregion: string | null;
   whitelistOnly: boolean;
   ownerHandle: string | null;
   isOwner: boolean;

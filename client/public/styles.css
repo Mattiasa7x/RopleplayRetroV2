@@ -343,6 +343,7 @@ th, td { text-align: left; border-bottom: 1px solid var(--red); padding: 0.3rem 
 .art-genre   { background: linear-gradient(135deg, #111111, #555555); }
 .art-hangout { background: linear-gradient(135deg, #3a0b2d, #c8102e); }
 .art-member  { background: linear-gradient(135deg, #111111, #c8102e); }
+.art-regional { background: linear-gradient(135deg, #0b3a4a, #1d8f6a); }
 
 .picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr)); gap: 0.4rem; max-height: 17rem; overflow-y: auto; padding: 0.2rem; }
 .pick { all: unset; box-sizing: border-box; cursor: pointer; aspect-ratio: 4 / 3; border: 2px solid color-mix(in srgb, var(--red) 40%, transparent); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
@@ -720,3 +721,21 @@ button.armed { outline: 3px solid var(--red); outline-offset: 2px; }
 [data-theme="dark"] .owner-controls { border-color: var(--pink); background: var(--surface); }
 [data-theme="dark"] .voice-btn.on { background: var(--pink); color: var(--bg); border-color: var(--pink); box-shadow: 0 0 10px rgba(255, 79, 163, 0.5); }
 [data-theme="dark"] .read-only-tag { background: var(--pink); color: var(--bg); border-color: var(--pink); }
+
+/* ----- Regional rooms: one dropdown per part of the world ----- */
+.regions { display: grid; gap: 0.5rem; }
+.regions > p { margin: 0 0 0.2rem; }
+.region-group { border: 2px solid var(--red); border-radius: 12px; background: var(--surface, transparent); }
+.region-group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  min-height: 3rem; padding: 0.45rem 0.8rem; font-weight: 800; }
+.region-group > summary::-webkit-details-marker { display: none; }
+.region-group > summary::after { content: "▾"; font-size: 1.1rem; transition: transform 0.2s; }
+.region-group[open] > summary::after { transform: rotate(180deg); }
+.region-group > summary .region-name { flex: 1; }
+.region-meta { font-weight: 400; font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+.region-meta .live-text { color: #1d8f45; font-weight: 700; }
+.region-body { padding: 0 0.55rem 0.55rem; display: grid; gap: 0.5rem; }
+.region-group.nested { border-width: 1.5px; }
+[data-theme="dark"] .region-group { border-color: var(--line); background: var(--surface); }
+[data-theme="dark"] .region-group[open] { border-color: var(--pink); box-shadow: 0 0 10px rgba(255, 79, 163, 0.3); }
+[data-theme="dark"] .region-meta .live-text { color: var(--mint); }

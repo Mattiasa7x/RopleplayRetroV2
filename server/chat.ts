@@ -145,6 +145,7 @@ export async function roomList(user: SessionUser): Promise<RoomSummary[]> {
   const mentions = (res[rows.length]?.[1] ?? {}) as Record<string, string>;
   return rows.map((r, i) => ({
     id: r.id, slug: r.slug, name: r.name, category: r.category, kind: r.kind, description: r.description,
+    region: r.region, subregion: r.subregion,
     whitelistOnly: r.whitelist_only, ownerHandle: r.owner_handle, isOwner: r.owner_id === user.id,
     online: Number(res[i]?.[1] ?? 0), minTrustToPost: r.min_trust_to_post,
     unreadMentions: Number(mentions[r.id] ?? 0),

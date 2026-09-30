@@ -61,10 +61,15 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS rooms_owner ON rooms (owner_id) WHERE owner_id IS NOT NULL;
 
--- The site-room pool is fixed at 20.
+-- Regional rooms (category 'Regional', from server/db/regional-rooms.json) are listed in sections.
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS region TEXT;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS subregion TEXT;
+
+-- The themed site-room pool is fixed at 20 (regional rooms are managed separately).
 CREATE OR REPLACE FUNCTION rooms_site_cap() RETURNS trigger AS $$
 BEGIN
-  IF NEW.kind = 'site' AND (SELECT count(*) FROM rooms WHERE kind = 'site' AND id <> NEW.id) >= 20 THEN
+  IF NEW.kind = 'site' AND NEW.category <> 'Regional'
+     AND (SELECT count(*) FROM rooms WHERE kind = 'site' AND category <> 'Regional' AND id <> NEW.id) >= 20 THEN
     RAISE EXCEPTION 'there can be at most 20 site rooms';
   END IF;
   RETURN NEW;

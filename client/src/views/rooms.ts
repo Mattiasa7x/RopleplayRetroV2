@@ -7,7 +7,7 @@ import { pagedGrid } from './pagedgrid.js';
 /** Colour art used until (or instead of) a room picture, keyed by category. */
 const ART: Record<string, string> = {
   'Start here': 'art-start', 'Out of character': 'art-ooc', Fantasy: 'art-fantasy', 'Sci-fi': 'art-scifi',
-  Genre: 'art-genre', Hangouts: 'art-hangout',
+  Genre: 'art-genre', Hangouts: 'art-hangout', Regional: 'art-regional',
 };
 
 /** A picture tile for a room: its photo, name, and how many people are in it. */
@@ -31,8 +31,45 @@ export function roomTile(r: RoomSummary, opts: { big?: boolean } = {}): HTMLElem
 
 const tiles = (list: RoomSummary[]) => h('ul', { class: 'room-tiles' }, ...list.map((r) => roomTile(r)));
 
+const REGIONAL = 'Regional';
+
+/** "3 rooms · 5 here" for a group of rooms. */
+function groupMeta(list: RoomSummary[]): HTMLElement {
+  const people = list.reduce((n, r) => n + r.online, 0);
+  return h('span', { class: 'region-meta' }, `${list.length} room${list.length === 1 ? '' : 's'} · `,
+    h('span', { class: people ? 'live-text' : '' }, `${people} here`));
+}
+
+/**
+ * Regional rooms, one dropdown per part of the world (and a nested one per sub-region if a
+ * region has them), so the list stays short until you open the part you want.
+ */
+function regionalPane(list: RoomSummary[]): HTMLElement {
+  const groups = new Map<string, RoomSummary[]>();
+  for (const r of list) {
+    const key = r.region ?? 'Elsewhere';
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  const section = (name: string, rooms: RoomSummary[], nested = false): HTMLElement => {
+    const subs = new Map<string, RoomSummary[]>();
+    const direct: RoomSummary[] = [];
+    for (const r of rooms) {
+      if (!nested && r.subregion) subs.set(r.subregion, [...(subs.get(r.subregion) ?? []), r]);
+      else direct.push(r);
+    }
+    return h('details', { class: `region-group${nested ? ' nested' : ''}` },
+      h('summary', {}, h('span', { class: 'region-name' }, name), groupMeta(rooms)),
+      h('div', { class: 'region-body' },
+        direct.length ? tiles(direct) : null,
+        ...[...subs].map(([sub, rs]) => section(sub, rs, true))));
+  };
+  return h('div', { class: 'regions' },
+    h('p', { class: 'muted small' }, 'Chat with people from your part of the world. Tap a region to see its rooms.'),
+    ...[...groups].map(([name, rooms]) => section(name, rooms)));
+}
+
 /** Theme tabs, in the order the site rooms were planned. Member rooms get their own tab. */
-const THEME_ORDER = ['Start here', 'Out of character', 'Fantasy', 'Sci-fi', 'Genre', 'Hangouts'];
+const THEME_ORDER = ['Start here', 'Out of character', 'Fantasy', 'Sci-fi', 'Genre', 'Hangouts', REGIONAL];
 const TAB_LABEL: Record<string, string> = { 'Start here': 'Start Here', 'Out of character': 'Out of Character', 'Sci-fi': 'Sci-Fi' };
 const tabId = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -49,7 +86,7 @@ export async function viewRooms() {
 
   const tabs: [string, string, HTMLElement, RoomSummary[]][] = [];
   if (favs.length) tabs.push(['favorites', '★ Favorites', tiles(favs), favs]);
-  for (const c of cats) tabs.push([tabId(c), TAB_LABEL[c] ?? c, tiles(byCat.get(c)!), byCat.get(c)!]);
+  for (const c of cats) tabs.push([tabId(c), TAB_LABEL[c] ?? c, c === REGIONAL ? regionalPane(byCat.get(c)!) : tiles(byCat.get(c)!), byCat.get(c)!]);
   tabs.push(['member-realms', 'Member Realms', verified
     ? h('div', { class: 'stack' },
         member.length ? tiles(member) : h('p', { class: 'muted' }, 'No member realms yet. Start one!'),

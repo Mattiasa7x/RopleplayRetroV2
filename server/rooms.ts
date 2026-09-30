@@ -26,10 +26,13 @@ export interface RoomRow {
   has_image: boolean;
   /** Only the owner and members given a voice may post. */
   read_only: boolean;
+  /** Regional rooms: the section they're listed under ("United States") and, optionally, a sub-section ("West"). */
+  region: string | null;
+  subregion: string | null;
 }
 
 export const ROOM_COLS =
-  `r.id, r.slug, r.name, r.category, r.kind, r.owner_id, r.whitelist_only, r.description, r.min_trust_to_post, r.slow_mode_seconds,
+  `r.id, r.slug, r.name, r.category, r.kind, r.owner_id, r.whitelist_only, r.description, r.min_trust_to_post, r.slow_mode_seconds, r.region, r.subregion,
    r.image_id, r.chat_filter, r.read_only, COALESCE((SELECT ri.thumb_data IS NOT NULL FROM room_images ri WHERE ri.id = r.image_id), false) AS has_image`;
 
 export interface Viewer {

@@ -23,6 +23,7 @@ import { registerPushRoutes, setupPush } from './push.js';
 import { blockAndRecord, loadBlocks, registerAdminRoutes } from './admin.js';
 import { registerCommentRoutes } from './comments.js';
 import { downloadMissingRoomImages, registerRoomImageRoutes, syncRoomImages } from './room-images.js';
+import { syncRegionalRooms } from './regional.js';
 import { rooms, setupRealtime, type IO } from './realtime.js';
 import { pruneOldSignals } from './safety/signals.js';
 import { registerSocialRoutes } from './social.js';
@@ -141,6 +142,7 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 await migrate((m) => app.log.info(m));
+await syncRegionalRooms();
 await syncRoomImages();
 await loadBlocks();
 const trophyTimer = startTrophies((userId, ids) => io.to(rooms.user(userId)).emit('trophy', { ids }), (e) => app.log.error(e, 'trophy check failed'));

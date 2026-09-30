@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import type { RoomImageDTO } from '../shared/types.js';
 import { HttpError, requireUser } from './http.js';
+import { regionalRooms } from './regional.js';
 import { db } from './store.js';
 
 /**
@@ -22,6 +23,8 @@ interface Entry {
   credit: string;
   creditUrl: string;
   page: string;
+  /** Offered to members for their own rooms (regional place photos aren't). */
+  pool?: boolean;
 }
 
 const FULL_EDGE = 1600;
@@ -31,20 +34,27 @@ export const roomImageUrl = (id: number | null, hasImage: boolean, variant: 'ful
   id != null && hasImage ? `/room-img/${id}/${variant}` : null;
 
 function entries(): Entry[] {
-  return JSON.parse(readFileSync('server/db/room-images.json', 'utf8')) as Entry[];
+  const themed = JSON.parse(readFileSync('server/db/room-images.json', 'utf8')) as Entry[];
+  // Each regional room's own place photo.
+  const regional: Entry[] = regionalRooms().filter((r) => r.photo).map((r) => ({
+    slug: `place-${r.slug}`, title: r.photo!.title, room: r.slug, url: r.photo!.url,
+    credit: r.photo!.credit, creditUrl: r.photo!.creditUrl, page: r.photo!.page, pool: false,
+  }));
+  return [...themed, ...regional];
 }
 
 /** Runs on start (fast): make sure every listed picture has a row, and give site rooms theirs. */
 export async function syncRoomImages(): Promise<void> {
   for (const e of entries()) {
     await db.query(
-      `INSERT INTO room_images (slug, title, source_url, credit, credit_url)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO room_images (slug, title, source_url, credit, credit_url, in_pool)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, credit = EXCLUDED.credit, credit_url = EXCLUDED.credit_url,
+         in_pool = EXCLUDED.in_pool,
          full_data = CASE WHEN room_images.source_url IS DISTINCT FROM EXCLUDED.source_url THEN NULL ELSE room_images.full_data END,
          thumb_data = CASE WHEN room_images.source_url IS DISTINCT FROM EXCLUDED.source_url THEN NULL ELSE room_images.thumb_data END,
          source_url = EXCLUDED.source_url`,
-      [e.slug, e.title, e.page, e.credit, e.creditUrl],
+      [e.slug, e.title, e.page, e.credit, e.creditUrl, e.pool !== false],
     );
     if (e.room) {
       await db.query(

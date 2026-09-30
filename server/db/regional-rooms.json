@@ -1,0 +1,422 @@
+[
+ {
+  "slug": "us-new-england",
+  "name": "New England",
+  "region": "United States",
+  "subregion": null,
+  "description": "Maine, Vermont, Massachusetts and the rest: lighthouses, fall colour, old towns.",
+  "photo": {
+   "title": "Lake houses among autumn foliage in Maine",
+   "url": "https://images.unsplash.com/photo-1757661543994-2b94ef37f097",
+   "credit": "Abhi Verma",
+   "creditUrl": "https://unsplash.com/@abhiver",
+   "page": "https://unsplash.com/photos/-Folj4VI3V4"
+  }
+ },
+ {
+  "slug": "us-mid-atlantic",
+  "name": "Mid-Atlantic",
+  "region": "United States",
+  "subregion": null,
+  "description": "New York, New Jersey, Pennsylvania, Maryland, D.C. and Delaware.",
+  "photo": {
+   "title": "New York City skyline at golden hour",
+   "url": "https://images.unsplash.com/photo-1518235506717-e1ed3306a89b",
+   "credit": "Mike Chavarri",
+   "creditUrl": "https://unsplash.com/@mikechv",
+   "page": "https://unsplash.com/photos/kZokA2VTKn4"
+  }
+ },
+ {
+  "slug": "us-the-south",
+  "name": "The South",
+  "region": "United States",
+  "subregion": null,
+  "description": "From Nashville and New Orleans to Atlanta, Charleston and the Carolinas.",
+  "photo": {
+   "title": "Ravenel Bridge at sunset, Charleston",
+   "url": "https://images.unsplash.com/photo-1533852990198-bdd4082bf8c0",
+   "credit": "David Martin",
+   "creditUrl": "https://unsplash.com/@davidmartinjr",
+   "page": "https://unsplash.com/photos/q86md0sqdBA"
+  }
+ },
+ {
+  "slug": "us-florida",
+  "name": "Florida",
+  "region": "United States",
+  "subregion": null,
+  "description": "Beaches, theme parks, Miami nights and the Everglades.",
+  "photo": {
+   "title": "Miami Beach coastline from above",
+   "url": "https://images.unsplash.com/photo-1589083130544-0d6a2926e519",
+   "credit": "Antonio Cuellar",
+   "creditUrl": "https://unsplash.com/@antoniocphoto",
+   "page": "https://unsplash.com/photos/KDS5lCrj_ew"
+  }
+ },
+ {
+  "slug": "us-midwest",
+  "name": "Midwest",
+  "region": "United States",
+  "subregion": null,
+  "description": "Chicago, the Great Lakes and the heartland in between.",
+  "photo": {
+   "title": "Chicago skyline across Lake Michigan",
+   "url": "https://images.unsplash.com/photo-1493134799591-2c9eed26201a",
+   "credit": "Jeff Brown",
+   "creditUrl": "https://unsplash.com/@jbrown1276",
+   "page": "https://unsplash.com/photos/xOj6_Ha1_R8"
+  }
+ },
+ {
+  "slug": "us-texas-southwest",
+  "name": "Texas & Southwest",
+  "region": "United States",
+  "subregion": null,
+  "description": "Texas, Oklahoma, New Mexico and Arizona: deserts, canyons and big skies.",
+  "photo": {
+   "title": "Grand Canyon, Arizona",
+   "url": "https://images.unsplash.com/photo-1575527048208-6475b441e0a0",
+   "credit": "Tim Hart",
+   "creditUrl": "https://unsplash.com/@timhart0421",
+   "page": "https://unsplash.com/photos/MMEryLDqkXY"
+  }
+ },
+ {
+  "slug": "us-mountain-west",
+  "name": "Mountain West",
+  "region": "United States",
+  "subregion": null,
+  "description": "Colorado, Utah, Nevada, Wyoming, Montana and Idaho.",
+  "photo": {
+   "title": "Rocky Mountain National Park, Colorado",
+   "url": "https://images.unsplash.com/photo-1597377166108-dd8e66a447c1",
+   "credit": "Pablo Lara",
+   "creditUrl": "https://unsplash.com/@cre8everyday",
+   "page": "https://unsplash.com/photos/-PfmD3QXfes"
+  }
+ },
+ {
+  "slug": "us-pacific-northwest",
+  "name": "Pacific Northwest",
+  "region": "United States",
+  "subregion": null,
+  "description": "Washington and Oregon: Seattle, Portland and evergreen forests.",
+  "photo": {
+   "title": "Seattle skyline with Mount Rainier",
+   "url": "https://images.unsplash.com/photo-1716616372378-768a13ad517e",
+   "credit": "Toan Chu",
+   "creditUrl": "https://unsplash.com/@toanchu",
+   "page": "https://unsplash.com/photos/Rd8cbDmGr0Q"
+  }
+ },
+ {
+  "slug": "us-california",
+  "name": "California",
+  "region": "United States",
+  "subregion": null,
+  "description": "Hollywood, the Bay Area, redwoods and surf.",
+  "photo": {
+   "title": "Golden Gate Bridge, San Francisco",
+   "url": "https://images.unsplash.com/photo-1501594907352-04cda38ebc29",
+   "credit": "Maarten van den Heuvel",
+   "creditUrl": "https://unsplash.com/@mvdheuvel",
+   "page": "https://unsplash.com/photos/gZXx8lKAb7Y"
+  }
+ },
+ {
+  "slug": "us-alaska-hawaii",
+  "name": "Alaska & Hawaii",
+  "region": "United States",
+  "subregion": null,
+  "description": "Glaciers and northern lights, volcanoes and island time.",
+  "photo": {
+   "title": "Na Pali Coast, Kauai, Hawaii",
+   "url": "https://images.unsplash.com/photo-1505852679233-d9fd70aff56d",
+   "credit": "Braden Jarvis",
+   "creditUrl": "https://unsplash.com/@jarvisphoto",
+   "page": "https://unsplash.com/photos/prSogOoFmkw"
+  }
+ },
+ {
+  "slug": "ca-western-canada",
+  "name": "Western Canada",
+  "region": "Canada",
+  "subregion": null,
+  "description": "British Columbia, Alberta and the prairies: Vancouver to Banff.",
+  "photo": {
+   "title": "Moraine Lake, Banff",
+   "url": "https://images.unsplash.com/photo-1610878180933-123728745d22",
+   "credit": "David McLenachan",
+   "creditUrl": "https://unsplash.com/@dmclenachan",
+   "page": "https://unsplash.com/photos/K8IlloSJ4fI"
+  }
+ },
+ {
+  "slug": "ca-ontario",
+  "name": "Ontario",
+  "region": "Canada",
+  "subregion": null,
+  "description": "Toronto, Ottawa, Niagara Falls and cottage country.",
+  "photo": {
+   "title": "Toronto skyline at night",
+   "url": "https://images.unsplash.com/photo-1543962226-818f4301073f",
+   "credit": "Jochem Raat",
+   "creditUrl": "https://unsplash.com/@jchmrt",
+   "page": "https://unsplash.com/photos/s0grRYEDaL4"
+  }
+ },
+ {
+  "slug": "ca-quebec",
+  "name": "Quebec",
+  "region": "Canada",
+  "subregion": null,
+  "description": "Montreal, Quebec City and French-Canadian flair.",
+  "photo": {
+   "title": "Château Frontenac, Quebec City",
+   "url": "https://images.unsplash.com/photo-1695126016000-0567810ecdaa",
+   "credit": "clement proust",
+   "creditUrl": "https://unsplash.com/@clementproust",
+   "page": "https://unsplash.com/photos/mWcg6CsDS_g"
+  }
+ },
+ {
+  "slug": "ca-atlantic-canada",
+  "name": "Atlantic Canada",
+  "region": "Canada",
+  "subregion": null,
+  "description": "Nova Scotia, New Brunswick, PEI and Newfoundland.",
+  "photo": {
+   "title": "Peggy's Cove lighthouse",
+   "url": "https://images.unsplash.com/photo-1593664606979-69efba2128d8",
+   "credit": "Stephen Lester",
+   "creditUrl": "https://unsplash.com/@slester",
+   "page": "https://unsplash.com/photos/GzTkGV7Oaf8"
+  }
+ },
+ {
+  "slug": "mexico",
+  "name": "Mexico",
+  "region": "Latin America",
+  "subregion": null,
+  "description": "Mexico City, ancient pyramids and Caribbean beaches.",
+  "photo": {
+   "title": "Chichén Itzá pyramid",
+   "url": "https://images.unsplash.com/photo-1518638150340-f706e86654de",
+   "credit": "Marv Watson",
+   "creditUrl": "https://unsplash.com/@mrvphotography",
+   "page": "https://unsplash.com/photos/UfK0P6WygEE"
+  }
+ },
+ {
+  "slug": "central-america-caribbean",
+  "name": "Central America & Caribbean",
+  "region": "Latin America",
+  "subregion": null,
+  "description": "Rainforests, Mayan temples and turquoise islands.",
+  "photo": {
+   "title": "Caribbean beach with palm trees",
+   "url": "https://images.unsplash.com/photo-1655299417498-52f3a304c2a4",
+   "credit": "Christian Lendl",
+   "creditUrl": "https://unsplash.com/@dchris",
+   "page": "https://unsplash.com/photos/P41tKN3uZhw"
+  }
+ },
+ {
+  "slug": "south-america",
+  "name": "South America",
+  "region": "Latin America",
+  "subregion": null,
+  "description": "Rio, Buenos Aires, the Andes and the Amazon.",
+  "photo": {
+   "title": "Machu Picchu, Peru",
+   "url": "https://images.unsplash.com/photo-1587595431973-160d0d94add1",
+   "credit": "Eddie Kiszka",
+   "creditUrl": "https://unsplash.com/@eddiekiszka",
+   "page": "https://unsplash.com/photos/rFESpq5MMTg"
+  }
+ },
+ {
+  "slug": "british-isles",
+  "name": "British Isles",
+  "region": "Europe",
+  "subregion": null,
+  "description": "England, Scotland, Wales and Ireland: castles, cities and green hills.",
+  "photo": {
+   "title": "Kilchurn Castle on Loch Awe, Scotland",
+   "url": "https://images.unsplash.com/photo-1589489873423-d1745278a8f4",
+   "credit": "Connor Mollison",
+   "creditUrl": "https://unsplash.com/@connormollison",
+   "page": "https://unsplash.com/photos/3rkosR_Dgfg"
+  }
+ },
+ {
+  "slug": "western-europe",
+  "name": "Western Europe",
+  "region": "Europe",
+  "subregion": null,
+  "description": "France, the Low Countries, Germany, Switzerland and Austria.",
+  "photo": {
+   "title": "Eiffel Tower over Paris",
+   "url": "https://images.unsplash.com/photo-1681311869180-72bc056afa1b",
+   "credit": "Felix",
+   "creditUrl": "https://unsplash.com/@felifox",
+   "page": "https://unsplash.com/photos/P4NdKIesk_A"
+  }
+ },
+ {
+  "slug": "southern-europe",
+  "name": "Southern Europe",
+  "region": "Europe",
+  "subregion": null,
+  "description": "Italy, Spain, Portugal, Greece and the Mediterranean.",
+  "photo": {
+   "title": "Santorini, Greece",
+   "url": "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff",
+   "credit": "Pretty Pink",
+   "creditUrl": "https://unsplash.com/@infinitexplorer",
+   "page": "https://unsplash.com/photos/kYxgm42SQso"
+  }
+ },
+ {
+  "slug": "central-eastern-europe",
+  "name": "Central & Eastern Europe",
+  "region": "Europe",
+  "subregion": null,
+  "description": "Prague, Budapest, Kraków, the Carpathians and beyond.",
+  "photo": {
+   "title": "Charles Bridge and Prague Castle at golden hour",
+   "url": "https://images.unsplash.com/photo-1600623471616-8c1966c91ff6",
+   "credit": "William Zhang",
+   "creditUrl": "https://unsplash.com/@ceye2eye",
+   "page": "https://unsplash.com/photos/6En4WYsNYXM"
+  }
+ },
+ {
+  "slug": "nordic-countries",
+  "name": "Nordic Countries",
+  "region": "Europe",
+  "subregion": null,
+  "description": "Norway, Sweden, Denmark, Finland and Iceland.",
+  "photo": {
+   "title": "Fjord at Gudvangen, Norway",
+   "url": "https://images.unsplash.com/photo-1505731324189-3d0afbeafcbf",
+   "credit": "Robert Bye",
+   "creditUrl": "https://unsplash.com/@robertbye",
+   "page": "https://unsplash.com/photos/e1sTn8-hGEE"
+  }
+ },
+ {
+  "slug": "middle-east",
+  "name": "Middle East",
+  "region": "Middle East & Africa",
+  "subregion": null,
+  "description": "Istanbul, Petra, desert dunes and glittering skylines.",
+  "photo": {
+   "title": "Petra, Jordan",
+   "url": "https://images.unsplash.com/photo-1548786811-dd6e453ccca7",
+   "credit": "Emile Guillemot",
+   "creditUrl": "https://unsplash.com/@emilegt",
+   "page": "https://unsplash.com/photos/sYMgkKkHpGI"
+  }
+ },
+ {
+  "slug": "north-africa",
+  "name": "North Africa",
+  "region": "Middle East & Africa",
+  "subregion": null,
+  "description": "Egypt's pyramids, Moroccan souks and the Sahara.",
+  "photo": {
+   "title": "Pyramid of Khafre, Giza",
+   "url": "https://images.unsplash.com/photo-1503177119275-0aa32b3a9368",
+   "credit": "Jeremy Bishop",
+   "creditUrl": "https://unsplash.com/@jeremybishop",
+   "page": "https://unsplash.com/photos/HcgK4WoBwzg"
+  }
+ },
+ {
+  "slug": "sub-saharan-africa",
+  "name": "Sub-Saharan Africa",
+  "region": "Middle East & Africa",
+  "subregion": null,
+  "description": "Safaris, Kilimanjaro, Lagos, Nairobi and Cape Town.",
+  "photo": {
+   "title": "Savanna in the Masai Mara, Kenya",
+   "url": "https://images.unsplash.com/photo-1535940360221-641a69c43bac",
+   "credit": "David Clode",
+   "creditUrl": "https://unsplash.com/@davidclode",
+   "page": "https://unsplash.com/photos/92MgFhlWD-8"
+  }
+ },
+ {
+  "slug": "east-asia",
+  "name": "East Asia",
+  "region": "Asia",
+  "subregion": null,
+  "description": "Japan, Korea, China, Taiwan and Hong Kong.",
+  "photo": {
+   "title": "Mount Fuji above Fujinomiya",
+   "url": "https://images.unsplash.com/photo-1610375229632-c7158c35a537",
+   "credit": "Filiz Elaerts",
+   "creditUrl": "https://unsplash.com/@filizelaerts",
+   "page": "https://unsplash.com/photos/J_C3_JpJMms"
+  }
+ },
+ {
+  "slug": "southeast-asia",
+  "name": "Southeast Asia",
+  "region": "Asia",
+  "subregion": null,
+  "description": "Thailand, Vietnam, the Philippines, Indonesia and Singapore.",
+  "photo": {
+   "title": "Ha Long Bay, Vietnam",
+   "url": "https://images.unsplash.com/photo-1643029891412-92f9a81a8c16",
+   "credit": "Marina Lobato",
+   "creditUrl": "https://unsplash.com/@mlobatopl",
+   "page": "https://unsplash.com/photos/kG7pOXbBfNs"
+  }
+ },
+ {
+  "slug": "south-asia",
+  "name": "South Asia",
+  "region": "Asia",
+  "subregion": null,
+  "description": "India, the Himalayas and the subcontinent.",
+  "photo": {
+   "title": "Taj Mahal at sunset",
+   "url": "https://images.unsplash.com/photo-1587135941948-670b381f08ce",
+   "credit": "Rowan Heuvel",
+   "creditUrl": "https://unsplash.com/@insolitus",
+   "page": "https://unsplash.com/photos/sAB4BWrQ4Y4"
+  }
+ },
+ {
+  "slug": "australia",
+  "name": "Australia",
+  "region": "Oceania",
+  "subregion": null,
+  "description": "Sydney Harbour, the outback and the Great Barrier Reef.",
+  "photo": {
+   "title": "Sydney Opera House and Harbour Bridge",
+   "url": "https://images.unsplash.com/photo-1523428096881-5bd79d043006",
+   "credit": "April Pethybridge",
+   "creditUrl": "https://unsplash.com/@apriiil",
+   "page": "https://unsplash.com/photos/KeDdztmEqVc"
+  }
+ },
+ {
+  "slug": "new-zealand-pacific",
+  "name": "New Zealand & Pacific",
+  "region": "Oceania",
+  "subregion": null,
+  "description": "Fjords and mountains, Fiji, Samoa and island life.",
+  "photo": {
+   "title": "Milford Sound, New Zealand",
+   "url": "https://images.unsplash.com/photo-1591640040362-f55d95a6b2bc",
+   "credit": "Sébastien Goldberg",
+   "creditUrl": "https://unsplash.com/@sebastiengoldberg",
+   "page": "https://unsplash.com/photos/oXgPDa0OtAk"
+  }
+ }
+]
