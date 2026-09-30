@@ -24,6 +24,8 @@ export interface SessionUser {
   sessionId: string;
   /** Gold Quill pass end (ISO), or null. */
   quillUntil: string | null;
+  /** The VPN guard applies (new account, or banned before). */
+  vpnGuard?: boolean;
 }
 
 declare module 'fastify' {

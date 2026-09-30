@@ -42,6 +42,8 @@ export const TRUST_LABEL: Record<Trust, string> = {
 };
 
 export const SAFETY = {
+  /** VPN guard: new accounts (this many days) and accounts banned before can't use a VPN; sign-ups never can. */
+  vpnNewAccountDays: 7,
   /** Sliding-window message limits per user, by trust level. */
   rateLimit: {
     windowMs: 10_000,

@@ -1,4 +1,5 @@
 import { activeSiteBan, banMessage } from './safety/pipeline.js';
+import { isVpnAddress, realClientIp, VPN_ACCOUNT_MESSAGE, VPN_SIGNUP_MESSAGE, vpnGuardApplies } from './safety/vpn.js';
 import { createHash, randomBytes, randomInt, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -64,7 +65,8 @@ export async function createSession(q: Tx | typeof db, userId: string, ip: strin
 export async function userFromToken(token: string | undefined): Promise<SessionUser | null> {
   if (!token) return null;
   const { rows } = await db.query(
-    `SELECT u.id, u.handle, u.trust_level, u.email, u.email_verified_at, u.prefs, u.birthdate, u.totp_enabled, u.quill_until, u.last_active_at, s.id AS sid,
+    `SELECT u.id, u.handle, u.trust_level, u.email, u.email_verified_at, u.prefs, u.birthdate, u.totp_enabled, u.quill_until, u.last_active_at, u.created_at, s.id AS sid,
+            EXISTS (SELECT 1 FROM sanctions eb WHERE eb.user_id = u.id AND eb.room_id IS NULL AND eb.kind = 'ban') AS ever_banned,
             EXISTS (SELECT 1 FROM sanctions b WHERE b.user_id = u.id AND b.room_id IS NULL AND b.kind = 'ban' AND b.revoked_at IS NULL
                       AND (b.expires_at IS NULL OR b.expires_at > now())) AS banned
        FROM sessions s JOIN users u ON u.id = s.user_id
@@ -82,7 +84,21 @@ export async function userFromToken(token: string | undefined): Promise<SessionU
     emailVerified: !!r.email_verified_at, prefs: effectivePrefs(r.prefs),
     twoFactor: r.totp_enabled, sessionId: r.sid,
     quillUntil: r.quill_until ? new Date(r.quill_until).toISOString() : null,
+    vpnGuard: vpnGuardApplies({ trust: r.trust_level, createdAt: r.created_at, everBanned: r.ever_banned }),
   };
+}
+
+/** New accounts and accounts banned before can't sign in through a VPN. */
+async function assertNotVpnAccount(req: Parameters<typeof clientSignals>[0], userId: string): Promise<void> {
+  if (!isVpnAddress(realClientIp(req.headers, req.ip))) return;
+  const { rows } = await db.query<{ trust_level: number; created_at: Date; ever_banned: boolean }>(
+    `SELECT trust_level, created_at,
+            EXISTS (SELECT 1 FROM sanctions b WHERE b.user_id = users.id AND b.room_id IS NULL AND b.kind = 'ban') AS ever_banned
+       FROM users WHERE id = $1`, [userId]);
+  const a = rows[0];
+  if (a && vpnGuardApplies({ trust: a.trust_level, createdAt: a.created_at, everBanned: a.ever_banned })) {
+    throw new HttpError(403, 'vpn', VPN_ACCOUNT_MESSAGE);
+  }
 }
 
 /** Pull the session token out of a raw Cookie header (used by the socket handshake). */
@@ -167,6 +183,7 @@ export async function checkSecondFactor(userId: string, code: string): Promise<b
 async function finishLogin(req: Parameters<typeof clientSignals>[0], reply: FastifyReply, userId: string, trust: number): Promise<MeDTO> {
   const ban = await activeSiteBan(userId); // (also checked before two-factor)
   if (ban) throw new HttpError(403, 'banned', banMessage(ban));
+  await assertNotVpnAccount(req, userId);
   const signals = clientSignals(req);
   await recordSignals(db, userId, signals);
   const matched = await matchesSanctionedAccount(signals, userId);
@@ -182,6 +199,7 @@ async function finishLogin(req: Parameters<typeof clientSignals>[0], reply: Fast
 export function registerAuthRoutes(app: FastifyInstance) {
   app.post('/api/signup', async (req, reply) => {
     const body = parse(SignupBody, req.body);
+    if (isVpnAddress(realClientIp(req.headers, req.ip))) throw new HttpError(403, 'vpn', VPN_SIGNUP_MESSAGE);
     const signals = clientSignals(req);
     const net = signalHash('ip', ipPrefix(req.ip));
 
@@ -261,6 +279,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
     if (isUnderage(u.birthdate)) throw new HttpError(403, 'adults_only', `${SITE_NAME} is for adults only (${AGE.minimum}+).`);
     const ban = await activeSiteBan(u.id);
     if (ban) throw new HttpError(403, 'banned', banMessage(ban));
+    await assertNotVpnAccount(req, u.id);
     if (u.totp_enabled) {
       // Password was right; hold a short-lived ticket until the second factor arrives.
       const ticket = randomBytes(24).toString('base64url');

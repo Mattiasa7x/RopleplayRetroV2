@@ -19,6 +19,7 @@ import { registerProfileRoutes } from './profiles.js';
 import { migrate } from './migrate.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerRoomRoutes } from './rooms.js';
+import { isVpnAddress, realClientIp, refreshVpnList, VPN_ACCOUNT_MESSAGE, vpnPage } from './safety/vpn.js';
 import { registerMemberSearch, registerOnlineRoutes, registerPeopleRoutes } from './people.js';
 import { registerPushRoutes, setupPush } from './push.js';
 import { blockAndRecord, loadBlocks, registerAdminRoutes } from './admin.js';
@@ -45,6 +46,8 @@ const app = Fastify({
 
 await app.register(cookie);
 app.decorateRequest('user', null);
+/** Still reachable through a VPN, so a blocked member can sign out or read the rules. */
+const VPN_OPEN_PATHS = new Set(['/api/logout', '/terms', '/privacy', '/healthz']);
 
 app.addHook('onRequest', async (req, reply) => {
   // Long-lived device id (http-only; used only as a hashed ban-evasion signal).
@@ -54,6 +57,11 @@ app.addHook('onRequest', async (req, reply) => {
     });
   }
   req.user = await userFromToken(req.cookies.sid);
+  // VPN guard for signed-in new or previously banned accounts (sign-up and sign-in check it too).
+  if (req.user?.vpnGuard && !VPN_OPEN_PATHS.has(req.url.split('?')[0]) && isVpnAddress(realClientIp(req.headers, req.ip))) {
+    if (req.url.startsWith('/api/')) return reply.status(403).send({ error: 'vpn', message: VPN_ACCOUNT_MESSAGE });
+    if (req.method === 'GET' && !/\.[a-z0-9]+$/i.test(req.url.split('?')[0])) return reply.status(403).type('text/html').send(vpnPage());
+  }
   return blockAndRecord(req, reply);
 });
 
@@ -145,6 +153,7 @@ app.get('/healthz', async () => {
 
 // Hourly housekeeping.
 const housekeeping = setInterval(async () => {
+  void refreshVpnList((m) => app.log.info(m)); // once a day; does nothing in between
   try {
     await db.query('DELETE FROM sessions WHERE expires_at < now()');
     await db.query('DELETE FROM verification_codes WHERE expires_at < now()');
@@ -174,6 +183,7 @@ app.log.info(await describeDatabase());
 await syncRegionalRooms();
 await syncRoomImages();
 await loadBlocks();
+void refreshVpnList((m) => app.log.info(m)); // bundled copy loads at once; the download runs in the background
 const onlineTimer = startOnlineClock(io, (e) => app.log.error(e, 'online clock failed'));
 const trophyTimer = startTrophies((userId, ids) => io.to(rooms.user(userId)).emit('trophy', { ids }), (e) => app.log.error(e, 'trophy check failed'));
 await setupPush((m) => app.log.info(m)).catch((e) => app.log.error(e, 'push notifications unavailable'));

@@ -10,6 +10,7 @@ import { maskMature } from './safety/mature.js';
 import { pushTo } from './push.js';
 import { socketBlocked } from './admin.js';
 import { recordStrike } from './safety/strikes.js';
+import { isVpnAddress, realClientIp } from './safety/vpn.js';
 import { afterOnlineTime, afterRoomMessage, checkOnConnect } from './trophies.js';
 import { db, redis } from './store.js';
 
@@ -78,6 +79,7 @@ export function setupRealtime(io: IO) {
     if (socketBlocked(socket.handshake.headers, fwd || socket.handshake.address)) return next(new Error('blocked'));
     const user = await userFromToken(tokenFromCookieHeader(socket.handshake.headers.cookie)).catch(() => null);
     if (!user) return next(new Error('login'));
+    if (user.vpnGuard && isVpnAddress(realClientIp(socket.handshake.headers, fwd || socket.handshake.address))) return next(new Error('vpn'));
     socket.data = { userId: user.id, handle: user.handle, roomId: null, lastTyping: 0, filter: user.prefs.chatFilter };
     next();
   });
