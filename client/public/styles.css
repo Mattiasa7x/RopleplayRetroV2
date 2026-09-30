@@ -877,3 +877,9 @@ img.avatar.quill { background-clip: border-box; }
 .review-meta { margin: 0; overflow-wrap: anywhere; }
 .review-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; }
 .review-actions button { min-height: 2.1rem; padding: 0.15rem 0.3rem; font-size: 0.85rem; }
+/* Your own photo's page: Make profile picture · Hide · Delete on one line */
+.photo-owner-tools { display: flex; gap: 0.4rem; width: 100%; margin-top: 0.5rem; }
+.photo-owner-tools > * { flex: 1 1 0; min-width: 0; min-height: 2.3rem; padding: 0.15rem 0.35rem; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-flex; align-items: center; justify-content: center; }
+.photo-owner-tools > .primary, .photo-owner-tools > .is-main { flex-grow: 1.6; }
+.photo-owner-tools .is-main { cursor: default; opacity: 0.85; }
+.photo-owner-tools > .primary, .photo-owner-tools > .is-main { flex: 0 0 auto; padding: 0.15rem 0.65rem; }

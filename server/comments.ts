@@ -119,7 +119,15 @@ export function registerCommentRoutes(app: FastifyInstance, io: IO) {
   app.get<{ Params: { id: string } }>('/api/photos/:id', async (req): Promise<PhotoPageDTO> => {
     const u = requireUser(req);
     const f = await photoFor(u, req.params.id);
-    return { photo: photoDTO(f.photo), owner: publicUser(f.owner), canComment: f.canComment, mine: f.owner.id === u.id };
+    const mine = f.owner.id === u.id;
+    let isMain: boolean | undefined;
+    if (mine && !f.photo.is_private) {
+      // The first public photo is the profile picture (it shows as one once approved).
+      const { rows } = await db.query<{ id: string }>(
+        'SELECT id::text AS id FROM profile_photos WHERE user_id = $1 AND NOT is_private ORDER BY position, id LIMIT 1', [u.id]);
+      isMain = rows[0]?.id === String(f.photo.id);
+    }
+    return { photo: photoDTO(f.photo), owner: publicUser(f.owner), canComment: f.canComment, mine, ...(mine ? { isMain } : {}) };
   });
 
   app.get<{ Params: { id: string }; Querystring: { page?: string; size?: string } }>('/api/photos/:id/comments', async (req): Promise<CommentPageDTO> => {

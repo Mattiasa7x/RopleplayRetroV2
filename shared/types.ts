@@ -369,6 +369,8 @@ export interface PhotoPageDTO {
   canComment: boolean;
   /** Owner's own photo. */
   mine: boolean;
+  /** (Owner only) this photo is their profile picture, or will be once approved. */
+  isMain?: boolean;
 }
 
 export interface StatusDTO {

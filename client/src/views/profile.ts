@@ -247,6 +247,36 @@ export async function viewProfileComments(handle: string) {
       : card(null, h('p', { class: 'muted' }, `${p.handle} shares their profile with friends only.`)));
 }
 
+/** On your own photo's page: make it your profile picture, move it between public and private, or delete it. */
+function photoOwnerTools(d: PhotoPageDTO): HTMLElement {
+  const id = encodeURIComponent(d.photo.id);
+  const run = (fn: () => Promise<void>) => (async (e: Event) => {
+    const b = e.currentTarget as HTMLButtonElement;
+    b.disabled = true;
+    try { await fn(); } catch (x) { toast((x as Error).message, true); b.disabled = false; }
+  }) as EventListener;
+  const makeMain = d.photo.private ? null
+    : d.isMain ? h('span', { class: 'button quiet is-main', 'aria-disabled': 'true' }, '✓ Profile picture')
+    : h('button', { type: 'button', class: 'primary', onclick: run(async () => {
+        await api(`/api/me/photos/${id}/primary`, { body: {} });
+        toast(d.photo.pending ? 'This will be your profile picture once approved.' : 'Profile picture updated.');
+        void viewPhoto(d.photo.id);
+      }) }, 'Make profile picture');
+  const move = h('button', { type: 'button', class: 'quiet', onclick: run(async () => {
+    const r = await api<{ pending?: boolean }>(`/api/me/photos/${id}/visibility`, { body: { private: !d.photo.private } });
+    toast(d.photo.private ? `Moved to your public photos.${r.pending ? ' It will show once approved.' : ''}` : 'Moved to your private album.');
+    void viewPhoto(d.photo.id);
+  }) }, d.photo.private ? 'Make public' : '🔒 Hide');
+  const del = h('button', { type: 'button', class: 'danger', onclick: ((e: Event) => {
+    if (confirm('Delete this photo for good?')) void run(async () => {
+      await api(`/api/me/photos/${id}`, { method: 'DELETE' });
+      toast('Photo deleted.');
+      navigate(`/profile/${d.owner.handle}/photos`, true);
+    })(e);
+  }) as EventListener }, 'Delete');
+  return h('div', { class: 'photo-owner-tools' }, makeMain, move, del);
+}
+
 /** One photo, big, with its comments underneath. */
 export async function viewPhoto(id: string) {
   page('Photo', h('p', { class: 'muted' }, 'Loading…'));
@@ -265,7 +295,9 @@ export async function viewPhoto(id: string) {
       h('figcaption', { class: 'row' },
         h('a', { href: `/profile/${d.owner.handle}`, class: 'post-head' }, avatar(d.owner.avatar, d.owner.handle, 'sm', d.owner.quill), h('strong', {}, d.owner.handle)),
         d.photo.private ? h('span', { class: 'tag' }, 'Private') : null,
-        d.mine ? null : h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('photo', d.photo.id)) as EventListener }, 'Report'))),
+        d.photo.pending ? h('span', { class: 'tag' }, 'Pending approval') : null,
+        d.mine ? null : h('button', { type: 'button', class: 'link', onclick: (() => void reportContent('photo', d.photo.id)) as EventListener }, 'Report')),
+      d.mine ? photoOwnerTools(d) : null),
     commentThread({
       url: `/api/photos/${encodeURIComponent(d.photo.id)}/comments`,
       deleteUrl: (cid) => `/api/photo-comments/${cid}`,
