@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { db } from './store.js';
+import { db, withoutChannelBinding } from './store.js';
 
 /**
  * One-time move to a new database host. Set MIGRATE_FROM_URL to the old database and point
@@ -105,7 +105,7 @@ export async function copyFromOldDatabase(log: (m: string) => void): Promise<voi
     return;
   }
 
-  const src = new pg.Client({ connectionString: from, types: raw });
+  const src = new pg.Client({ connectionString: withoutChannelBinding(from), types: raw });
   await src.connect();
   const dst = await db.connect();
   const started = Date.now();

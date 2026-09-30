@@ -98,23 +98,35 @@ export async function downloadMissingRoomImages(log: (m: string) => void): Promi
   if (rows.length) log(`room pictures: ${ok} of ${rows.length} downloaded`);
 }
 
+/**
+ * Room pictures change only when the list changes, so each one is read from the database once
+ * and kept in memory (about 80 small WebP files, a few MB). Saves a database round trip per picture.
+ */
+const picCache = new Map<string, { data: Buffer; v: string }>();
+
 export function registerRoomImageRoutes(app: FastifyInstance) {
   /** Room pictures: members only, like the rest of the site. Stock photos, so browsers may cache them privately. */
   app.get<{ Params: { id: string; variant: string } }>('/room-img/:id/:variant', async (req, reply) => {
     requireUser(req);
     if (!/^\d{1,9}$/.test(req.params.id)) throw new HttpError(404, 'no_image', 'Picture not found.');
     const col = req.params.variant === 'full' ? 'full_data' : 'thumb_data';
-    const { rows } = await db.query<{ data: Buffer | null; v: string }>(
-      `SELECT ${col} AS data, extract(epoch FROM updated_at)::bigint::text AS v FROM room_images WHERE id = $1`,
-      [req.params.id],
-    );
-    if (!rows[0]?.data) throw new HttpError(404, 'no_image', 'Picture not found.');
-    const etag = `"ri${req.params.id}-${col}-${rows[0].v}"`;
+    const key = `${req.params.id}:${col}`;
+    let pic = picCache.get(key);
+    if (!pic) {
+      const { rows } = await db.query<{ data: Buffer | null; v: string }>(
+        `SELECT ${col} AS data, extract(epoch FROM updated_at)::bigint::text AS v FROM room_images WHERE id = $1`,
+        [req.params.id],
+      );
+      if (!rows[0]?.data) throw new HttpError(404, 'no_image', 'Picture not found.');
+      pic = { data: rows[0].data, v: rows[0].v };
+      if (picCache.size < 400) picCache.set(key, pic);
+    }
+    const etag = `"ri${req.params.id}-${col}-${pic.v}"`;
     reply.header('ETag', etag);
     reply.header('Cache-Control', 'private, max-age=604800');
     if (req.headers['if-none-match'] === etag) return reply.status(304).send();
     reply.header('Content-Type', 'image/webp');
-    return reply.send(rows[0].data);
+    return reply.send(pic.data);
   });
 
   /** The pool members choose from for their rooms. */

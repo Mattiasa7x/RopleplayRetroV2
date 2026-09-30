@@ -32,7 +32,7 @@ import { inviteShell, pageDecision } from './pages.js';
 import { readFile } from 'node:fs/promises';
 import { registerGiftRoutes } from './gifts.js';
 import { PROFILE } from '../shared/config.js';
-import { db, redis } from './store.js';
+import { db, describeDatabase, redis } from './store.js';
 
 const app = Fastify({
   logger: { level: env.isProd ? 'info' : 'debug' },
@@ -142,6 +142,7 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 await migrate((m) => app.log.info(m));
+app.log.info(await describeDatabase());
 await syncRegionalRooms();
 await syncRoomImages();
 await loadBlocks();
