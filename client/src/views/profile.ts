@@ -33,9 +33,9 @@ export async function viewProfile(handle: string) {
   const friendBtn = self ? null
     : p.blockedByMe ? null
     : p.friendState === 'friends' ? btn('Friends ✓', 'quiet', call(async () => { if (confirm(`Remove ${p.handle} from your friends?`)) await api(`/api/friends/${p.handle}`, { method: 'DELETE' }); }))
-    : p.friendState === 'request_sent' ? btn('Request sent', 'quiet', call(() => api(`/api/friends/${p.handle}`, { method: 'DELETE' }), 'Request cancelled.'))
-    : p.friendState === 'request_received' ? btn('Accept friend request', 'primary', call(() => api(`/api/friends/${p.handle}`, { body: {} }), 'You are now friends.'))
-    : me.trust >= Trust.Verified ? btn('+ Add friend', 'primary', call(() => api(`/api/friends/${p.handle}`, { body: {} }), 'Friend request sent.'))
+    : p.friendState === 'request_sent' ? btn('Requested', 'quiet', call(() => api(`/api/friends/${p.handle}`, { method: 'DELETE' }), 'Request cancelled.'))
+    : p.friendState === 'request_received' ? btn('Accept', 'primary', call(() => api(`/api/friends/${p.handle}`, { body: {} }), 'You are now friends.'))
+    : me.trust >= Trust.Verified ? btn('+ Add', 'primary', call(() => api(`/api/friends/${p.handle}`, { body: {} }), 'Friend request sent.'))
     : null;
   const blockBtn = self ? null : p.blockedByMe
     ? btn('Unblock', 'quiet', call(() => api(`/api/ignores/${p.handle}`, { method: 'DELETE' }), `${p.handle} is unblocked.`))
@@ -78,7 +78,7 @@ export async function viewProfile(handle: string) {
       // 3. character age, gender, city
       charLine ? h('p', { class: 'char-line' }, charLine) : null,
       h('div', { class: 'showcase-row' }, profileTrophy(p, self), profileGiftPill(p, self)),
-      self ? null : h('div', { class: 'row wrap profile-actions' }, friendBtn,
+      self ? null : h('div', { class: 'profile-actions' }, friendBtn,
         p.friendState === 'friends' ? h('a', { href: `/messages/${p.handle}`, class: 'button primary' }, 'Message') : null,
         blockBtn, reportBtn)));
 
