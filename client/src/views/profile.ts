@@ -94,20 +94,36 @@ export async function viewProfile(handle: string) {
     ? h('section', { class: 'recent-photos', 'aria-label': 'Newest photos' },
         recent.length ? h('ul', { class: 'photo-strip' }, ...recent.map((ph, i) =>
           h('li', {}, h('a', { href: `/photo/${ph.id}`, class: 'photo', 'aria-label': `Photo ${i + 1}` }, h('img', { src: ph.thumb, alt: '', loading: 'lazy' }))))) : null,
-        h('a', { href: `/profile/${p.handle}/photos`, class: 'gallery-btn' }, `Gallery (${p.photos.length})`))
+        h('a', { href: `/profile/${p.handle}/photos`, class: 'gallery-btn', 'aria-label': `Gallery, ${p.photos.length} photos` }, 'Gallery'))
     : null;
 
   // ----- status: just the words -----
   const statuses = await api<StatusDTO[]>(`/api/profiles/${encodeURIComponent(p.handle)}/statuses`);
   const statusLine = statuses[0] ? h('p', { class: 'profile-status' }, statuses[0].body) : null;
 
-  // ----- the story (no heading), then the character sheet -----
-  const bioCard = p.bio ? card(null, h('p', { class: 'bio' }, p.bio)) : self ? card(null, h('p', { class: 'muted' }, 'Add one in Edit profile.')) : null;
+  // ----- About / Character sheet tabs, between red rules -----
+  const aboutPane = h('div', { class: 'profile-pane', role: 'tabpanel' },
+    p.bio ? h('p', { class: 'bio' }, p.bio) : h('p', { class: 'muted' }, self ? 'Add one in Edit profile.' : 'Nothing here yet.'));
   const sheetRows = CHARACTER_SHEET.filter((f) => p.characterSheet[f.key]);
-  const sheetCard = sheetRows.length
-    ? card('Character sheet', h('dl', { class: 'sheet-view' }, ...sheetRows.flatMap((f) => [
-        h('dt', {}, f.label), h('dd', { class: 'long' in f ? 'long' : '' }, p.characterSheet[f.key]!)])))
-    : null;
+  const sheetPane = h('div', { class: 'profile-pane', role: 'tabpanel', hidden: true },
+    sheetRows.length
+      ? h('dl', { class: 'sheet-view' }, ...sheetRows.flatMap((f) => [
+          h('dt', {}, f.label), h('dd', { class: 'long' in f ? 'long' : '' }, p.characterSheet[f.key]!)]))
+      : h('p', { class: 'muted' }, self ? 'Fill it in under Edit profile.' : 'No character sheet yet.'));
+  const tabBtns: HTMLButtonElement[] = [];
+  const tabBtn = (label: string, pane: HTMLElement, on: boolean) => {
+    const b = h('button', { type: 'button', role: 'tab', class: `tab${on ? ' active' : ''}`, 'aria-selected': String(on) }, label) as HTMLButtonElement;
+    b.addEventListener('click', () => {
+      for (const x of tabBtns) { const sel = x === b; x.classList.toggle('active', sel); x.setAttribute('aria-selected', String(sel)); }
+      aboutPane.hidden = pane !== aboutPane;
+      sheetPane.hidden = pane !== sheetPane;
+    });
+    tabBtns.push(b);
+    return b;
+  };
+  const infoTabs = h('section', { class: 'profile-tabs', 'aria-label': 'About and character sheet' },
+    h('div', { class: 'profile-tab-bar', role: 'tablist' }, tabBtn('About', aboutPane, true), tabBtn('Character sheet', sheetPane, false)),
+    aboutPane, sheetPane);
 
   // ----- comments: newest 5 here, the rest 10 at a time on their own page -----
   const comments = commentThread({
@@ -117,9 +133,10 @@ export async function viewProfile(handle: string) {
     canComment: p.canComment,
     placeholder: self ? 'Write on your own profile…' : `Write something to ${p.handle}…`,
     preview: { size: PROFILE.commentsOnProfile, moreHref: `/profile/${p.handle}/comments` },
+    composerBelow: true,
   });
 
-  page('Profile', head, photoStrip, statusLine, bioCard, sheetCard, comments);
+  page('Profile', head, photoStrip, statusLine, infoTabs, comments);
   // Background theme: the chosen room picture behind the whole profile.
   if (p.theme) {
     const main = document.getElementById('main')!;

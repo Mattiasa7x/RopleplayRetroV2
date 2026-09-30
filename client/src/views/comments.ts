@@ -13,6 +13,8 @@ interface Opts {
   placeholder: string;
   /** Profile preview: the newest few plus a link to the full list. */
   preview?: { size: number; moreHref: string };
+  /** Put the comment box under the comments instead of above them. */
+  composerBelow?: boolean;
 }
 
 function commentItem(c: CommentDTO, o: Opts, onGone: () => void): HTMLElement {
@@ -58,15 +60,15 @@ export function commentThread(o: Opts): HTMLElement {
         : '');
     }
   }
-  const box = h('section', { class: 'comments' },
+  const box_ = o.canComment
+    ? composer(o.placeholder, PROFILE.commentMax, 'Comment', async (body) => {
+        await api(o.url, { body: { body } });
+        await load(1);
+      })
+    : null;
+  const box = h('section', { class: `comments${o.composerBelow ? ' composer-below' : ''}` },
     h('h2', { class: 'visually-hidden' }, 'Comments'),
-    o.canComment
-      ? composer(o.placeholder, PROFILE.commentMax, 'Comment', async (body) => {
-          await api(o.url, { body: { body } });
-          await load(1);
-        })
-      : null,
-    list, footer);
+    ...(o.composerBelow ? [list, footer, box_] : [box_, list, footer]));
   const top = () => box.scrollIntoView({ block: 'start', behavior: 'smooth' });
   void load(1).catch((e) => toast((e as Error).message, true));
   return box;

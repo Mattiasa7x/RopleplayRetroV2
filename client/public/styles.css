@@ -840,3 +840,16 @@ img.avatar.quill { background-clip: border-box; }
 /* Friend / Message / Block / Report: one line, sharing the width. */
 .profile-actions { display: flex; flex-wrap: nowrap; gap: 0.35rem; width: 100%; }
 .profile-actions .button, .profile-actions button { flex: 1 1 0; min-width: 0; min-height: 2.1rem; padding: 0.15rem 0.3rem; font-size: 0.85rem; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; justify-content: center; }
+/* Gallery button: exactly as wide as the first photo above it (one of five columns). */
+.recent-photos .gallery-btn { width: calc((100% - 4 * 0.35rem) / 5); box-sizing: border-box; padding: 0.15rem 0; text-align: center; font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* About / Character sheet: centered tabs between red rules, no card outline. */
+.profile-tabs { border-top: 2px solid var(--red); border-bottom: 2px solid var(--red); padding: 0.55rem 0.3rem 0.8rem; display: grid; gap: 0.6rem; }
+.profile-tab-bar { display: flex; justify-content: center; gap: 0.4rem; }
+.profile-tab-bar .tab { min-height: 2.1rem; }
+.profile-pane { padding: 0 0.2rem; }
+[data-theme="dark"] .profile-tabs { border-color: var(--pink); }
+/* Profile comments: list first with a rule above it, then the box. */
+.comments.composer-below .comment-list { border-top: 2px solid var(--red); padding-top: 0.7rem; }
+[data-theme="dark"] .comments.composer-below .comment-list { border-top-color: var(--pink); }
+/* The tabs' bottom rule already sits above the first comment: don't draw a second one. */
+.profile-tabs + .comments.composer-below .comment-list { border-top: 0; padding-top: 0.2rem; }
