@@ -94,13 +94,14 @@ function navIcon(n: { icon: string; svg?: string }): HTMLElement {
   return el;
 }
 
-const NAV: { label: string; path: () => string; match: RegExp; icon: string; svg?: string; adminOnly?: boolean }[] = [
+const NAV: { label: string; path: () => string; match: RegExp; icon: string; svg?: string; adminOnly?: boolean; only?: RegExp }[] = [
   { label: 'Home', path: () => '/home', match: /^\/home/, icon: '⌂' },
   { label: 'Rooms', path: () => '/rooms', match: /^\/(rooms|room\/|new-room)/, icon: '#', svg: DOOR },
   { label: 'Messages', path: () => '/messages', match: /^\/messages/, icon: '✉' },
   { label: 'Friends', path: () => '/friends', match: /^\/friends/, icon: '☺' },
   { label: 'Profile', path: () => `/profile/${state.me?.handle ?? ''}`, match: new RegExp(`^/profile/${state.me?.handle ?? '__none__'}$`, 'i'), icon: '◉', svg: PERSON },
-  { label: 'Settings', path: () => '/settings', match: /^\/settings/, icon: '⚙' },
+  // Settings only shows on the Home screen (and while you're in Settings, so you can see where you are).
+  { label: 'Settings', path: () => '/settings', match: /^\/settings/, icon: '⚙', only: /^\/(home|settings)(\/|$)/ },
   { label: 'Admin', path: () => '/admin', match: /^\/admin/, icon: '⚑', adminOnly: true },
 ];
 
@@ -116,7 +117,7 @@ export function page(title: string, ...content: (Node | string | null | undefine
       h('span', { class: 'page-title' }, title)));
   // Main buttons sit along the bottom of the screen, within reach of a thumb.
   const nav = state.me
-    ? h('nav', { class: `site-nav${state.me.trust >= 4 ? ' with-admin' : ''}`, 'aria-label': 'Main' }, ...NAV.filter((n) => !n.adminOnly || state.me!.trust >= 4).map((n) => {
+    ? h('nav', { class: `site-nav${state.me.trust >= 4 ? ' with-admin' : ''}`, 'aria-label': 'Main' }, ...NAV.filter((n) => (!n.adminOnly || state.me!.trust >= 4) && (!n.only || n.only.test(here))).map((n) => {
         const mine = n.path().toLowerCase(), at = here.toLowerCase();
         const active = n.label === 'Profile' ? at === mine || at.startsWith(mine + '/') || at === '/edit-profile' : n.match.test(here);
         return h('a', { href: n.path(), class: active ? 'active' : '', 'aria-current': active ? 'page' : undefined },

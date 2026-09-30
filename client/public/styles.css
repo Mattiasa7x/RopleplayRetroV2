@@ -957,3 +957,5 @@ a.family-name { color: var(--red); }
 .profile-tab-bar .tab, [data-theme="dark"] .profile-tab-bar .tab { border: 2px solid var(--red); }
 .profile-tab-bar .tab.active, [data-theme="dark"] .profile-tab-bar .tab.active { border-color: var(--red); }
 [data-theme="dark"] .profile-tab-bar .tab.active { background: var(--red); color: #fff; }
+/* The bottom bar has 5 to 7 buttons depending on the page (Settings shows on Home only): share the width evenly */
+.site-nav, .site-nav.with-admin { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
