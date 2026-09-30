@@ -113,3 +113,67 @@ export function registerOnlineRoutes(app: FastifyInstance) {
     return { users: rows.slice((page - 1) * ONLINE_PAGE, page * ONLINE_PAGE).map(toDTO), total: rows.length, page, pages };
   });
 }
+
+const MEMBERS_PAGE = 20;
+
+/**
+ * Member search on the People page: online or offline members A to Z, by name, with or
+ * without a (visible) profile picture. Someone who hides their online status is listed as
+ * offline. Anyone who blocked you, or whom you ignore or block, and banned accounts are left out.
+ * Friends-only profiles show just a name to non-friends and never count as having a picture.
+ */
+export function registerMemberSearch(app: FastifyInstance) {
+  app.get<{ Querystring: { status?: string; pic?: string; q?: string; page?: string } }>('/api/members', async (req): Promise<OnlineUsersDTO> => {
+    const u = requireUser(req);
+    const status = req.query.status === 'offline' ? 'offline' : 'online';
+    const pic = req.query.pic === 'yes' || req.query.pic === 'no' ? req.query.pic : 'any';
+    const q = (req.query.q ?? '').trim().slice(0, 16).replace(/[%_\\]/g, '');
+    const onlineIds = ((await redis.hkeys('online')) as string[]).filter((id) => /^\d{1,19}$/.test(id));
+    const page = Math.max(1, Number.parseInt(req.query.page ?? '1', 10) || 1);
+    const staff = u.trust >= Trust.RoomModerator;
+    const { rows } = await db.query<UserRow & { is_friend: boolean; total: string }>(
+      `WITH m AS (
+         SELECT u.id,
+                EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+                          AND f.user_a = LEAST($1::bigint, u.id) AND f.user_b = GREATEST($1::bigint, u.id)) AS is_friend,
+                (u.id = ANY($2::bigint[]) AND COALESCE((u.prefs->>'showOnline')::boolean, true)) AS is_online
+           FROM users u
+          WHERE u.id <> $1
+            AND is_adult_user(u.id)
+            AND ($3 = '' OR lower(u.handle) LIKE '%' || lower($3) || '%')
+            AND NOT EXISTS (SELECT 1 FROM ignores i WHERE (i.user_id = $1 AND i.ignored_user_id = u.id)
+                                                     OR (i.user_id = u.id AND i.ignored_user_id = $1 AND i.mode = 'block'))
+            AND NOT EXISTS (SELECT 1 FROM sanctions s WHERE s.user_id = u.id AND s.room_id IS NULL AND s.kind = 'ban'
+                              AND (s.expires_at IS NULL OR s.expires_at > now()) AND s.revoked_at IS NULL)
+       ), f AS (
+         SELECT m.id, m.is_friend,
+                (EXISTS (SELECT 1 FROM profile_photos p WHERE p.user_id = m.id AND NOT p.is_private AND p.review = 'approved')
+                 AND ($4 OR m.is_friend OR COALESCE(u.prefs->>'profileVisibility', 'everyone') = 'everyone')) AS has_pic
+           FROM m JOIN users u ON u.id = m.id
+          WHERE m.is_online = ($5 = 'online')
+       )
+       SELECT ${USER_COLS}, f.is_friend, count(*) OVER () AS total
+         FROM f JOIN users u ON u.id = f.id
+        WHERE $6 = 'any' OR f.has_pic = ($6 = 'yes')
+        ORDER BY lower(u.handle)
+        LIMIT $7 OFFSET $8`,
+      [u.id, onlineIds, q, staff, status, pic, MEMBERS_PAGE, (page - 1) * MEMBERS_PAGE],
+    );
+    const total = Number(rows[0]?.total ?? 0);
+    const users = rows.map((r): OnlineUserDTO => {
+      const visible = staff || r.is_friend || prefsOf(r).profileVisibility === 'everyone';
+      const line = [characterAgeText(r), r.character_gender, r.character_city].filter(Boolean).join(', ');
+      return {
+        id: r.id, handle: r.handle,
+        avatar: visible && r.avatar_id ? `/media/${r.avatar_id}/thumb` : null,
+        ...(showsQuill(r) ? { quill: true } : {}),
+        rpStyle: visible ? r.rp_style : null,
+        characterLine: visible && line ? (u.prefs.chatFilter ? maskMature(line) : line) : null,
+        isFriend: r.is_friend,
+        online: status === 'online',
+      };
+    });
+    // Past the last page (e.g. the list shrank): the caller asks again for page 1.
+    return { users, total, page, pages: Math.max(1, Math.ceil(total / MEMBERS_PAGE)) };
+  });
+}

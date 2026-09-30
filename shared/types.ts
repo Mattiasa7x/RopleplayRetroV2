@@ -108,6 +108,8 @@ export interface OnlineUserDTO {
   /** "33, M, Hyrule": character age, gender and city. */
   characterLine: string | null;
   isFriend: boolean;
+  /** Shown as online (they're connected and haven't hidden it). */
+  online?: boolean;
 }
 
 export interface OnlineUsersDTO {

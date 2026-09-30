@@ -906,3 +906,12 @@ img.avatar.quill { background-clip: border-box; }
 .trophy-section + .trophy-section { margin-top: 1rem; padding-top: 0.8rem; border-top: 2px solid color-mix(in srgb, var(--red) 35%, transparent); }
 .trophy-section-title { margin: 0 0 0.4rem; font-size: 1rem; }
 [data-theme="dark"] .trophy-section + .trophy-section { border-top-color: color-mix(in srgb, var(--pink) 40%, transparent); }
+/* Members search: Online / Offline tabs and picture filter chips */
+.people-tabs { margin-bottom: 0.5rem; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0 0.2rem; }
+.filter-chip { min-height: 2rem; padding: 0.1rem 0.75rem; border-radius: 999px; font-size: 0.82rem; font-weight: 700; }
+.filter-chip.active { background: var(--red); color: var(--red-ink); border-color: var(--red); }
+[data-theme="dark"] .filter-chip.active { background: var(--pink); color: var(--bg); border-color: var(--pink); }
+.filter-row { flex-wrap: nowrap; }
+.filter-chip { flex: 1 1 0; min-width: 0; padding: 0.1rem 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.filter-chip { font-size: 0.76rem; }

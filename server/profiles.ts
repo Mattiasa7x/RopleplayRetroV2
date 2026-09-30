@@ -9,7 +9,7 @@ import { HttpError, parse, requireUser, type SessionUser } from './http.js';
 import { canViewAlbum, looksLikeImage, photoDTO } from './photos.js';
 import { isPoolImage } from './room-images.js';
 import { slidingWindow } from './safety/limits.js';
-import { rooms, type IO } from './realtime.js';
+import { isOnline, rooms, type IO } from './realtime.js';
 import { maskMature } from './safety/mature.js';
 import { textBlocked } from './safety/pipeline.js';
 import { checkSocialText } from './safety/social-text.js';
@@ -236,7 +236,10 @@ export function registerProfileRoutes(app: FastifyInstance, io: IO) {
         ORDER BY lower(u.handle)`,
       [a.target.id, u.id],
     );
-    return { handle: a.target.handle, allowed: true, friends: rows.map((r) => publicUser(r)) };
+    // Online friends first (if they show it), then everyone A to Z.
+    const online = await isOnline(rows.filter((r) => prefsOf(r).showOnline).map((r) => r.id));
+    const friends = rows.map((r) => publicUser(r, { online: online.has(r.id) })).sort((x, y) => Number(y.online) - Number(x.online));
+    return { handle: a.target.handle, allowed: true, friends };
   });
 
   /**
