@@ -95,16 +95,25 @@ export function isVpnAddress(ip: string | undefined | null): boolean {
   return n6 !== null && inRanges(v6, n6);
 }
 
+const IP_LIKE = /^[0-9a-f:.]{3,45}$/i;
+let ipSourceLogged = 0;
+
 /**
- * The visitor's real address. On Render, requests pass through Cloudflare, which puts the
- * real address in True-Client-IP (and CF-Connecting-IP); otherwise use what Fastify worked out.
+ * The visitor's real address. On Render every request passes through Cloudflare, which
+ * always overwrites CF-Connecting-IP (and True-Client-IP) with the address it actually saw,
+ * so a visitor can't fake them. X-Forwarded-For is NOT used: a visitor can put anything at
+ * its front. Off Render (local development) Fastify's own value is used.
  */
 export function realClientIp(headers: Record<string, string | string[] | undefined>, fallback: string): string {
   if (process.env.RENDER === 'true') {
-    for (const k of ['true-client-ip', 'cf-connecting-ip']) {
+    for (const k of ['cf-connecting-ip', 'true-client-ip']) {
       const v = headers[k];
-      if (typeof v === 'string' && v.trim()) return v.trim();
+      if (typeof v === 'string' && IP_LIKE.test(v.trim())) {
+        if (ipSourceLogged < 2) { ipSourceLogged++; console.log(`client address source: ${k}`); }
+        return v.trim();
+      }
     }
+    if (ipSourceLogged < 4) { ipSourceLogged = 4; console.warn('client address source: no Cloudflare header, using the proxy-reported address'); }
   }
   return fallback;
 }

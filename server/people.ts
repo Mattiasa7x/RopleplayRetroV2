@@ -133,7 +133,7 @@ export function registerMemberSearch(app: FastifyInstance) {
     const pic = req.query.pic === 'yes' || req.query.pic === 'no' ? req.query.pic : 'any';
     const q = (req.query.q ?? '').trim().slice(0, 16).replace(/[%_\\]/g, '');
     const onlineIds = ((await redis.hkeys('online')) as string[]).filter((id) => /^\d{1,19}$/.test(id));
-    const page = Math.max(1, Number.parseInt(req.query.page ?? '1', 10) || 1);
+    const page = Math.min(100_000, Math.max(1, Number.parseInt(req.query.page ?? '1', 10) || 1));
     const staff = u.trust >= Trust.RoomModerator;
     const { rows } = await db.query<UserRow & { is_friend: boolean; is_family: boolean; total: string }>(
       `WITH m AS (

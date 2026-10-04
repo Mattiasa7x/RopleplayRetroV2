@@ -24,58 +24,7 @@
   <meta name="twitter:description" content="Roleplay and chat rooms built for your phone. Make a character, join a room and find writing partners. Free to join.">
   <meta name="twitter:image" content="https://roleplayretro.com/og-image.png">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"RoleplayRetro","url":"https://roleplayretro.com/","description":"Free text roleplay and chat rooms built for your phone."}</script>
-  <style>
-    :root { --bg:#0b0a14; --surface:#13112a; --line:#2a2658; --fg:#f2f0ff; --muted:#a8a3cc; --red:#ff3b50; --pink:#ff4fa3; --mint:#3df5c8; }
-    * { box-sizing: border-box; }
-    html { -webkit-text-size-adjust: 100%; }
-    body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-    a { color: var(--pink); }
-    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
-    header { position: sticky; top: 0; z-index: 5; background: rgba(11,10,20,.88); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
-    header .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
-    .brand { display: flex; align-items: center; gap: .55rem; text-decoration: none; font-weight: 900; letter-spacing: .02em; font-size: 1.15rem; }
-    .brand img { width: 34px; height: 31px; }
-    .brand .a { color: var(--red); } .brand .b { color: #fff; }
-    .login { color: var(--fg); text-decoration: none; font-weight: 700; padding: .45rem .9rem; border: 1.5px solid var(--line); border-radius: 10px; }
-    .hero { position: relative; overflow: hidden; padding: 48px 0 24px;
-      background: radial-gradient(700px 420px at 90% 0%, rgba(255,79,163,.22), transparent 60%), radial-gradient(600px 400px at 0% 100%, rgba(200,16,46,.35), transparent 60%); }
-    .hero .wrap { display: grid; gap: 32px; align-items: center; }
-    @media (min-width: 820px) { .hero .wrap { grid-template-columns: 1.15fr .85fr; } .hero { padding: 72px 0 40px; } }
-    h1 { font-size: clamp(2.1rem, 6.5vw, 3.6rem); line-height: 1.07; margin: 0 0 .9rem; letter-spacing: -.02em; }
-    h1 .glow { color: var(--red); text-shadow: 0 0 22px rgba(255,59,80,.55); }
-    .lede { font-size: 1.15rem; color: #d9d4ff; margin: 0 0 1.4rem; max-width: 34rem; }
-    .ctas { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 3.1rem; padding: .6rem 1.4rem; border-radius: 12px; font-weight: 800; font-size: 1.05rem; text-decoration: none; }
-    .btn.primary { background: var(--red); color: #0b0a14; box-shadow: 0 0 22px rgba(255,59,80,.5); }
-    .btn.ghost { color: var(--fg); border: 2px solid var(--line); }
-    .fine { color: var(--muted); font-size: .9rem; margin-top: .9rem; }
-    .phone { justify-self: center; width: min(300px, 80vw); border-radius: 28px; padding: 8px; background: #1b1838; border: 1.5px solid #3a3570; box-shadow: 0 0 40px rgba(255,79,163,.25), 0 20px 40px rgba(0,0,0,.5); }
-    .phone img { display: block; width: 100%; height: auto; border-radius: 21px; }
-    section { padding: 44px 0; }
-    h2 { font-size: clamp(1.5rem, 4.5vw, 2.1rem); margin: 0 0 .4rem; }
-    .sub { color: var(--muted); margin: 0 0 1.6rem; max-width: 40rem; }
-    .features { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-    .feature { background: var(--surface); border: 1.5px solid var(--line); border-radius: 16px; padding: 18px; }
-    .feature .ico { font-size: 1.7rem; line-height: 1; }
-    .feature h3 { margin: .55rem 0 .3rem; font-size: 1.1rem; }
-    .feature p { margin: 0; color: #cfcaf0; font-size: .97rem; }
-    .shots { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); justify-items: center; }
-    .shots figure { margin: 0; text-align: center; }
-    .shots .phone { width: min(250px, 72vw); }
-    .shots figcaption { margin-top: .7rem; color: var(--muted); font-size: .95rem; }
-    .rooms { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-    .cat { background: var(--surface); border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 16px; }
-    .cat h3 { margin: 0 0 .5rem; font-size: 1rem; color: var(--mint); letter-spacing: .03em; text-transform: uppercase; }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-    .chips li { font-size: .9rem; padding: 3px 10px; border-radius: 999px; border: 1.5px solid #3a3570; }
-    .safety { background: linear-gradient(135deg, rgba(61,245,200,.07), rgba(255,79,163,.07)); border-block: 1px solid var(--line); }
-    .safety ul { margin: 0; padding-left: 1.2rem; display: grid; gap: .45rem; max-width: 46rem; }
-    .final { text-align: center; }
-    .final .ctas { justify-content: center; }
-    footer { border-top: 1px solid var(--line); padding: 22px 0 34px; color: var(--muted); font-size: .9rem; }
-    footer .wrap { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; justify-content: space-between; }
-    footer a { color: var(--muted); }
-  </style>
+  <link rel="stylesheet" href="/landing.css">
 </head>
 <body>
   <header>
@@ -160,7 +109,7 @@
     <section class="final">
       <div class="wrap">
         <h2>Your next story starts tonight</h2>
-        <p class="sub" style="margin-inline:auto">It takes a minute to join. Adults 18+ only.</p>
+        <p class="sub sub-center">It takes a minute to join. Adults 18+ only.</p>
         <div class="ctas">
           <a class="btn primary" href="/signup">Join free</a>
           <a class="btn ghost" href="/login">Log in</a>

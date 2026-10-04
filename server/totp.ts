@@ -49,15 +49,20 @@ export function totp(key: Buffer, atMs = Date.now(), digits = 6, stepSeconds = 3
   return hotp(key, Math.floor(atMs / 1000 / stepSeconds), digits);
 }
 
-/** Accepts the current code or one step either side (clock drift). */
-export function verifyTotp(secretBase32: string, code: string, atMs = Date.now()): boolean {
-  if (!/^\d{6}$/.test(code)) return false;
+/** Which 30-second step this code belongs to (current or one either side for clock drift), or -1. */
+export function totpStep(secretBase32: string, code: string, atMs = Date.now()): number {
+  if (!/^\d{6}$/.test(code)) return -1;
   const key = base32Decode(secretBase32);
   for (const drift of [-1, 0, 1]) {
     const expected = totp(key, atMs + drift * 30_000);
-    if (timingSafeEqual(Buffer.from(expected), Buffer.from(code))) return true;
+    if (timingSafeEqual(Buffer.from(expected), Buffer.from(code))) return Math.floor((atMs + drift * 30_000) / 30_000);
   }
-  return false;
+  return -1;
+}
+
+/** Accepts the current code or one step either side (clock drift). */
+export function verifyTotp(secretBase32: string, code: string, atMs = Date.now()): boolean {
+  return totpStep(secretBase32, code, atMs) >= 0;
 }
 
 export function newTotpSecret(): string {

@@ -1,5 +1,5 @@
 import { activeSiteBan, banMessage } from './safety/pipeline.js';
-import { isVpnAddress, realClientIp, VPN_ACCOUNT_MESSAGE, VPN_SIGNUP_MESSAGE, vpnGuardApplies } from './safety/vpn.js';
+import { isVpnAddress, VPN_ACCOUNT_MESSAGE, VPN_SIGNUP_MESSAGE, vpnGuardApplies } from './safety/vpn.js';
 import { createHash, randomBytes, randomInt, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,12 +11,12 @@ import { HANDLE_PROBLEM_MESSAGE, handleProblem } from './safety/handle-check.js'
 import type { LoginResult, MeDTO } from '../shared/types.js';
 import { ageOn, effectivePrefs, isUnderage } from './account.js';
 import { env } from './env.js';
-import { HttpError, clientSignals, parse, requireUser, type SessionUser } from './http.js';
+import { HttpError, clientIp, clientSignals, parse, requireUser, type SessionUser } from './http.js';
 import { MailError, messenger } from './mail.js';
 import { bumpDaily, slidingWindow, underDailyCap } from './safety/limits.js';
 import { ipPrefix, matchesSanctionedAccount, recordSignals, signalHash } from './safety/signals.js';
 import { audit, db, redis, tx, type Tx } from './store.js';
-import { verifyTotp } from './totp.js';
+import { verifyTotp, totpStep } from './totp.js';
 import { afterInviteeConfirmed, afterSecurityChange } from './trophies.js';
 import { normalizeInviteCode } from '../shared/trophies.js';
 
@@ -30,6 +30,11 @@ export async function hashPassword(pw: string): Promise<string> {
   const key = await scrypt(pw, salt, 32, SCRYPT);
   return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString('base64url')}$${key.toString('base64url')}`;
 }
+
+/** A real hash of a random password: checked when the name doesn't exist, so timing doesn't reveal which names do. */
+const DUMMY_HASH_PROMISE = hashPassword(randomBytes(16).toString('hex'));
+let DUMMY_HASH = '';
+void DUMMY_HASH_PROMISE.then((h) => { DUMMY_HASH = h; });
 
 export async function verifyPassword(pw: string, stored: string): Promise<boolean> {
   const [alg, N, r, p, salt, key] = stored.split('$');
@@ -90,7 +95,7 @@ export async function userFromToken(token: string | undefined): Promise<SessionU
 
 /** New accounts and accounts banned before can't sign in through a VPN. */
 async function assertNotVpnAccount(req: Parameters<typeof clientSignals>[0], userId: string): Promise<void> {
-  if (!isVpnAddress(realClientIp(req.headers, req.ip))) return;
+  if (!isVpnAddress(clientIp(req))) return;
   const { rows } = await db.query<{ trust_level: number; created_at: Date; ever_banned: boolean }>(
     `SELECT trust_level, created_at,
             EXISTS (SELECT 1 FROM sanctions b WHERE b.user_id = users.id AND b.room_id IS NULL AND b.kind = 'ban') AS ever_banned
@@ -170,7 +175,15 @@ export async function checkSecondFactor(userId: string, code: string): Promise<b
   const { rows } = await db.query<{ totp_secret: string | null; totp_enabled: boolean }>('SELECT totp_secret, totp_enabled FROM users WHERE id = $1', [userId]);
   const u = rows[0];
   if (!u?.totp_enabled || !u.totp_secret) return false;
-  if (/^\d{6}$/.test(code)) return verifyTotp(u.totp_secret, code);
+  if (/^\d{6}$/.test(code)) {
+    // Each code works once: remember the newest step used, refuse it or anything older.
+    const step = totpStep(u.totp_secret, code);
+    if (step < 0) return false;
+    const last = Number(await redis.get(`totp-last:${userId}`) ?? -1);
+    if (step <= last) return false;
+    await redis.set(`totp-last:${userId}`, String(step), 'EX', 180);
+    return true;
+  }
   const normalized = code.toLowerCase().replace(/[^a-z0-9]/g, '');
   if (normalized.length !== 8) return false;
   const used = await db.query(
@@ -191,7 +204,9 @@ async function finishLogin(req: Parameters<typeof clientSignals>[0], reply: Fast
     await db.query('UPDATE users SET needs_review = true WHERE id = $1 AND NOT needs_review', [userId]);
     await audit(db, null, 'flag_shared_signals', 'user', userId, { matchedUserId: matched });
   }
-  const token = await createSession(db, userId, req.ip, signals.deviceCookie);
+  // A fresh session on every sign-in; the one this browser had before is ended.
+  if (req.cookies?.sid) await db.query('DELETE FROM sessions WHERE id = $1', [sha256(req.cookies.sid)]);
+  const token = await createSession(db, userId, clientIp(req), signals.deviceCookie);
   setSessionCookie(reply, token);
   return meDTO((await userFromToken(token))!);
 }
@@ -199,9 +214,13 @@ async function finishLogin(req: Parameters<typeof clientSignals>[0], reply: Fast
 export function registerAuthRoutes(app: FastifyInstance) {
   app.post('/api/signup', async (req, reply) => {
     const body = parse(SignupBody, req.body);
-    if (isVpnAddress(realClientIp(req.headers, req.ip))) throw new HttpError(403, 'vpn', VPN_SIGNUP_MESSAGE);
+    if (isVpnAddress(clientIp(req))) throw new HttpError(403, 'vpn', VPN_SIGNUP_MESSAGE);
     const signals = clientSignals(req);
-    const net = signalHash('ip', ipPrefix(req.ip));
+    const net = signalHash('ip', ipPrefix(clientIp(req)));
+    // Every try counts (not just successes), so nobody can test email after email to see who has an account.
+    if (!(await slidingWindow(redis, `signup-try:${net}`, SAFETY.signupAttemptsPerNetworkPerHour, 3600_000))) {
+      throw new HttpError(429, 'signup_rate', 'Too many sign-up attempts from this network. Try again in an hour.');
+    }
 
     const born = new Date(`${body.birthdate}T00:00:00Z`);
     if (Number.isNaN(born.getTime()) || born > new Date() || ageOn(born) > 120) throw new HttpError(400, 'birthdate', 'Enter a real birthdate.');
@@ -253,7 +272,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         await audit(q, null, 'auto_shadow_mute', 'user', userId, { matchedUserId: matched });
       }
       await audit(q, userId, 'signup', 'user', userId);
-      const token = await createSession(q, userId, req.ip, signals.deviceCookie);
+      const token = await createSession(q, userId, clientIp(req), signals.deviceCookie);
       return { userId, token };
     });
 
@@ -267,16 +286,23 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
   app.post('/api/login', async (req, reply): Promise<LoginResult> => {
     const body = parse(LoginBody, req.body);
-    const key = `login:${signalHash('ip', ipPrefix(req.ip))}:${body.handle.toLowerCase()}`;
+    const key = `login:${signalHash('ip', ipPrefix(clientIp(req)))}:${body.handle.toLowerCase()}`;
     if (!(await slidingWindow(redis, key, SAFETY.loginAttemptsPer15Min, 15 * 60_000))) {
       throw new HttpError(429, 'login_rate', 'Too many attempts. Wait 15 minutes and try again.');
     }
     const { rows } = await db.query('SELECT id, password_hash, trust_level, totp_enabled, birthdate FROM users WHERE lower(handle) = lower($1)', [body.handle]);
     const u = rows[0];
-    // Same message whether the handle or the password was wrong.
-    if (!u || !(await verifyPassword(body.password, u.password_hash))) {
+    // Per account, whatever the network: too many wrong passwords lock sign-in for a while.
+    if (u && Number(await redis.get(`login-fail:${u.id}`) ?? 0) >= SAFETY.loginFailuresPerAccountPerHour) {
+      throw new HttpError(429, 'login_rate', 'Too many wrong passwords for this account. Wait an hour and try again.');
+    }
+    // Same message, and about the same time, whether the handle or the password was wrong.
+    const ok = await verifyPassword(body.password, u ? u.password_hash : DUMMY_HASH || await DUMMY_HASH_PROMISE);
+    if (!u || !ok) {
+      if (u) { await redis.incr(`login-fail:${u.id}`); await redis.expire(`login-fail:${u.id}`, 3600); }
       throw new HttpError(401, 'bad_login', 'Name or password is wrong.');
     }
+    await redis.del(`login-fail:${u.id}`);
     if (isUnderage(u.birthdate)) throw new HttpError(403, 'adults_only', `${SITE_NAME} is for adults only (${AGE.minimum}+).`);
     const ban = await activeSiteBan(u.id);
     if (ban) throw new HttpError(403, 'banned', banMessage(ban));
@@ -284,7 +310,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
     if (u.totp_enabled) {
       // Password was right; hold a short-lived ticket until the second factor arrives.
       const ticket = randomBytes(24).toString('base64url');
-      await redis.set(`2fa:${ticket}`, JSON.stringify({ userId: u.id, trust: u.trust_level, tries: 0 }), 'EX', 300);
+      await redis.set(`2fa:${ticket}`, JSON.stringify({ userId: u.id, trust: u.trust_level }), 'EX', 300);
       return { twoFactorTicket: ticket };
     }
     return { me: await finishLogin(req, reply, u.id, u.trust_level) };
@@ -294,12 +320,19 @@ export function registerAuthRoutes(app: FastifyInstance) {
     const { ticket, code } = parse(TwoFactorBody, req.body);
     const raw = await redis.get(`2fa:${ticket}`);
     if (!raw) throw new HttpError(401, 'ticket', 'That sign-in expired. Enter your password again.');
-    const t = JSON.parse(raw) as { userId: string; trust: number; tries: number };
+    const t = JSON.parse(raw) as { userId: string; trust: number };
+    // Count the try before checking it (atomic), so a burst of parallel guesses can't all slip in.
+    const tries = await redis.incr(`2fa-tries:${ticket}`);
+    if (tries === 1) await redis.expire(`2fa-tries:${ticket}`, 300);
+    const acctFails = Number(await redis.get(`2fa-fail:${t.userId}`) ?? 0);
+    if (tries > 5 || acctFails >= SAFETY.twoFactorFailuresPerAccountPerHour) {
+      await redis.del(`2fa:${ticket}`);
+      throw new HttpError(429, 'code_wrong', 'Too many wrong codes. Wait a while, then sign in again.');
+    }
     if (!(await checkSecondFactor(t.userId, code))) {
-      t.tries++;
-      if (t.tries >= 5) await redis.del(`2fa:${ticket}`);
-      else await redis.set(`2fa:${ticket}`, JSON.stringify(t), 'KEEPTTL');
-      throw new HttpError(401, 'code_wrong', t.tries >= 5 ? 'Too many wrong codes. Sign in again.' : 'That code is not right.');
+      await redis.incr(`2fa-fail:${t.userId}`); await redis.expire(`2fa-fail:${t.userId}`, 3600);
+      if (tries >= 5) await redis.del(`2fa:${ticket}`);
+      throw new HttpError(401, 'code_wrong', tries >= 5 ? 'Too many wrong codes. Sign in again.' : 'That code is not right.');
     }
     await redis.del(`2fa:${ticket}`);
     return { me: await finishLogin(req, reply, t.userId, t.trust) };

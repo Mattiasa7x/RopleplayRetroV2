@@ -1,3 +1,4 @@
+import { realClientIp } from './safety/vpn.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ZodType } from 'zod';
 import { Trust, type Prefs } from '../shared/config.js';
@@ -49,10 +50,29 @@ export function requireUser(req: FastifyRequest, minTrust: number = Trust.New): 
   return req.user;
 }
 
+/**
+ * Where requests may come from: the site itself (with or without www) and, outside
+ * production, a local copy. Used to refuse cross-site requests (CSRF) and cross-site chat
+ * connections (WebSocket hijacking) even if a browser sends cookies along.
+ */
+export function originAllowed(origin: string | undefined, fetchSite: string | undefined, siteUrl: string, isProd: boolean): boolean {
+  if (!origin) return fetchSite === undefined || fetchSite === 'same-origin' || fetchSite === 'none';
+  let o: URL, site: URL;
+  try { o = new URL(origin); site = new URL(siteUrl); } catch { return false; }
+  const bare = (h: string) => h.replace(/^www\./, '');
+  if (o.protocol === site.protocol && bare(o.host) === bare(site.host)) return true;
+  return !isProd && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(o.host);
+}
+
+/** The visitor's real address (see realClientIp): use this, never req.ip. */
+export function clientIp(req: FastifyRequest): string {
+  return realClientIp(req.headers, req.ip);
+}
+
 export function clientSignals(req: FastifyRequest) {
   const header = req.headers['x-client-id'];
   return {
-    ip: req.ip,
+    ip: clientIp(req),
     deviceCookie: req.cookies?.did,
     clientStorageId: typeof header === 'string' ? header : undefined,
   };
@@ -60,7 +80,9 @@ export function clientSignals(req: FastifyRequest) {
 
 export function sendError(reply: FastifyReply, err: unknown) {
   if (err instanceof HttpError) return reply.status(err.status).send({ error: err.code, message: err.message });
-  const e = err as { statusCode?: number; message?: string; validation?: unknown };
+  const e = err as { statusCode?: number; message?: string; validation?: unknown; code?: string };
+  // A malformed id or number in the address (e.g. /api/me/photos/abc): not found, not a crash.
+  if (e?.code === '22P02' || e?.code === '22003') return reply.status(404).send({ error: 'not_found', message: 'Not found.' });
   if (e?.statusCode && e.statusCode < 500) {
     return reply.status(e.statusCode).send({ error: 'bad_request', message: e.message ?? 'Bad request.' });
   }

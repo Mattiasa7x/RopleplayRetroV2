@@ -9,7 +9,7 @@ import { Server } from 'socket.io';
 import { registerAuthRoutes, userFromToken } from './auth.js';
 import { registerChatRoutes } from './chat.js';
 import { env } from './env.js';
-import { sendError } from './http.js';
+import { clientIp, originAllowed, sendError } from './http.js';
 import { registerFeedRoutes } from './feed.js';
 import { registerFriendRoutes } from './friends.js';
 import { registerModerationRoutes } from './moderation.js';
@@ -19,7 +19,7 @@ import { registerProfileRoutes } from './profiles.js';
 import { migrate } from './migrate.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerRoomRoutes } from './rooms.js';
-import { isVpnAddress, realClientIp, refreshVpnList, VPN_ACCOUNT_MESSAGE, vpnPage } from './safety/vpn.js';
+import { isVpnAddress, refreshVpnList, VPN_ACCOUNT_MESSAGE, vpnPage } from './safety/vpn.js';
 import { registerMemberSearch, registerOnlineRoutes, registerPeopleRoutes } from './people.js';
 import { registerPushRoutes, setupPush } from './push.js';
 import { blockAndRecord, loadBlocks, registerAdminRoutes } from './admin.js';
@@ -56,20 +56,36 @@ app.addHook('onRequest', async (req, reply) => {
       httpOnly: true, sameSite: 'lax', secure: env.isProd, path: '/', maxAge: 2 * 365 * 24 * 3600,
     });
   }
+  // Only the site's own pages may change things: refuse cross-site writes (CSRF).
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    const origin = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+    const fetchSite = typeof req.headers['sec-fetch-site'] === 'string' ? req.headers['sec-fetch-site'] : undefined;
+    if (!originAllowed(origin, fetchSite, env.siteUrl, env.isProd)) {
+      return reply.status(403).send({ error: 'origin', message: 'This request came from another website, so it was refused.' });
+    }
+  }
   req.user = await userFromToken(req.cookies.sid);
   // VPN guard for signed-in new or previously banned accounts (sign-up and sign-in check it too).
-  if (req.user?.vpnGuard && !VPN_OPEN_PATHS.has(req.url.split('?')[0]) && isVpnAddress(realClientIp(req.headers, req.ip))) {
+  if (req.user?.vpnGuard && !VPN_OPEN_PATHS.has(req.url.split('?')[0]) && isVpnAddress(clientIp(req))) {
     if (req.url.startsWith('/api/')) return reply.status(403).send({ error: 'vpn', message: VPN_ACCOUNT_MESSAGE });
-    if (req.method === 'GET' && !/\.[a-z0-9]+$/i.test(req.url.split('?')[0])) return reply.status(403).type('text/html').send(vpnPage());
+    if (req.method === 'GET' && !/\.[a-z0-9]+$/i.test(req.url.split('?')[0])) {
+      // A self-contained notice: its own small inline style, and no scripts at all.
+      reply.header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+      return reply.status(403).type('text/html').send(vpnPage());
+    }
   }
   return blockAndRecord(req, reply);
 });
 
-// Basic hardening headers. No third-party scripts, so the policy can be strict.
+// Basic hardening headers. No third-party scripts, so the policy can be strict. Chat may only
+// connect back to this site; pages can't be framed, re-based, or post forms elsewhere.
+const SITE_WSS = `wss://${new URL(env.siteUrl).host}`;
+const CSP = `default-src 'self'; connect-src 'self' ${SITE_WSS}${env.isProd ? '' : ' ws:'}; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`;
 app.addHook('onSend', async (_req, reply) => {
-  reply.header('Content-Security-Policy', "default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; frame-ancestors 'none'");
+  if (!reply.hasHeader('Content-Security-Policy')) reply.header('Content-Security-Policy', CSP); // a page may set a stricter one
   reply.header('X-Content-Type-Options', 'nosniff');
   reply.header('Referrer-Policy', 'same-origin');
+  if (env.isProd) reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 });
 
 app.setErrorHandler((err, _req, reply) => sendError(reply, err));
@@ -117,7 +133,15 @@ const servePage = async (req: FastifyRequest, reply: FastifyReply) => {
 app.get('/', servePage);
 app.get('/*', servePage);
 
-const io: IO = new Server(app.server, { serveClient: false, maxHttpBufferSize: 16 * 1024 });
+const io: IO = new Server(app.server, {
+  serveClient: false, maxHttpBufferSize: 16 * 1024,
+  // Chat connections only from the site's own pages (stops cross-site WebSocket hijacking).
+  allowRequest: (req: { headers: Record<string, string | string[] | undefined> }, cb: (err: string | null | undefined, ok: boolean) => void) => {
+    const h = req.headers;
+    cb(null, originAllowed(typeof h.origin === 'string' ? h.origin : undefined,
+      typeof h['sec-fetch-site'] === 'string' ? h['sec-fetch-site'] as string : undefined, env.siteUrl, env.isProd));
+  },
+});
 io.adapter(createAdapter(redis.duplicate(), redis.duplicate()));
 setupRealtime(io);
 

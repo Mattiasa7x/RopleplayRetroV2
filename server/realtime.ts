@@ -23,6 +23,8 @@ interface SocketData {
   filter: boolean;
   /** The page is showing (not a background tab). Counts toward time-online trophies. */
   active?: boolean;
+  /** The session this connection signed in with; when it ends, the connection is dropped. */
+  sessionId?: string;
 }
 type Sock = Socket<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
 
@@ -75,12 +77,12 @@ async function leaveCurrent(io: IO, socket: Sock) {
 export function setupRealtime(io: IO) {
   io.use(async (socket, next) => {
     // Admin bans can block a connection outright (the real address is the first forwarded one behind Render's proxy).
-    const fwd = String(socket.handshake.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
-    if (socketBlocked(socket.handshake.headers, fwd || socket.handshake.address)) return next(new Error('blocked'));
+    const ip = realClientIp(socket.handshake.headers, socket.handshake.address);
+    if (socketBlocked(socket.handshake.headers, ip)) return next(new Error('blocked'));
     const user = await userFromToken(tokenFromCookieHeader(socket.handshake.headers.cookie)).catch(() => null);
     if (!user) return next(new Error('login'));
-    if (user.vpnGuard && isVpnAddress(realClientIp(socket.handshake.headers, fwd || socket.handshake.address))) return next(new Error('vpn'));
-    socket.data = { userId: user.id, handle: user.handle, roomId: null, lastTyping: 0, filter: user.prefs.chatFilter };
+    if (user.vpnGuard && isVpnAddress(ip)) return next(new Error('vpn'));
+    socket.data = { userId: user.id, handle: user.handle, roomId: null, lastTyping: 0, filter: user.prefs.chatFilter, sessionId: user.sessionId };
     next();
   });
 
@@ -160,7 +162,8 @@ export function setupRealtime(io: IO) {
     socket.on('typing', () => {
       const now = Date.now();
       const roomId = socket.data.roomId;
-      if (roomId == null || now - socket.data.lastTyping < 3000) return;
+      // (also not after being kicked or taken off the invite list: the socket left the room)
+      if (roomId == null || now - socket.data.lastTyping < 3000 || !(socket as unknown as { rooms: Set<string> }).rooms.has(rooms.chat(roomId))) return;
       socket.data.lastTyping = now;
       socket.to(rooms.chat(roomId)).except(rooms.ignoredBy(userId)).emit('typing', { roomId, handle });
     });
@@ -220,6 +223,28 @@ export async function tickOnline(io: IO, secs: number, now = Date.now()): Promis
   afterOnlineTime(rows.map((r) => ({ id: r.id, seconds: Number(r.seconds) })), secs);
 }
 
+/**
+ * Drop live connections whose session has ended (signed out, password changed, "sign out
+ * other devices", expired, banned). One query a minute for everyone on this server.
+ */
+export async function dropEndedSessions(io: IO): Promise<number> {
+  const socks = [...(io as unknown as { sockets: { sockets: Map<string, { data: unknown; disconnect: (close?: boolean) => void }> } }).sockets.sockets.values()];
+  const ids = [...new Set(socks.map((s) => (s.data as SocketData)?.sessionId).filter((x): x is string => !!x))];
+  if (!ids.length) return 0;
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id
+      WHERE s.id = ANY($1) AND s.expires_at > now()
+        AND NOT EXISTS (SELECT 1 FROM sanctions b WHERE b.user_id = u.id AND b.room_id IS NULL AND b.kind = 'ban'
+                          AND b.revoked_at IS NULL AND (b.expires_at IS NULL OR b.expires_at > now()))`, [ids]);
+  const alive = new Set(rows.map((r) => r.id));
+  let dropped = 0;
+  for (const s of socks) {
+    const sid = (s.data as SocketData)?.sessionId;
+    if (sid && !alive.has(sid)) { s.disconnect(true); dropped++; }
+  }
+  return dropped;
+}
+
 export function startOnlineClock(io: IO, log: (e: unknown) => void): NodeJS.Timeout {
   let last = Date.now();
   const timer = setInterval(() => {
@@ -227,6 +252,7 @@ export function startOnlineClock(io: IO, log: (e: unknown) => void): NodeJS.Time
     const secs = Math.min(120, Math.round((now - last) / 1000));
     last = now;
     tickOnline(io, secs, now).catch(log);
+    dropEndedSessions(io).catch(log);
   }, 60_000);
   timer.unref();
   return timer;

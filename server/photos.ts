@@ -117,12 +117,13 @@ export async function canViewAlbum(viewer: { id: string; trust: number }, ownerI
 /**
  * Public photos follow the owner's profile visibility. Private-album photos are seen only by
  * the owner, friends granted album access, and anyone the photo was shared with in a message,
- * and never by or from anyone under 18. Blocks hide everything both ways. Moderators can open
+ * and never by or from anyone under 18. Blocks hide everything both ways. The site admin can open
  * any photo to review reports.
  */
 export async function canViewPhoto(viewer: { id: string; trust: number }, photo: { id: string; user_id: string; is_private: boolean; review?: string }): Promise<boolean> {
   if (viewer.id === photo.user_id) return true;
-  if (viewer.trust >= Trust.RoomModerator) return true;
+  // Only the site admin may open any photo (to review reports); site moderators can't browse albums.
+  if (viewer.trust >= Trust.Admin) return true;
   const rel = await relation(viewer.id, photo.user_id);
   if (rel.iBlocked || rel.theyBlocked) return false;
   if (photo.is_private && !(await bothAdults(viewer.id, photo.user_id))) return false;

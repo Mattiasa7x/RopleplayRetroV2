@@ -16,6 +16,7 @@ async function moderatedRoomIds(userId: string): Promise<number[]> {
 /** Site staff ('admin', 'moderator') or a member room's own team ('owner', 'room_moderator', 'room_operator'). */
 type ModRole = 'admin' | 'moderator' | 'owner' | 'room_moderator' | 'room_operator';
 const ROOM_TEAM: ModRole[] = ['owner', 'room_moderator', 'room_operator'];
+const STAFF_ROLES = new Set<ModRole>(['admin', 'moderator']);
 
 /**
  * Admins moderate everywhere. Site moderators moderate their assigned site rooms and every
@@ -205,9 +206,15 @@ export function registerModerationRoutes(app: FastifyInstance, io: IO) {
     app.post<{ Params: { id: string } }>(`/api/mod/messages/:id/${hide ? 'hide' : 'unhide'}`, async (req) => {
       const u = requireUser(req, Trust.Verified);
       const { reason } = hide ? parse(HideBody, req.body) : { reason: null };
-      const { rows } = await db.query<{ room_id: number }>('SELECT room_id FROM messages WHERE id = $1', [req.params.id]);
+      const { rows } = await db.query<{ room_id: number; hidden_at: Date | null; hider_trust: number | null }>(
+        `SELECT m.room_id, m.hidden_at, h.trust_level AS hider_trust
+           FROM messages m LEFT JOIN users h ON h.id = m.hidden_by WHERE m.id = $1`, [req.params.id]);
       if (!rows[0]) throw new HttpError(404, 'no_message', 'That message has already been pruned.');
-      await assertCanModerate(u, rows[0].room_id);
+      const role = await assertCanModerate(u, rows[0].room_id);
+      // A room team can't undo what staff (or the automatic filters) hid.
+      if (!hide && rows[0].hidden_at && !STAFF_ROLES.has(role) && (rows[0].hider_trust === null || rows[0].hider_trust >= Trust.RoomModerator)) {
+        throw new HttpError(403, 'staff_action', 'Staff hid this message, so only staff can show it again.');
+      }
       await tx(async (q) => {
         await q.query(
           hide
@@ -273,12 +280,22 @@ export function registerModerationRoutes(app: FastifyInstance, io: IO) {
 
   app.post<{ Params: { id: string } }>('/api/mod/sanctions/:id/revoke', async (req) => {
     const u = requireUser(req, Trust.Verified);
-    const { rows } = await db.query<{ room_id: number | null; user_id: string; issued_by: string | null }>(
-      'SELECT room_id, user_id, issued_by::text AS issued_by FROM sanctions WHERE id = $1 AND revoked_at IS NULL',
+    const { rows } = await db.query<{ room_id: number | null; user_id: string; issued_by: string | null; issuer_trust: number | null }>(
+      `SELECT s.room_id, s.user_id::text AS user_id, s.issued_by::text AS issued_by, i.trust_level AS issuer_trust
+         FROM sanctions s LEFT JOIN users i ON i.id = s.issued_by WHERE s.id = $1 AND s.revoked_at IS NULL`,
       [req.params.id],
     );
     if (!rows[0]) throw new HttpError(404, 'no_sanction', 'No active sanction with that id.');
+    if (rows[0].user_id === u.id && u.trust < Trust.Admin) throw new HttpError(403, 'own_sanction', "You can't lift a ban or mute on yourself.");
     const role = await assertCanModerate(u, rows[0].room_id);
+    // Staff and automatic actions stand unless staff lift them; a site moderator can't overrule the admin.
+    const staffIssued = rows[0].issued_by === null || (rows[0].issuer_trust ?? 0) >= Trust.RoomModerator;
+    if (!STAFF_ROLES.has(role) && staffIssued && rows[0].issued_by !== u.id) {
+      throw new HttpError(403, 'staff_action', 'Staff gave this ban or mute, so only staff can lift it.');
+    }
+    if (role === 'moderator' && (rows[0].issuer_trust ?? 0) >= Trust.Admin) {
+      throw new HttpError(403, 'staff_action', 'The admin gave this ban or mute, so only the admin can lift it.');
+    }
     if (role === 'room_operator' && rows[0].issued_by !== u.id) {
       throw new HttpError(403, 'not_yours', 'Operators can only lift the bans and mutes they gave.');
     }

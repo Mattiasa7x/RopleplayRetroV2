@@ -60,8 +60,14 @@ export function pushTo(userId: string, kind: PushKind, msg: { title: string; bod
   })().catch(() => {});
 }
 
+/** Browsers' push services. Anything else is refused, so the server never posts to an address a member picked. */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /(^|\.)push\.apple\.com$/,
+  /^updates\.push\.services\.mozilla\.com$/, /(^|\.)notify\.windows\.com$/, /(^|\.)push\.services\.mozilla\.com$/];
+const isPushService = (u: string) => {
+  try { const x = new URL(u); return x.protocol === 'https:' && !x.port && PUSH_HOSTS.some((r) => r.test(x.hostname)); } catch { return false; }
+};
 const SubBody = z.object({
-  endpoint: z.string().url().max(1000).refine((u) => u.startsWith('https://'), 'must be https'),
+  endpoint: z.string().url().max(1000).refine(isPushService, 'not a browser push service'),
   keys: z.object({ p256dh: z.string().min(10).max(200), auth: z.string().min(8).max(100) }),
 });
 const EndpointBody = z.object({ endpoint: z.string().max(1000) });

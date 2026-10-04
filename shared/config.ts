@@ -48,6 +48,11 @@ export const TRUST_LABEL: Record<Trust, string> = {
 };
 
 export const SAFETY = {
+  /** Wrong passwords per account per hour (any network) before sign-in pauses; wrong 2FA codes likewise. */
+  loginFailuresPerAccountPerHour: 20,
+  twoFactorFailuresPerAccountPerHour: 10,
+  /** Sign-up form submissions per network per hour (successful or not). */
+  signupAttemptsPerNetworkPerHour: 15,
   /** VPN guard: new accounts (this many days) and accounts banned before can't use a VPN; sign-ups never can. */
   vpnNewAccountDays: 7,
   /** Sliding-window message limits per user, by trust level. */
