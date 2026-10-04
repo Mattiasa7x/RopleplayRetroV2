@@ -128,6 +128,9 @@ export const MEMBER_ROOMS = {
   nameMin: 3,
   nameMax: 32,
   descriptionMax: 140,
+  /** Room rules: up to this many, each up to ruleMax characters (emoji count as one). */
+  maxRules: 20,
+  ruleMax: 150,
 } as const;
 
 export const AGE = {

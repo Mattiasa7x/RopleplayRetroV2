@@ -24,6 +24,8 @@ export interface RoomDetail {
   slug: string;
   name: string;
   kind: RoomKind;
+  /** The room's rules, in order (plain text; empty if none). */
+  rules: string[];
   description: string | null;
   whitelistOnly: boolean;
   slowModeSeconds: number;
@@ -487,6 +489,7 @@ export interface ServerToClient {
   'room:voice': (p: { roomId: number; readOnly: boolean; voices: string[] }) => void;
   /** The room team changed: everyone's role by user id. */
   'room:roles': (p: { roomId: number; roles: Record<string, RoomRole> }) => void;
+  'room:rules': (p: { roomId: number; rules: string[] }) => void;
   /** Newly earned trophies (ids from shared/trophies.ts). */
   trophy: (p: { ids: string[] }) => void;
 }

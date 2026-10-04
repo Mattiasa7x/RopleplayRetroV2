@@ -444,6 +444,19 @@ export async function viewRoom(slug: string) {
   paintStar();
 
   const room = hist!.room;
+  // Room rules: a collapsed list above the chat (plain text; updates live when the owner saves).
+  const rulesBox = h('details', { class: 'room-rules' });
+  const paintRules = (rules: string[]) => {
+    rulesBox.hidden = !rules.length;
+    rulesBox.replaceChildren(
+      h('summary', {}, `Room rules (${rules.length})`),
+      h('ol', {}, ...rules.map((r) => h('li', {}, r))));
+  };
+  paintRules(room.rules ?? []);
+  const onRules = (p: { roomId: number; rules: string[] }) => { if (p.roomId === room.id) { room.rules = p.rules; paintRules(p.rules); } };
+  state.socket?.on('room:rules', onRules);
+  const prevCleanup = state.cleanup;
+  state.cleanup = () => { state.socket?.off('room:rules', onRules); prevCleanup?.(); };
   if (room.chatFilter) {
     composerBar.prepend(filterHint);
     try { roomWords = (await api<{ entries: BlockEntry[] }>('/api/filter/room-words')).entries; } catch { /* the server still checks on send */ }
@@ -467,6 +480,7 @@ export async function viewRoom(slug: string) {
           presence),
         h('p', { class: 'muted small' }, room.kind === 'site' ? 'Strictly auto-moderated · no links' : room.description ?? '')),
       h('div', { class: 'row' }, star, room.canManage && room.kind === 'member' ? h('a', { href: `/room/${slug}/manage`, class: 'button quiet' }, 'Manage') : null)),
+    rulesBox,
     newBar,
     h('div', { class: 'chat-box' }, list, actions),
     pager, typing, errBox, composerBar, sheet);

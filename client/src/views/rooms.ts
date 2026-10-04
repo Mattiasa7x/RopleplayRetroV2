@@ -3,6 +3,7 @@ import { INACTIVITY, MEMBER_ROOMS, Trust } from '../../../shared/config.js';
 import type { RoomDetail, RoomImageDTO, RoomSanctionDTO, RoomSummary } from '../../../shared/types.js';
 import { card, field, form, navigate, page, state, toast } from '../core.js';
 import { api, h } from '../dom.js';
+import { visibleLength } from '../../../shared/text.js';
 import { pagedGrid } from './pagedgrid.js';
 
 /** Colour art used until (or instead of) a room picture, keyed by category. */
@@ -200,6 +201,63 @@ export async function viewNewRoom() {
       })));
 }
 
+/** Manage › Room rules: up to 20 one-line rules (150 characters each), in order. */
+function rulesCard(path: string, initial: string[]): HTMLElement {
+  const list = h('ol', { class: 'rules-edit' });
+  const count = h('p', { class: 'muted small' });
+  const addBtn = h('button', { type: 'button', class: 'quiet wide' }, '+ Add a rule');
+  const paint = () => {
+    const n = list.children.length;
+    count.textContent = `${n} of ${MEMBER_ROOMS.maxRules} rules`;
+    addBtn.disabled = n >= MEMBER_ROOMS.maxRules;
+    [...list.children].forEach((li, i) => {
+      li.querySelector('textarea')!.setAttribute('aria-label', `Rule ${i + 1}`);
+      li.querySelector('.rule-num')!.textContent = `${i + 1}.`;
+    });
+  };
+  const row = (text = '') => {
+    const input = h('textarea', { rows: 2, maxlength: MEMBER_ROOMS.ruleMax, placeholder: 'e.g. Stay in character in the main chat' });
+    input.value = text;
+    // One line per rule: Enter doesn't start a new line.
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+    const left = h('span', { class: 'muted small rule-left' });
+    const sync = () => {
+      const l = MEMBER_ROOMS.ruleMax - visibleLength(input.value);
+      left.textContent = String(l);
+      left.classList.toggle('over', l < 0);
+      input.style.height = 'auto';
+      input.style.height = `${input.scrollHeight + 4}px`; // grow to fit the whole rule
+    };
+    input.addEventListener('input', sync);
+    requestAnimationFrame(sync); // once it's on the page, so the height is right
+    const remove = h('button', { type: 'button', class: 'link', 'aria-label': 'Remove this rule' }, 'Remove');
+    const li = h('li', { class: 'rule-edit' }, h('div', { class: 'rule-edit-row' }, h('span', { class: 'rule-num', 'aria-hidden': 'true' }), input), h('div', { class: 'rule-edit-foot' }, left, remove));
+    remove.addEventListener('click', () => { li.remove(); paint(); });
+    return li;
+  };
+  for (const r of initial) list.append(row(r));
+  addBtn.addEventListener('click', () => {
+    const li = row();
+    list.append(li);
+    paint();
+    li.querySelector('textarea')?.focus();
+  });
+  paint();
+  const save = h('button', { type: 'button', class: 'primary wide' }, 'Save rules');
+  save.addEventListener('click', async () => {
+    const rules = [...list.querySelectorAll('textarea')].map((i) => i.value.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    save.disabled = true;
+    try {
+      const r = await api<{ rules: string[] }>(`${path}/rules`, { method: 'PUT', body: { rules } });
+      toast(r.rules.length ? `Rules saved (${r.rules.length}).` : 'Rules cleared.');
+    } catch (e) { toast((e as Error).message, true); }
+    save.disabled = false;
+  });
+  return card('Room rules',
+    h('p', { class: 'muted small' }, `Up to ${MEMBER_ROOMS.maxRules} rules, ${MEMBER_ROOMS.ruleMax} characters each. Everyone who opens the room can read them.`),
+    list, count, addBtn, save);
+}
+
 export async function viewManage(slug: string) {
   let room: RoomDetail;
   try {
@@ -283,6 +341,7 @@ export async function viewManage(slug: string) {
   page(`Manage ${room.name}`,
     h('a', { href: `/room/${slug}`, class: 'back' }, '‹ Back to room'),
     card('Room settings', site ? null : h('p', { class: 'muted small' }, `Closes automatically after ${INACTIVITY.roomDays} days without messages.`), settings),
+    rulesCard(path, room.rules ?? []),
     site ? null : card(`Room team (${team.length})`,
       h('ul', { class: 'team-help' },
         h('li', {}, h('span', { class: 'role-badge owner' }, 'Owner'), ' You. Your team can\'t act on you.'),

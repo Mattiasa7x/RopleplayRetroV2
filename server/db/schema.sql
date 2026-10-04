@@ -862,3 +862,13 @@ DO $$ BEGIN
     ALTER TABLE users ADD CONSTRAINT users_handle_check CHECK (handle ~ '^[A-Za-z0-9_-]{3,16}$');
   END IF;
 END $$;
+
+-- Room rules: a list of short plain-text lines set by the owner (checked in the app; the
+-- database also caps the list so nothing oversized can be stored).
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS rules JSONB NOT NULL DEFAULT '[]'::jsonb;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rooms_rules_shape') THEN
+    ALTER TABLE rooms ADD CONSTRAINT rooms_rules_shape
+      CHECK (jsonb_typeof(rules) = 'array' AND jsonb_array_length(rules) <= 20 AND octet_length(rules::text) <= 20000);
+  END IF;
+END $$;

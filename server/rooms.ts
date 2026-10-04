@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { MEMBER_ROOMS, Trust } from '../shared/config.js';
 import { quillActive } from '../shared/quill.js';
 import type { RoomDetail, RoomRole, RoomTeamMemberDTO } from '../shared/types.js';
-import { HttpError, parse, requireUser } from './http.js';
+import { HttpError, parse, requireUser, type SessionUser } from './http.js';
+import { cleanBody, visibleLength } from '../shared/text.js';
+import { containsMature, maskMature } from './safety/mature.js';
 import { removeFromRoom, rooms as sockRooms, type IO } from './realtime.js';
 import { accessBlock, activeSanctions, textBlocked } from './safety/pipeline.js';
 import { roomImageUrl, isPoolImage } from './room-images.js';
@@ -18,6 +20,7 @@ export interface RoomRow {
   owner_id: string | null;
   whitelist_only: boolean;
   description: string | null;
+  rules: string[] | null;
   min_trust_to_post: number;
   slow_mode_seconds: number;
   image_id: number | null;
@@ -33,7 +36,7 @@ export interface RoomRow {
 }
 
 export const ROOM_COLS =
-  `r.id, r.slug, r.name, r.category, r.kind, r.owner_id, r.whitelist_only, r.description, r.min_trust_to_post, r.slow_mode_seconds, r.region, r.subregion,
+  `r.id, r.slug, r.name, r.category, r.kind, r.owner_id, r.whitelist_only, r.description, r.rules, r.min_trust_to_post, r.slow_mode_seconds, r.region, r.subregion,
    r.image_id, r.chat_filter, r.read_only, COALESCE((SELECT ri.thumb_data IS NOT NULL FROM room_images ri WHERE ri.id = r.image_id), false) AS has_image`;
 
 export interface Viewer {
@@ -172,6 +175,11 @@ const CreateBody = z.object({
   imageId: z.number().int().positive().nullable().optional(),
   chatFilter: z.boolean().default(true),
 });
+/** Room rules: plain one-line text, cleaned like chat messages, at most 20 of 150 characters. */
+const RulesBody = z.object({
+  rules: z.array(z.string().max(MEMBER_ROOMS.ruleMax * 8)).max(MEMBER_ROOMS.maxRules, `A room can have up to ${MEMBER_ROOMS.maxRules} rules.`),
+}).strict();
+
 const PatchBody = z.object({
   name: z.string().trim().min(MEMBER_ROOMS.nameMin).max(MEMBER_ROOMS.nameMax).optional(),
   chatFilter: z.boolean().optional(),
@@ -205,6 +213,8 @@ async function detail(v: Viewer, room: RoomRow): Promise<RoomDetail> {
   ]);
   return {
     id: room.id, slug: room.slug, name: room.name, kind: room.kind, description: room.description,
+    // Plain text. Someone with their personal chat filter on sees swear words masked, as in chat.
+    rules: (Array.isArray(room.rules) ? room.rules : []).map((r) => ('prefs' in v && (v as SessionUser).prefs.chatFilter ? maskMature(r) : r)),
     whitelistOnly: room.whitelist_only, slowModeSeconds: room.slow_mode_seconds,
     ownerHandle: owner[0]?.handle ?? null, canManage: manage, canModerate: await canModerateRoom(v, room),
     ...(whitelist ? { whitelist } : {}),
@@ -265,6 +275,30 @@ export function registerRoomRoutes(app: FastifyInstance, io: IO) {
       return rows[0].slug;
     });
     return reply.status(201).send(await detail(u, await roomBySlug(slug)));
+  });
+
+  /** Replace a room's rules (owner or admin). Each is checked like a chat message. */
+  app.put<{ Params: { slug: string } }>('/api/rooms/:slug/rules', async (req) => {
+    const u = requireUser(req, Trust.Verified);
+    const room = await roomBySlug(req.params.slug);
+    if (!(await canView(u, room))) throw new HttpError(404, 'no_room', NOT_FOUND);
+    assertCanManage(u, room);
+    const b = parse(RulesBody, req.body);
+    const rules = b.rules.map((r) => cleanBody(r).trim()).filter(Boolean);
+    rules.forEach((r, i) => {
+      if (visibleLength(r) > MEMBER_ROOMS.ruleMax) throw new HttpError(400, 'too_long', `Rule ${i + 1} is over ${MEMBER_ROOMS.ruleMax} characters.`);
+      if (textBlocked(r)) throw new HttpError(400, 'blocked_word', `Rule ${i + 1} contains a word that isn't allowed.`);
+      // Rooms with the chat filter on (and every site room) don't allow swear words in their rules either.
+      if ((room.kind === 'site' || room.chat_filter) && containsMature(r)) {
+        throw new HttpError(400, 'room_filter', `Rule ${i + 1} has a swear word, and this room's chat filter is on.`);
+      }
+    });
+    await db.query('UPDATE rooms SET rules = $2::jsonb WHERE id = $1', [room.id, JSON.stringify(rules)]);
+    await audit(db, u.id, 'room_rules', 'room', room.id, { count: rules.length });
+    // Live to the room, masked for anyone with their personal chat filter on (as chat is).
+    io.to(sockRooms.chat(room.id)).except(sockRooms.filterOn).emit('room:rules', { roomId: room.id, rules });
+    io.to(sockRooms.chat(room.id)).except(sockRooms.filterOff).emit('room:rules', { roomId: room.id, rules: rules.map(maskMature) });
+    return { ok: true, rules };
   });
 
   app.patch<{ Params: { slug: string } }>('/api/rooms/:slug', async (req) => {

@@ -959,3 +959,22 @@ a.family-name { color: var(--red); }
 [data-theme="dark"] .profile-tab-bar .tab.active { background: var(--red); color: #fff; }
 /* The bottom bar has 5 to 7 buttons depending on the page (Settings shows on Home only): share the width evenly */
 .site-nav, .site-nav.with-admin { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+/* Room rules: collapsed list above the chat, and the editor on the Manage page */
+.room-rules { margin: 0.2rem 0 0.6rem; border: 2px solid var(--red); border-radius: 12px; padding: 0.35rem 0.75rem; background: var(--bg); }
+.room-rules summary { cursor: pointer; font-weight: 800; padding: 0.2rem 0; }
+.room-rules ol { margin: 0.3rem 0 0.4rem; padding-left: 1.4rem; display: grid; gap: 0.3rem; }
+.room-rules li { overflow-wrap: anywhere; line-height: 1.4; }
+[data-theme="dark"] .room-rules { border-color: var(--red); }
+.rules-edit { margin: 0 0 0.5rem; padding-left: 1.6rem; display: grid; gap: 0.45rem; }
+.rule-edit { display: grid; gap: 0.15rem; }
+.rule-edit-row { display: flex; align-items: center; gap: 0.4rem; }
+.rule-edit-row input { flex: 1; min-width: 0; }
+.rule-left { min-width: 2rem; text-align: right; font-variant-numeric: tabular-nums; }
+.rule-left.over { color: var(--red); font-weight: 700; }
+.rule-edit .link { justify-self: end; font-size: 0.8rem; }
+.rules-edit { list-style: none; padding-left: 0; }
+.rule-edit-row { align-items: flex-start; }
+.rule-edit-row textarea { flex: 1; min-width: 0; resize: vertical; min-height: 3.2rem; }
+.rule-num { min-width: 1.6rem; font-weight: 800; padding-top: 0.55rem; text-align: right; }
+.rule-edit-foot { display: flex; justify-content: flex-end; align-items: center; gap: 0.8rem; padding-left: 2rem; }
+.rule-left { min-width: 0; }
